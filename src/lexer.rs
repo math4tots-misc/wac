@@ -10,7 +10,7 @@ pub enum Token<'a> {
     LBrace,
     RBrace,
     LBracket,
-    RBRACKET,
+    RBracket,
     Semicolon,
     Comma,
     EOF,
@@ -98,10 +98,13 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
                     chars.put_back(c);
                     state = State::Name(i);
                 }
+                '#' => {
+                    state = State::Comment;
+                }
                 '(' => ret.push((Token::LParen, [i, i + 1].into())),
                 ')' => ret.push((Token::RParen, [i, i + 1].into())),
                 '[' => ret.push((Token::LBracket, [i, i + 1].into())),
-                ']' => ret.push((Token::RBRACKET, [i, i + 1].into())),
+                ']' => ret.push((Token::RBracket, [i, i + 1].into())),
                 '{' => ret.push((Token::LBrace, [i, i + 1].into())),
                 '}' => ret.push((Token::RBrace, [i, i + 1].into())),
                 ';' => ret.push((Token::Semicolon, [i, i + 1].into())),
@@ -113,6 +116,9 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
                     });
                 }
             },
+            State::Comment => if c == '\n' {
+                state = State::Normal;
+            }
             State::Digits(start) => match c {
                 '.' => {
                     state = State::DigitsAfterDot(start);
@@ -206,6 +212,7 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
 #[derive(Debug)]
 enum State {
     Normal,
+    Comment,
     Digits(usize),
     DigitsAfterDot(usize),
     Name(usize),
@@ -256,9 +263,11 @@ impl<'a> Chars<'a> {
                         None => {
                             self.chars_exhausted = true;
                             // This way, from the point of view of the main
-                            // loop, the source always ends with a whitespace
+                            // loop, the source always ends with a newline
                             // character
-                            Some(' ')
+                            // (we use newline instead of just a space to
+                            // ensure comments are properly terminated)
+                            Some('\n')
                         }
                     }
                 }

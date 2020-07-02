@@ -1,26 +1,29 @@
 use crate::lex;
 use crate::LLExpr;
 use crate::LLFile;
+use crate::LLFunction;
 use crate::LLFunctionImport;
 use crate::LLFunctionType;
 use crate::LLImport;
 use crate::LLType;
+use crate::LLVisibility;
 use crate::LexError;
 use crate::Span;
 use crate::Token;
-use std::convert::TryFrom;
 use std::rc::Rc;
 
-pub fn parse(s: &str) -> Result<LLFile, ParseError> {
+pub fn parse(filename: Rc<str>, s: &str) -> Result<LLFile, ParseError> {
     let tokens_and_spans = lex(s)?;
-    let mut parser = Parser {
+    let parser = Parser {
+        filename,
         i: 0,
         tokens_and_spans,
     };
-    panic!("TODO")
+    parser.file()
 }
 
 struct Parser<'a> {
+    filename: Rc<str>,
     i: usize,
     tokens_and_spans: Vec<(Token<'a>, Span)>,
 }
@@ -69,7 +72,10 @@ impl<'a> Parser<'a> {
     }
     fn expect_name(&mut self) -> Result<Rc<str>, ParseError> {
         match self.peek() {
-            Token::Name(name) => Ok(name.into()),
+            Token::Name(name) => {
+                self.gettok();
+                Ok(name.into())
+            }
             _ => Err(ParseError::InvalidToken {
                 span: self.span(),
                 expected: "Name".into(),
@@ -79,8 +85,14 @@ impl<'a> Parser<'a> {
     }
     fn expect_string(&mut self) -> Result<Rc<str>, ParseError> {
         match self.peek() {
-            Token::RawString(s) => Ok(s.into()),
-            Token::NormalString(s) => Ok(resolve_escapes(s)?),
+            Token::RawString(s) => {
+                self.gettok();
+                Ok(s.into())
+            }
+            Token::NormalString(s) => {
+                self.gettok();
+                Ok(resolve_escapes(s)?)
+            }
             _ => Err(ParseError::InvalidToken {
                 span: self.span(),
                 expected: "String".into(),
@@ -88,14 +100,40 @@ impl<'a> Parser<'a> {
             }),
         }
     }
+    /// returns (expr, semicolon_required) pair
+    fn stmt_body(&mut self) -> Result<(LLExpr, bool), ParseError> {
+        Ok(match self.peek() {
+            Token::LBracket => (self.block()?, false),
+            _ => {
+                (self.expr()?, true)
+            }
+        })
+    }
+    #[allow(dead_code)]
+    fn stmt(&mut self) -> Result<LLExpr, ParseError> {
+        let (expr, semicolon_required) = self.stmt_body()?;
+        if semicolon_required {
+            self.expect(Token::Semicolon)?;
+        }
+        Ok(expr)
+    }
     fn expr(&mut self) -> Result<LLExpr, ParseError> {
         self.postfix()
     }
     fn atom(&mut self) -> Result<LLExpr, ParseError> {
         match self.peek() {
-            Token::Int(i) => Ok(LLExpr::Int(self.span(), i)),
-            Token::Float(i) => Ok(LLExpr::Float(self.span(), i)),
-            Token::Name(name) => Ok(LLExpr::Name(self.span(), name.into())),
+            Token::Int(i) => {
+                self.gettok();
+                Ok(LLExpr::Int(self.span(), i))
+            }
+            Token::Float(i) => {
+                self.gettok();
+                Ok(LLExpr::Float(self.span(), i))
+            }
+            Token::Name(name) => {
+                self.gettok();
+                Ok(LLExpr::GetVar(self.span(), name.into()))
+            }
             Token::LParen => {
                 self.gettok();
                 let expr = self.expr()?;
@@ -108,6 +146,32 @@ impl<'a> Parser<'a> {
                 got: format!("{:?}", self.peek()),
             }),
         }
+    }
+    fn block(&mut self) -> Result<LLExpr, ParseError> {
+        let start = self.span();
+        self.expect(Token::LBrace)?;
+        let mut exprs = Vec::new();
+        let mut last_open = false;
+        while !self.consume(Token::RBrace) {
+            let (expr, semicolon_required) = self.stmt_body()?;
+            exprs.push(expr);
+            if semicolon_required && !self.at(Token::Semicolon) {
+                last_open = true;
+                self.expect(Token::RBrace)?;
+                break;
+            } else if self.consume(Token::Semicolon) {
+                last_open = false;
+            } else {
+                last_open = true;
+            }
+        }
+        let span = start.join(self.span());
+        let last = if last_open {
+            Some(Box::new(exprs.pop().unwrap()))
+        } else {
+            None
+        };
+        Ok(LLExpr::Block(span, exprs, last))
     }
     fn postfix(&mut self) -> Result<LLExpr, ParseError> {
         let mut expr = self.atom()?;
@@ -126,7 +190,7 @@ impl<'a> Parser<'a> {
                     let end = self.span();
                     self.expect(Token::RParen)?;
                     expr = match expr {
-                        LLExpr::Name(name_span, name) => {
+                        LLExpr::GetVar(name_span, name) => {
                             LLExpr::FunctionCall(start.join(name_span).join(end), name, args)
                         }
                         _ => {
@@ -144,9 +208,9 @@ impl<'a> Parser<'a> {
         self.expect(Token::Name("fn"))?;
         let module_name = self.expect_string()?;
         let function_name = self.expect_string()?;
-        self.expect(Token::Name("as"))?;
         let imported_name = self.expect_name()?;
         let type_ = self.func_type()?;
+        self.expect(Token::Semicolon)?;
         let fimp = LLFunctionImport {
             span: self.span(),
             module_name,
@@ -156,12 +220,94 @@ impl<'a> Parser<'a> {
         };
         Ok(LLImport::Function(fimp))
     }
+    fn func(&mut self) -> Result<LLFunction, ParseError> {
+        let start = self.span();
+        self.expect(Token::Name("fn"))?;
+        let mut visibility = LLVisibility::Private;
+        if self.consume(Token::LBracket) {
+            loop {
+                if self.consume(Token::Name("pub")) {
+                    visibility = LLVisibility::Public;
+                    continue;
+                }
+                self.expect(Token::RBracket)?;
+                break;
+            }
+        }
+        let name = self.expect_name()?;
+        let mut parameters = Vec::new();
+        self.expect(Token::LParen)?;
+        while !self.consume(Token::RParen) {
+            let name = self.expect_name()?;
+            let paramtype = self.type_()?;
+            parameters.push((name, paramtype));
+            if !self.consume(Token::Comma) {
+                self.expect(Token::RParen)?;
+                break;
+            }
+        }
+        let return_type = if self.at(Pattern::Name) {
+            self.type_()?
+        } else {
+            // If not specified, i32 is assumed
+            LLType::I32
+        };
+        let mut locals = Vec::new();
+        if self.consume(Token::LBracket) {
+            while self.at(Pattern::Name) {
+                let name = self.expect_name()?;
+                let localtype = self.type_()?;
+                locals.push((name, localtype));
+                if !self.consume(Token::Comma) {
+                    break;
+                }
+            }
+            self.expect(Token::RBracket)?;
+        }
+        let body = self.block()?;
+        Ok(LLFunction {
+            span: start.join(body.span()),
+            visibility,
+            name,
+            parameters,
+            return_type,
+            locals,
+            body,
+        })
+    }
+    fn file(mut self) -> Result<LLFile, ParseError> {
+        let mut imports = Vec::new();
+        let mut functions = Vec::new();
+        while self.at_name("import") {
+            imports.push(self.import()?);
+        }
+        while self.at_name("fn") {
+            functions.push(self.func()?);
+        }
+        Ok(LLFile {
+            name: self.filename,
+            imports,
+            functions,
+        })
+    }
     fn type_(&mut self) -> Result<LLType, ParseError> {
         match self.peek() {
-            Token::Name("i32") => Ok(LLType::I32),
-            Token::Name("f32") => Ok(LLType::F32),
-            Token::Name("i64") => Ok(LLType::I64),
-            Token::Name("f64") => Ok(LLType::F64),
+            Token::Name("i32") => {
+                self.gettok();
+                Ok(LLType::I32)
+            }
+            Token::Name("f32") => {
+                self.gettok();
+                Ok(LLType::F32)
+            }
+            Token::Name("i64") => {
+                self.gettok();
+                Ok(LLType::I64)
+            }
+            Token::Name("f64") => {
+                self.gettok();
+                Ok(LLType::F64)
+            }
             Token::LParen => Ok(LLType::Function(self.func_type()?.into())),
             _ => Err(ParseError::InvalidToken {
                 span: self.span(),
@@ -222,6 +368,7 @@ fn resolve_escapes(s: &str) -> Result<Rc<str>, ParseError> {
     Ok(ret.into())
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 enum Pattern<'a> {
     Exact(Token<'a>),
@@ -275,13 +422,5 @@ pub enum ParseError {
 impl From<LexError> for ParseError {
     fn from(e: LexError) -> ParseError {
         ParseError::Lex(e)
-    }
-}
-
-impl TryFrom<&str> for LLFile {
-    type Error = ParseError;
-
-    fn try_from(s: &str) -> Result<Self, Self::Error> {
-        parse(s)
     }
 }

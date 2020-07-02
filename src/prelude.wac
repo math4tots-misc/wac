@@ -1,0 +1,7 @@
+# Implicit code included in all wac programs
+
+fn[pub] malloc(size i32) i32 {
+}
+
+fn[pub] free(ptr i32, size i32) {
+}

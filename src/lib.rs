@@ -1,15 +1,18 @@
 extern crate wabt;
+extern crate wasmer_runtime as wr;
 
 mod lexer;
 mod llcompiler;
 mod llir;
 mod llparser;
+mod run;
 
 pub use lexer::lex;
 pub use lexer::LexError;
 pub use lexer::Span;
 pub use lexer::Token;
 pub use llcompiler::compile;
+pub use llcompiler::CompileError;
 pub use llir::LLExpr;
 pub use llir::LLFile;
 pub use llir::LLFunction;
@@ -21,19 +24,93 @@ pub use llir::LLValueType;
 pub use llir::LLVisibility;
 pub use llparser::parse;
 pub use llparser::ParseError;
+pub use run::run;
+pub use run::run_files;
+
+#[derive(Debug)]
+pub enum Error {
+    IO(std::io::Error),
+    Compile(CompileError),
+    Wabt(wabt::Error),
+    Wasmer(wr::error::Error),
+}
+
+impl From<wabt::Error> for Error {
+    fn from(e: wabt::Error) -> Self {
+        Self::Wabt(e)
+    }
+}
+
+impl From<wr::error::Error> for Error {
+    fn from(e: wr::error::Error) -> Self {
+        Self::Wasmer(e.into())
+    }
+}
+
+impl From<wr::error::ResolveError> for Error {
+    fn from(e: wr::error::ResolveError) -> Self {
+        Self::Wasmer(e.into())
+    }
+}
+
+impl From<wr::error::RuntimeError> for Error {
+    fn from(e: wr::error::RuntimeError) -> Self {
+        Self::Wasmer(e.into())
+    }
+}
+
+impl From<CompileError> for Error {
+    fn from(e: CompileError) -> Self {
+        Self::Compile(e)
+    }
+}
+
+impl From<std::io::Error> for Error {
+    fn from(e: std::io::Error) -> Self {
+        Self::IO(e)
+    }
+}
 
 #[cfg(test)]
 mod tests {
-    use wabt::wat2wasm;
+    use super::*;
 
     #[test]
     fn wat2wasm_works() {
         assert_eq!(
-            wat2wasm("(module)").unwrap(),
+            wabt::wat2wasm("(module)").unwrap(),
             &[
                 0, 97, 115, 109, // \0ASM - magic
                 1, 0, 0, 0 //  0x01 - version
             ]
         );
+    }
+
+    #[test]
+    fn sample_e2e() {
+        let retcode = run(vec![(
+            "main",
+            r###"
+            import fn "lang" "print_i64" print_i64(i64) i64;
+
+            fn[pub] main() {
+                print_i64(42);
+                print_i64(47);
+                print_twice(888);
+                742
+            }
+
+            fn print_twice(i i64) [
+                # local variables go here
+                x i32,
+            ] {
+                print_i64(i);
+                print_i64(i);
+            }
+
+                "###,
+        )])
+        .unwrap();
+        assert_eq!(retcode, 742);
     }
 }
