@@ -103,7 +103,7 @@ impl<'a> Parser<'a> {
     /// returns (expr, semicolon_required) pair
     fn stmt_body(&mut self) -> Result<(LLExpr, bool), ParseError> {
         Ok(match self.peek() {
-            Token::LBracket => (self.block()?, false),
+            Token::LBrace => (self.block()?, false),
             _ => (self.expr()?, true),
         })
     }
@@ -128,6 +128,11 @@ impl<'a> Parser<'a> {
                 self.gettok();
                 Ok(LLExpr::Float(self.span(), i))
             }
+            Token::NormalString(_) | Token::RawString(_) => {
+                let span = self.span();
+                let string = self.expect_string()?;
+                Ok(LLExpr::String(span, string))
+            }
             Token::Name(name) => {
                 self.gettok();
                 Ok(LLExpr::GetVar(self.span(), name.into()))
@@ -138,6 +143,7 @@ impl<'a> Parser<'a> {
                 self.expect(Token::RParen)?;
                 Ok(expr)
             }
+            Token::LBracket => self.list(),
             Token::Dollar => self.intrinsic(),
             _ => Err(ParseError::InvalidToken {
                 span: self.span(),
@@ -145,6 +151,20 @@ impl<'a> Parser<'a> {
                 got: format!("{:?}", self.peek()),
             }),
         }
+    }
+    fn list(&mut self) -> Result<LLExpr, ParseError> {
+        let start = self.span();
+        self.expect(Token::LBracket)?;
+        let mut exprs = Vec::new();
+        while !self.consume(Token::RBracket) {
+            exprs.push(self.expr()?);
+            if !self.consume(Token::Comma) {
+                self.expect(Token::RBracket)?;
+                break;
+            }
+        }
+        let span = start.upto(self.span());
+        Ok(LLExpr::List(span, exprs))
     }
     fn intrinsic(&mut self) -> Result<LLExpr, ParseError> {
         let start = self.span();
@@ -339,7 +359,18 @@ impl<'a> Parser<'a> {
                 self.gettok();
                 Ok(LLType::F64)
             }
-            Token::LParen => Ok(LLType::Function(self.func_type()?.into())),
+            Token::Name("str") => {
+                self.gettok();
+                Ok(LLType::String)
+            }
+            Token::Name("list") => {
+                self.gettok();
+                Ok(LLType::List)
+            }
+            Token::Name("id") => {
+                self.gettok();
+                Ok(LLType::Id)
+            }
             _ => Err(ParseError::InvalidToken {
                 span: self.span(),
                 expected: "Type".into(),

@@ -20,24 +20,24 @@ pub enum LLType {
     F32,
     F64,
 
-    // String is an i32 that points to a location in memory
-    // containing:
-    // [i32 string-class][i32 ref-count] [i32 capacity (bytes)] [i32 size (bytes)] [utf8-chars...]
-    // If capacity is 0, ref-count should also always just be 0, and indicates
-    // that the string is immutable
+    /// i32 pointer that maps to:
+    /// [i32 ref-count][i32 size (bytes)][utf8-chars...]
     String,
+
+    /// i32 pointer that maps to:
+    /// [i32 ref-count][i32 capacity (count)][i32 size (count)][i32 pointer to entries]
+    ///     -> [i32 Id entries...]
+    List,
 
     // Almost any type.
     // A 64-bit value that can represent any type except:
-    //   * 64-bit values (f64, i64),
+    //   * other 64-bit values (f64, i64),
     //   * function types
-    // the first i32 is a tag, indicating the type of value,
-    // the last i32 is the actual value (this works, because
+    //   * classes
+    // the first i32 is a tag indicating the type of value,
+    // the last i32 is the actual value (this works because
     // pointers are 32-bits here)
     Id,
-
-    // Function is an i32 that points to the webassembly table
-    Function(Box<LLFunctionType>),
 }
 
 impl LLType {
@@ -48,8 +48,8 @@ impl LLType {
             LLType::I64 => LLValueType::I64,
             LLType::F64 => LLValueType::F64,
             LLType::String => LLValueType::I32,
+            LLType::List => LLValueType::I32,
             LLType::Id => LLValueType::I64,
-            LLType::Function(_) => LLValueType::I32,
         }
     }
 }
@@ -84,6 +84,7 @@ pub enum LLExpr {
     SetVar(Span, Rc<str>, Box<LLExpr>),
     FunctionCall(Span, Rc<str>, Vec<LLExpr>),
     Block(Span, Vec<LLExpr>, Option<Box<LLExpr>>),
+    List(Span, Vec<LLExpr>),
 
     /// Inline assembly
     ///     The expressions passed as arguments are assumed
@@ -103,6 +104,7 @@ impl LLExpr {
             LLExpr::SetVar(span, ..) => *span,
             LLExpr::FunctionCall(span, ..) => *span,
             LLExpr::Block(span, ..) => *span,
+            LLExpr::List(span, ..) => *span,
             LLExpr::InlineAsm(span, ..) => *span,
         }
     }

@@ -1,7 +1,24 @@
 # Implicit code included in all wac programs
 
-fn[pub] malloc(size i32) i32 {
+fn malloc(size i32) i32 {
 }
 
-fn[pub] free(ptr i32, size i32) {
+fn free(ptr i32, size i32) {
+}
+
+# Converts any value to a string
+fn str(s id) str {
+    "todo"
+}
+
+fn __WAC_drop_str(s i32) {
+    # TODO: Leak memory for now
+}
+
+fn __WAC_drop_list(s i32) {
+    # TODO: Leak memory for now
+}
+
+fn __WAC_drop_id(x i64) {
+    # TODO: Leak memory for now
 }

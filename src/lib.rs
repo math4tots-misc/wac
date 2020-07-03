@@ -25,8 +25,8 @@ pub use llir::LLVisibility;
 pub use llparser::parse;
 pub use llparser::ParseError;
 pub use run::run;
-pub use run::run_or_panic;
 pub use run::run_files;
+pub use run::run_or_panic;
 
 #[derive(Debug)]
 pub enum Error {
@@ -116,6 +116,27 @@ mod tests {
     }
 
     #[test]
+    fn func_call() {
+        let retcode = run(vec![(
+            "main",
+            r####"
+            import fn "lang" "print_i64" print_i64(i64) i64;
+
+            fn[pub] main() {
+                foo(6)
+            }
+
+            fn foo(x i32) {
+                425
+            }
+
+                "####,
+        )])
+        .unwrap();
+        assert_eq!(retcode, 425);
+    }
+
+    #[test]
     fn inline_asm() {
         let retcode = run_or_panic(vec![(
             "main",
@@ -135,5 +156,43 @@ mod tests {
                 "####,
         )]);
         assert_eq!(retcode, 88);
+    }
+
+    #[test]
+    fn string() {
+        // TODO: More extensive test that actually tests
+        // the value of the string
+        let retcode = run_or_panic(vec![(
+            "main",
+            r####"
+            fn[pub] main() {
+                somestr();
+            }
+
+            fn somestr() str {
+                "hello world"
+            }
+                "####,
+        )]);
+        assert_eq!(retcode, 0);
+    }
+
+    #[test]
+    fn list() {
+        // TODO: More extensive test that actually tests
+        // the value of the list
+        let retcode = run_or_panic(vec![(
+            "main",
+            r####"
+            fn[pub] main() {
+                somelist();
+            }
+
+            fn somelist() list {
+                [1, 2, 3]
+            }
+                "####,
+        )]);
+        assert_eq!(retcode, 0);
     }
 }
