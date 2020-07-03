@@ -1,0 +1,4 @@
+
+fn[pub] main() {
+    puts("Hello world!");
+}

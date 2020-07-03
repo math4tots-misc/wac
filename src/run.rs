@@ -1,6 +1,6 @@
 use crate::compile;
 use crate::Error;
-use crate::RESERVED_FOR_MALLOC;
+// use crate::RESERVED_FOR_MALLOC;
 use std::path::Path;
 use std::rc::Rc;
 
@@ -30,16 +30,8 @@ pub fn run<N: Into<Rc<str>>, D: AsRef<str>>(name_data_pairs: Vec<(N, D)>) -> Res
                 println!("{}", x);
                 0
             }),
-            "retain_str" => wr::func!(|ctx: &mut wr::Ctx, str_ptr: wr::WasmPtr<i32>| -> i32 {
-                0
-            }),
-            "release_str" => wr::func!(|ctx: &mut wr::Ctx, str_ptr: wr::WasmPtr<i32>| -> i32 {
-                0
-            }),
-            "puts" => wr::func!(|ctx: &mut wr::Ctx, str_ptr: wr::WasmPtr<i32>| -> i32 {
-                let memory = ctx.memory(0);
-                let offset = str_ptr.offset();
-                let refcnt_cell = str_ptr.deref(memory).unwrap();
+            "puts" => wr::func!(|ctx: &mut wr::Ctx, ptr: wr::WasmPtr<u32>| -> i32 {
+                println!("{}", get_str(ctx, ptr).unwrap());
                 0
             }),
         }
@@ -51,21 +43,83 @@ pub fn run<N: Into<Rc<str>>, D: AsRef<str>>(name_data_pairs: Vec<(N, D)>) -> Res
     Ok(main.call()?)
 }
 
-fn retain_str(ctx: &mut wr::Ctx, str_ptr: wr::WasmPtr<i32>) {
+fn get_str(ctx: &mut wr::Ctx, ptr: wr::WasmPtr<u32>) -> Option<&str> {
+    let memory = ctx.memory(0);
+    let offset = ptr.offset();
+    let len_ptr: wr::WasmPtr<u32> = wr::WasmPtr::new(offset + 4);
+    let len = len_ptr.deref(memory).unwrap().get();
+    let buffer_ptr = wr::WasmPtr::<u8, wr::Array>::new(offset + 8);
+    buffer_ptr.get_utf8_string(memory, len)
 }
 
-fn release_str(ctx: &mut wr::Ctx, str_ptr: wr::WasmPtr<i32>) {
+pub fn compile_files<'a, P: Into<&'a Path>, I: IntoIterator<Item = P>>(
+    ip: I,
+) -> Result<String, Error> {
+    let mut name_data_pairs = Vec::new();
+    for p in ip {
+        let path = p.into();
+        let data = std::fs::read_to_string(&path)?;
+        name_data_pairs.push((format!("{:?}", path), data));
+    }
+    compile_only(name_data_pairs)
 }
 
-/// dead simple freelist implementation. also see free.
-///
-/// First RESERVED_FOR_MALLOC bytes are reserved for malloc (except
-/// the first 4-bytes, which is used for error handling).
-fn malloc(ctx: &mut wr::Ctx, size: i32) -> i32 {
-    0
+pub fn compile_only<N: Into<Rc<str>>, D: AsRef<str>>(
+    name_data_pairs: Vec<(N, D)>,
+) -> Result<String, Error> {
+    let wat_module_string = compile(name_data_pairs)?;
+    Ok(wat_module_string)
 }
 
-/// dead simple freelist implementation. also see malloc.
-fn free(ctx: &mut wr::Ctx, ptr: wr::WasmPtr<u8>, size: i32) -> i32 {
-    0
+pub fn main() {
+    match main0() {
+        Ok(()) => {}
+        Err(error) => panic!("{:?}", error),
+    }
+}
+
+fn main0() -> Result<(), Error> {
+    enum State {
+        Normal,
+        Mode,
+    }
+    let mut state = State::Normal;
+
+    enum Mode {
+        Run,
+        Compile,
+    }
+    let mut mode = Mode::Run;
+
+    let mut paths = Vec::<std::path::PathBuf>::new();
+
+    for arg in std::env::args().skip(1) {
+        let s: &str = &arg;
+        match state {
+            State::Normal => match s {
+                "-m" | "--mode" => state = State::Mode,
+                _ => paths.push(arg.into()),
+            },
+            State::Mode => {
+                match s {
+                    "run" | "r" => mode = Mode::Run,
+                    "compile" | "c" => mode = Mode::Compile,
+                    _ => panic!("Mode must be 'run' or 'compile' but got {}", s),
+                }
+                state = State::Normal;
+            }
+        }
+    }
+    let paths: Vec<&Path> = paths.iter().map(|p| p.as_ref()).collect();
+
+    match mode {
+        Mode::Run => {
+            run_files(paths)?;
+        }
+        Mode::Compile => {
+            let text = compile_files(paths)?;
+            println!("{}", text);
+        }
+    }
+    Ok(())
 }

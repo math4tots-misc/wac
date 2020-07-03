@@ -13,6 +13,7 @@ pub use lexer::Span;
 pub use lexer::Token;
 pub use llcompiler::compile;
 pub use llcompiler::CompileError;
+pub use llcompiler::RESERVED_FOR_MALLOC;
 pub use llir::LLExpr;
 pub use llir::LLFile;
 pub use llir::LLFunction;
@@ -24,11 +25,10 @@ pub use llir::LLValueType;
 pub use llir::LLVisibility;
 pub use llparser::parse;
 pub use llparser::ParseError;
+pub use run::main;
 pub use run::run;
 pub use run::run_files;
 pub use run::run_or_panic;
-
-pub(crate) use llcompiler::RESERVED_FOR_MALLOC;
 
 #[derive(Debug)]
 pub enum Error {

@@ -17,7 +17,7 @@ use std::rc::Rc;
 
 /// number of bytes at the start reserved for
 /// malloc to do its bookkeeping
-pub(crate) const RESERVED_FOR_MALLOC: usize = 1024;
+pub const RESERVED_FOR_MALLOC: usize = 1024;
 
 const PAGE_SIZE: usize = 65536;
 
@@ -151,7 +151,6 @@ fn compile_files(files: Vec<&LLFile>) -> Result<String, CompileError> {
         }
     }
     let out = out.get();
-    // println!("out -> {}", out);
     Ok(out)
 }
 
@@ -263,9 +262,7 @@ fn translate_expr(
                 translate_expr(out, sink, expr, Some(&LLType::Id))?;
             }
             match expected {
-                Some(_) => {
-                    panic!("TODO: translate_expr List")
-                }
+                Some(_) => panic!("TODO: translate_expr List ({:?})", span),
                 None => {
                     // If it's not used, we should clean up all the values
                     for _ in exprs {
@@ -448,11 +445,6 @@ fn drop(_out: &mut Out, sink: &Rc<Sink>, type_: &LLType) {
     }
 }
 
-/// makes a new list from the top len elements from the stack
-fn mklist(out: &mut Out, sink: &Rc<Sink>, len: usize) {
-
-}
-
 fn translate_function_type(ft: &LLFunctionType) -> String {
     let mut s = String::new();
     for param in &ft.parameters {
@@ -488,7 +480,10 @@ struct Out {
     memory: Rc<Sink>,
     data: Rc<Sink>,
     functions: Rc<Sink>,
+
+    #[allow(dead_code)]
     startfunc: Rc<Sink>,
+
     exports: Rc<Sink>,
 
     next_free_memory_pos: usize,
@@ -569,7 +564,8 @@ impl Out {
     /// Store the given bytes to memory, and return its location
     fn store(&mut self, bytes: &[u8]) -> usize {
         let start = self.alloc(bytes.len());
-        self.data.write(format!(r#"(data $rt_mem (i32.const {}) ""#, start));
+        self.data
+            .write(format!(r#"(data $rt_mem (i32.const {}) ""#, start));
         self.data.write_escaped_bytes(bytes);
         self.data.writeln(r#"")"#);
         start
@@ -667,7 +663,7 @@ impl Sink {
     fn write_escaped_bytes<B: AsRef<[u8]>>(&self, bb: B) {
         let mut string = String::new();
         for b in bb.as_ref() {
-            string.push_str(&format!("{:0>2X}", b));
+            string.push_str(&format!("\\{:0>2X}", b));
         }
         self.parts.borrow_mut().push(Part::String(string));
     }

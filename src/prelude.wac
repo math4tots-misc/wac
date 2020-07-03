@@ -1,6 +1,6 @@
 # Implicit code included in all wac programs
 
-import fn "lang" "puts" __puts(str) void;
+import fn "lang" "puts" puts(str) void;
 
 fn malloc(size i32) i32 {
 }
