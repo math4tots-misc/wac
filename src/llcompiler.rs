@@ -1,3 +1,4 @@
+use crate::ALLOC_SO_FAR_PTR;
 use crate::parse;
 use crate::LLExpr;
 use crate::LLFile;
@@ -17,12 +18,12 @@ use std::rc::Rc;
 
 /// number of bytes at the start reserved for
 /// malloc to do its bookkeeping
-pub const RESERVED_FOR_MALLOC: usize = 1024;
+pub const RESERVED_FOR_MALLOC: u32 = 1024;
 
-const PAGE_SIZE: usize = 65536;
+pub const PAGE_SIZE: u32 = 65536;
 
 // all compile time allocations will align to 8 bytes
-const DEFAULT_ALIGN_BYTES: usize = 8;
+const DEFAULT_ALIGN_BYTES: u32 = 8;
 
 const PRELUDE_STR: &'static str = include_str!("prelude.wac");
 
@@ -486,7 +487,7 @@ struct Out {
 
     exports: Rc<Sink>,
 
-    next_free_memory_pos: usize,
+    next_free_memory_pos: u32,
 
     /// maps strings to their interned location in memory
     intern_map: HashMap<Rc<str>, u32>,
@@ -533,7 +534,7 @@ impl Out {
     }
     /// reserve the next n bytes and return an index to the beginning
     /// of that chunk
-    fn alloc(&mut self, n: usize) -> usize {
+    fn alloc(&mut self, n: u32) -> u32 {
         assert_ne!(n, 0);
         // round to smallest multiple of DEFAULT_ALIGN_BYTES greater than or equal to n.
         let n = ((n + (DEFAULT_ALIGN_BYTES - 1)) / DEFAULT_ALIGN_BYTES) * DEFAULT_ALIGN_BYTES;
@@ -562,8 +563,8 @@ impl Out {
         *self.intern_map.get(s).unwrap()
     }
     /// Store the given bytes to memory, and return its location
-    fn store(&mut self, bytes: &[u8]) -> usize {
-        let start = self.alloc(bytes.len());
+    fn store(&mut self, bytes: &[u8]) -> u32 {
+        let start = self.alloc(bytes.len() as u32);
         self.data
             .write(format!(r#"(data $rt_mem (i32.const {}) ""#, start));
         self.data.write_escaped_bytes(bytes);
@@ -571,7 +572,11 @@ impl Out {
         start
     }
     fn get(self) -> String {
-        let used_page_count = self.next_free_memory_pos / PAGE_SIZE + 1;
+        // Store at
+        let used_page_count = (self.next_free_memory_pos + PAGE_SIZE - 1) / PAGE_SIZE;
+        self.startfunc.writeln(format!("i32.const {}", ALLOC_SO_FAR_PTR));
+        self.startfunc.writeln(format!("i32.const {}", self.next_free_memory_pos));
+        self.startfunc.writeln("i32.store");
         self.memory.writeln(format!(
             r#"(memory $rt_mem (export "rt_mem") {})"#,
             used_page_count

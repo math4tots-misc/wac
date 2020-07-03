@@ -24,32 +24,12 @@ pub fn run_or_panic<N: Into<Rc<str>>, D: AsRef<str>>(name_data_pairs: Vec<(N, D)
 }
 
 pub fn run<N: Into<Rc<str>>, D: AsRef<str>>(name_data_pairs: Vec<(N, D)>) -> Result<i32, Error> {
-    let import_object = wr::imports! {
-        "lang" => {
-            "print_i64" => wr::func!(|x: i64| -> i64 {
-                println!("{}", x);
-                0
-            }),
-            "puts" => wr::func!(|ctx: &mut wr::Ctx, ptr: wr::WasmPtr<u32>| -> i32 {
-                println!("{}", get_str(ctx, ptr).unwrap());
-                0
-            }),
-        }
-    };
+    let import_object = crate::exc::make_import_object();
     let wat_module_string = compile(name_data_pairs)?;
     let wasm_code = wabt::wat2wasm(&wat_module_string)?;
     let instance = wr::instantiate(&wasm_code, &import_object)?;
     let main: wr::Func<(), i32> = instance.exports.get("f_main")?;
     Ok(main.call()?)
-}
-
-fn get_str(ctx: &mut wr::Ctx, ptr: wr::WasmPtr<u32>) -> Option<&str> {
-    let memory = ctx.memory(0);
-    let offset = ptr.offset();
-    let len_ptr: wr::WasmPtr<u32> = wr::WasmPtr::new(offset + 4);
-    let len = len_ptr.deref(memory).unwrap().get();
-    let buffer_ptr = wr::WasmPtr::<u8, wr::Array>::new(offset + 8);
-    buffer_ptr.get_utf8_string(memory, len)
 }
 
 pub fn compile_files<'a, P: Into<&'a Path>, I: IntoIterator<Item = P>>(
