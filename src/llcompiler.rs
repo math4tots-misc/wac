@@ -15,6 +15,10 @@ use std::collections::HashMap;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+/// number of bytes at the start reserved for
+/// malloc to do its bookkeeping
+pub(crate) const RESERVED_FOR_MALLOC: usize = 1024;
+
 const PAGE_SIZE: usize = 65536;
 
 // all compile time allocations will align to 8 bytes
@@ -484,6 +488,7 @@ struct Out {
     memory: Rc<Sink>,
     data: Rc<Sink>,
     functions: Rc<Sink>,
+    startfunc: Rc<Sink>,
     exports: Rc<Sink>,
 
     next_free_memory_pos: usize,
@@ -505,8 +510,11 @@ impl Out {
         let imports = main.spawn();
         let memory = main.spawn();
         let data = main.spawn();
-        data.writeln(r#"(data $rt_mem (i32.const 0) "\00\00\00\00\00\00\00\00")"#);
         let functions = main.spawn();
+        main.writeln("(func $rt_start");
+        let startfunc = main.spawn();
+        main.writeln(")");
+        main.writeln("(start $rt_start)");
         let exports = main.spawn();
         main.writeln(")");
         Self {
@@ -516,11 +524,11 @@ impl Out {
             memory,
             data,
             functions,
+            startfunc,
             exports,
 
-            // we start from 8, because we reserve the first 8 bytes
-            // for nullptr
-            next_free_memory_pos: 8,
+            // we start from the first part of memory not used by malloc/free
+            next_free_memory_pos: RESERVED_FOR_MALLOC,
 
             intern_map: HashMap::new(),
 

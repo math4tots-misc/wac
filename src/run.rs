@@ -1,5 +1,6 @@
 use crate::compile;
 use crate::Error;
+use crate::RESERVED_FOR_MALLOC;
 use std::path::Path;
 use std::rc::Rc;
 
@@ -29,6 +30,18 @@ pub fn run<N: Into<Rc<str>>, D: AsRef<str>>(name_data_pairs: Vec<(N, D)>) -> Res
                 println!("{}", x);
                 0
             }),
+            "retain_str" => wr::func!(|ctx: &mut wr::Ctx, str_ptr: wr::WasmPtr<i32>| -> i32 {
+                0
+            }),
+            "release_str" => wr::func!(|ctx: &mut wr::Ctx, str_ptr: wr::WasmPtr<i32>| -> i32 {
+                0
+            }),
+            "puts" => wr::func!(|ctx: &mut wr::Ctx, str_ptr: wr::WasmPtr<i32>| -> i32 {
+                let memory = ctx.memory(0);
+                let offset = str_ptr.offset();
+                let refcnt_cell = str_ptr.deref(memory).unwrap();
+                0
+            }),
         }
     };
     let wat_module_string = compile(name_data_pairs)?;
@@ -36,4 +49,23 @@ pub fn run<N: Into<Rc<str>>, D: AsRef<str>>(name_data_pairs: Vec<(N, D)>) -> Res
     let instance = wr::instantiate(&wasm_code, &import_object)?;
     let main: wr::Func<(), i32> = instance.exports.get("f_main")?;
     Ok(main.call()?)
+}
+
+fn retain_str(ctx: &mut wr::Ctx, str_ptr: wr::WasmPtr<i32>) {
+}
+
+fn release_str(ctx: &mut wr::Ctx, str_ptr: wr::WasmPtr<i32>) {
+}
+
+/// dead simple freelist implementation. also see free.
+///
+/// First RESERVED_FOR_MALLOC bytes are reserved for malloc (except
+/// the first 4-bytes, which is used for error handling).
+fn malloc(ctx: &mut wr::Ctx, size: i32) -> i32 {
+    0
+}
+
+/// dead simple freelist implementation. also see malloc.
+fn free(ctx: &mut wr::Ctx, ptr: wr::WasmPtr<u8>, size: i32) -> i32 {
+    0
 }

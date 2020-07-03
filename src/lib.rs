@@ -28,6 +28,8 @@ pub use run::run;
 pub use run::run_files;
 pub use run::run_or_panic;
 
+pub(crate) use llcompiler::RESERVED_FOR_MALLOC;
+
 #[derive(Debug)]
 pub enum Error {
     IO(std::io::Error),
