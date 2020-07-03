@@ -94,7 +94,7 @@ mod tests {
             r####"
             import fn "lang" "print_i64" print_i64(i64) i64;
 
-            fn[pub] main() {
+            fn[pub] main() i32 {
                 print_i64(42);
                 print_i64(47);
                 print_twice(888);
@@ -122,11 +122,11 @@ mod tests {
             r####"
             import fn "lang" "print_i64" print_i64(i64) i64;
 
-            fn[pub] main() {
+            fn[pub] main() i32 {
                 foo(6)
             }
 
-            fn foo(x i32) {
+            fn foo(x i32) i32 {
                 425
             }
 
@@ -141,7 +141,7 @@ mod tests {
         let retcode = run_or_panic(vec![(
             "main",
             r####"
-            fn[pub] main() {
+            fn[pub] main() i32 {
                 $asm(
                     [
                         i32; 44,

@@ -300,8 +300,8 @@ impl<'a> Parser<'a> {
         let return_type = if self.at(Pattern::Name) {
             self.type_()?
         } else {
-            // If not specified, i32 is assumed
-            LLType::I32
+            // If not specified, void is assumed
+            LLType::Void
         };
         let mut locals = Vec::new();
         if self.consume(Token::LBracket) {
@@ -343,6 +343,10 @@ impl<'a> Parser<'a> {
     }
     fn type_(&mut self) -> Result<LLType, ParseError> {
         match self.peek() {
+            Token::Name("void") => {
+                self.gettok();
+                Ok(LLType::Void)
+            }
             Token::Name("i32") => {
                 self.gettok();
                 Ok(LLType::I32)

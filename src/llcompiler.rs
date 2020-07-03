@@ -237,6 +237,7 @@ fn translate_expr(
                 translate_expr(out, sink, last, expected)?;
             } else {
                 match expected {
+                    Some(LLType::Void) => sink.writeln("(i32.const 0)"),
                     Some(LLType::I32) => sink.writeln("(i32.const 0)"),
                     Some(LLType::I64) => sink.writeln("(i64.const 0)"),
                     Some(LLType::F32) => sink.writeln("(f32.const 0)"),
@@ -424,7 +425,7 @@ fn translate_expr(
 /// drops a value on the top of the stack, taking care to release references as needed
 fn drop(_out: &mut Out, sink: &Rc<Sink>, type_: &LLType) {
     match type_ {
-        LLType::I32 | LLType::I64 | LLType::F32 | LLType::F64 => {
+        LLType::Void | LLType::I32 | LLType::I64 | LLType::F32 | LLType::F64 => {
             // for copy types, no other bookkeeping required
             sink.writeln("(drop)");
         }

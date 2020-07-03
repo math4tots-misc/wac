@@ -15,6 +15,7 @@ pub enum LLValueType {
 /// Type as perceived by wac
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum LLType {
+    Void,
     I32,
     I64,
     F32,
@@ -43,6 +44,7 @@ pub enum LLType {
 impl LLType {
     pub fn to_value_type(&self) -> LLValueType {
         match self {
+            LLType::Void => LLValueType::I32,
             LLType::I32 => LLValueType::I32,
             LLType::F32 => LLValueType::F32,
             LLType::I64 => LLValueType::I64,
