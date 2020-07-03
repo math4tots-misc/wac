@@ -27,14 +27,19 @@ const DEFAULT_ALIGN_BYTES: u32 = 8;
 
 const PRELUDE_STR: &'static str = include_str!("prelude.wac");
 
-// const TAG_INVALID: u32 = 0;
-const TAG_I32: u32 = 1;
-// const TAG_I64: u32 = 2;
-const TAG_F32: u32 = 3;
-// const TAG_F64: u32 = 4;
-const TAG_STRING: u32 = 5;
-// const TAG_LIST: u32 = 6;
-// const TAG_ID: u32 = 7;
+pub enum TypeTag {
+    Invalid,
+    I32,
+    I64,
+    F32,
+    F64,
+    String,
+    List,
+    Id,
+}
+
+impl TypeTag {
+}
 
 pub fn compile<N: Into<Rc<str>>, D: AsRef<str>>(
     name_data_pairs: Vec<(N, D)>,
@@ -171,7 +176,7 @@ fn translate_expr(
                     sink.writeln(format!("(i64.const {})", value));
                 }
                 Some(LLType::Id) => {
-                    write_tagged_data(sink, TAG_I32, *value as i32 as u32);
+                    write_tagged_data(sink, LLType::I32, *value as i32 as u32);
                 }
                 Some(expected) => {
                     return Err(CompileError::Type {
@@ -218,7 +223,7 @@ fn translate_expr(
                 }
                 Some(LLType::Id) => {
                     let ptr = out.intern(string);
-                    write_tagged_data(sink, TAG_STRING, ptr);
+                    write_tagged_data(sink, LLType::String, ptr);
                 }
                 Some(expected) => {
                     return Err(CompileError::Type {
@@ -621,15 +626,15 @@ impl Out {
     }
 }
 
-fn write_tagged_data(sink: &Rc<Sink>, tag: u32, data: u32) {
-    sink.writeln(format!("(i64.const {})", tag));
+fn write_tagged_data(sink: &Rc<Sink>, tag: LLType, data: u32) {
+    sink.writeln(format!("(i64.const {})", tag.to_tag()));
     sink.writeln("(i64.shl 32)");
     sink.writeln(format!("(i64.const {})", data));
     sink.writeln("i64.or");
 }
 
 fn write_tagged_float(sink: &Rc<Sink>, data: f32) {
-    sink.writeln(format!("(i64.const {})", TAG_F32));
+    sink.writeln(format!("(i64.const {})", LLType::F32.to_tag()));
     sink.writeln("(i64.shl 32)");
     sink.writeln(format!("(f32.const {})", data));
     sink.writeln("i32.reinterpret_f32");

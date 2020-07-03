@@ -13,7 +13,7 @@ pub enum LLValueType {
 }
 
 /// Type as perceived by wac
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, num_derive::FromPrimitive)]
 pub enum LLType {
     Void,
     I32,
@@ -53,6 +53,19 @@ impl LLType {
             LLType::List => LLValueType::I32,
             LLType::Id => LLValueType::I64,
         }
+    }
+
+    pub fn to_tag(self) -> u32 {
+        self as u32
+    }
+
+    pub fn from_u32(x: u32) {
+    }
+}
+
+impl From<LLType> for u32 {
+    fn from(t: LLType) -> u32 {
+        t.to_tag()
     }
 }
 

@@ -1,3 +1,4 @@
+extern crate num_derive;
 extern crate wabt;
 extern crate wasmer_runtime as wr;
 
