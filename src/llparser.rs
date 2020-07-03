@@ -104,9 +104,7 @@ impl<'a> Parser<'a> {
     fn stmt_body(&mut self) -> Result<(LLExpr, bool), ParseError> {
         Ok(match self.peek() {
             Token::LBracket => (self.block()?, false),
-            _ => {
-                (self.expr()?, true)
-            }
+            _ => (self.expr()?, true),
         })
     }
     #[allow(dead_code)]
@@ -140,11 +138,44 @@ impl<'a> Parser<'a> {
                 self.expect(Token::RParen)?;
                 Ok(expr)
             }
+            Token::Dollar => self.intrinsic(),
             _ => Err(ParseError::InvalidToken {
                 span: self.span(),
                 expected: "Expression".into(),
                 got: format!("{:?}", self.peek()),
             }),
+        }
+    }
+    fn intrinsic(&mut self) -> Result<LLExpr, ParseError> {
+        let start = self.span();
+        self.expect(Token::Dollar)?;
+        let name_rc = self.expect_name()?;
+        let name: &str = &name_rc;
+        match name {
+            "asm" => {
+                self.expect(Token::LParen)?;
+                self.expect(Token::LBracket)?;
+                let mut args = Vec::new();
+                while !self.consume(Token::RBracket) {
+                    let type_ = self.type_()?;
+                    self.expect(Token::Semicolon)?;
+                    let expr = self.expr()?;
+                    args.push((type_, expr));
+                    if !self.consume(Token::Comma) {
+                        self.expect(Token::RBracket)?;
+                        break;
+                    }
+                }
+                self.expect(Token::Comma)?;
+                let type_ = self.type_()?;
+                self.expect(Token::Comma)?;
+                let asm = self.expect_string()?;
+                self.consume(Token::Comma);
+                self.expect(Token::RParen)?;
+                let span = start.upto(self.span());
+                Ok(LLExpr::InlineAsm(span, args, type_, asm))
+            }
+            _ => Err(ParseError::NoSuchIntrinsic(start, name_rc)),
         }
     }
     fn block(&mut self) -> Result<LLExpr, ParseError> {
@@ -165,7 +196,7 @@ impl<'a> Parser<'a> {
                 last_open = true;
             }
         }
-        let span = start.join(self.span());
+        let span = start.upto(self.span());
         let last = if last_open {
             Some(Box::new(exprs.pop().unwrap()))
         } else {
@@ -417,6 +448,7 @@ pub enum ParseError {
         got: String,
     },
     InvalidEscape(char),
+    NoSuchIntrinsic(Span, Rc<str>),
 }
 
 impl From<LexError> for ParseError {

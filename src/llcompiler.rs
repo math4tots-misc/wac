@@ -1,3 +1,4 @@
+use crate::parse;
 use crate::LLExpr;
 use crate::LLFile;
 use crate::LLFunction;
@@ -14,6 +15,29 @@ use std::collections::HashMap;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+const PRELUDE_STR: &'static str = include_str!("prelude.wac");
+
+pub fn compile<N: Into<Rc<str>>, D: AsRef<str>>(
+    name_data_pairs: Vec<(N, D)>,
+) -> Result<String, CompileError> {
+    let mut files = Vec::new();
+    for (name, data) in name_data_pairs {
+        let name = name.into();
+        files.push(match parse(name.clone(), data.as_ref()) {
+            Ok(result) => result,
+            Err(error) => {
+                return Err(CompileError::Parse(name, error).into());
+            }
+        });
+    }
+    files.push(match parse("<prelude>".into(), PRELUDE_STR) {
+        Ok(result) => result,
+        Err(error) => return Err(CompileError::Parse("<prelude>".into(), error).into()),
+    });
+    let file_refs: Vec<_> = files.iter().collect();
+    compile_files(file_refs)
+}
+
 /// compiles wac source to wat (webassembly text format)
 /// A module is made of zero or more files
 /// A module may be compiled completely independently of all
@@ -21,7 +45,7 @@ use std::rc::Rc;
 /// However, the tradeoff for this is that you need to know the
 /// full type signature of every function that you pull from your
 /// dependencies
-pub fn compile(files: Vec<&LLFile>) -> Result<String, CompileError> {
+fn compile_files(files: Vec<&LLFile>) -> Result<String, CompileError> {
     let mut out = Out::new();
     for file in &files {
         out.filename = file.name.clone();
@@ -70,7 +94,7 @@ pub fn compile(files: Vec<&LLFile>) -> Result<String, CompileError> {
             match visibility {
                 LLVisibility::Public => {
                     out.exports
-                        .writeln(format!("(export \"{}\" (func $f_{}))", name, name));
+                        .writeln(format!("(export \"f_{}\" (func $f_{}))", name, name));
                 }
                 LLVisibility::Private => {}
             }
@@ -109,7 +133,7 @@ pub fn compile(files: Vec<&LLFile>) -> Result<String, CompileError> {
         }
     }
     let out = out.get();
-    println!("out -> {}", out);
+    // println!("out -> {}", out);
     Ok(out)
 }
 
@@ -212,7 +236,7 @@ fn translate_expr(
                                 span: *span,
                                 expected: format!("{:?}", expected),
                                 got: format!("{:?}", ftype.return_type),
-                            })
+                            });
                         }
                     } else {
                         sink.writeln("drop");
@@ -307,8 +331,35 @@ fn translate_expr(
                 }
             }
         }
+        LLExpr::InlineAsm(span, typed_args, result_type, asm) => {
+            for (type_, expr) in typed_args {
+                translate_expr(out, sink, expr, Some(type_))?;
+            }
+            sink.writeln(asm);
+            if let Some(expected) = expected {
+                if result_type != expected {
+                    return Err(CompileError::Type {
+                        filename: out.filename.clone(),
+                        span: *span,
+                        expected: format!("{:?}", expected),
+                        got: format!("{:?}", result_type),
+                    });
+                }
+            } else {
+                drop(out, sink, result_type);
+            }
+        }
     }
     Ok(())
+}
+
+fn drop(_out: &mut Out, sink: &Rc<Sink>, type_: &LLType) {
+    match type_ {
+        LLType::I32 | LLType::I64 | LLType::F32 | LLType::F64 | LLType::Function(_) => {}
+        LLType::String => panic!("TODO: drop String"),
+        LLType::Id => panic!("TODO: drop Id"),
+    }
+    sink.writeln("(drop)");
 }
 
 fn translate_function_type(ft: &LLFunctionType) -> String {
@@ -343,8 +394,11 @@ struct Out {
     filename: Rc<str>,
     main: Rc<Sink>,
     imports: Rc<Sink>,
+    data: Rc<Sink>,
     functions: Rc<Sink>,
     exports: Rc<Sink>,
+
+    next_free_memory_pos: usize,
 
     /// essentially the global scope
     globals: HashMap<Rc<str>, (Rc<str>, Span, Value)>,
@@ -358,6 +412,9 @@ impl Out {
         let main = Sink::new();
         main.writeln("(module");
         let imports = main.spawn();
+        main.writeln(r#"(memory $rt_mem (export "rt_mem") 1)"#);
+        let data = main.spawn();
+        data.writeln(r#"(data $rt_mem (i32.const 0) "\00\00\00\00\00\00\00\00")"#);
         let functions = main.spawn();
         let exports = main.spawn();
         main.writeln(")");
@@ -365,13 +422,21 @@ impl Out {
             filename: "".into(),
             main,
             imports,
+            data,
             functions,
             exports,
+
+            // we start from 8, because we reserve the first 8 bytes
+            // for nullptr
+            next_free_memory_pos: 8,
+
             globals: HashMap::new(),
             locals: HashMap::new(),
         }
     }
     fn get(self) -> String {
+        self.data.writeln(format!(r#"(global $rt_heap_start i32 (i32.const {}))"#, self.next_free_memory_pos));
+        self.data.writeln(format!(r#"(global $rt_heap_top (mut i32) (i32.const {}))"#, self.next_free_memory_pos));
         self.main.get()
     }
     fn add_global(&mut self, key: Rc<str>, span: Span, value: Value) -> Result<(), CompileError> {

@@ -1,7 +1,5 @@
 use crate::compile;
-use crate::parse;
 use crate::Error;
-use crate::CompileError;
 use std::path::Path;
 use std::rc::Rc;
 
@@ -15,7 +13,14 @@ pub fn run_files<'a, P: Into<&'a Path>, I: IntoIterator<Item = P>>(ip: I) -> Res
     run(name_data_pairs)
 }
 
-const PRELUDE_STR: &'static str = include_str!("prelude.wac");
+pub fn run_or_panic<N: Into<Rc<str>>, D: AsRef<str>>(name_data_pairs: Vec<(N, D)>) -> i32 {
+    match run(name_data_pairs) {
+        Ok(x) => x,
+        Err(error) => {
+            panic!("{:?}", error);
+        }
+    }
+}
 
 pub fn run<N: Into<Rc<str>>, D: AsRef<str>>(name_data_pairs: Vec<(N, D)>) -> Result<i32, Error> {
     let import_object = wr::imports! {
@@ -26,25 +31,9 @@ pub fn run<N: Into<Rc<str>>, D: AsRef<str>>(name_data_pairs: Vec<(N, D)>) -> Res
             }),
         }
     };
-
-    let mut files = Vec::new();
-    for (name, data) in name_data_pairs {
-        let name = name.into();
-        files.push(match parse(name.clone(), data.as_ref()) {
-            Ok(result) => result,
-            Err(error) => {
-                return Err(CompileError::Parse(name, error).into());
-            }
-        });
-    }
-    files.push(match parse("<prelude>".into(), PRELUDE_STR) {
-        Ok(result) => result,
-        Err(error) => return Err(CompileError::Parse("<prelude>".into(), error).into()),
-    });
-    let file_refs: Vec<_> = files.iter().collect();
-    let wat_module_string = compile(file_refs)?;
+    let wat_module_string = compile(name_data_pairs)?;
     let wasm_code = wabt::wat2wasm(&wat_module_string)?;
     let instance = wr::instantiate(&wasm_code, &import_object)?;
-    let main: wr::Func<(), i32> = instance.exports.get("main")?;
+    let main: wr::Func<(), i32> = instance.exports.get("f_main")?;
     Ok(main.call()?)
 }

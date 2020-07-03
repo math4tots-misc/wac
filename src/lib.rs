@@ -25,6 +25,7 @@ pub use llir::LLVisibility;
 pub use llparser::parse;
 pub use llparser::ParseError;
 pub use run::run;
+pub use run::run_or_panic;
 pub use run::run_files;
 
 #[derive(Debug)]
@@ -90,7 +91,7 @@ mod tests {
     fn sample_e2e() {
         let retcode = run(vec![(
             "main",
-            r###"
+            r####"
             import fn "lang" "print_i64" print_i64(i64) i64;
 
             fn[pub] main() {
@@ -108,9 +109,31 @@ mod tests {
                 print_i64(i);
             }
 
-                "###,
+                "####,
         )])
         .unwrap();
         assert_eq!(retcode, 742);
+    }
+
+    #[test]
+    fn inline_asm() {
+        let retcode = run_or_panic(vec![(
+            "main",
+            r####"
+            fn[pub] main() {
+                $asm(
+                    [
+                        i32; 44,
+                    ],
+                    i32,
+                    r###"
+                    i32.const 2
+                    i32.mul
+                    "###,
+                )
+            }
+                "####,
+        )]);
+        assert_eq!(retcode, 88);
     }
 }

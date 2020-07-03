@@ -12,7 +12,9 @@ pub enum Token<'a> {
     LBracket,
     RBracket,
     Semicolon,
+    Colon,
     Comma,
+    Dollar,
     EOF,
 }
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -27,6 +29,13 @@ impl Span {
             main: self.main,
             start: std::cmp::min(self.start, other.start),
             end: std::cmp::max(self.end, other.end),
+        }
+    }
+    pub fn upto(self, other: Self) -> Self {
+        Self {
+            main: self.main,
+            start: std::cmp::min(self.start, other.start),
+            end: std::cmp::max(self.end, other.start),
         }
     }
 }
@@ -108,7 +117,9 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
                 '{' => ret.push((Token::LBrace, [i, i + 1].into())),
                 '}' => ret.push((Token::RBrace, [i, i + 1].into())),
                 ';' => ret.push((Token::Semicolon, [i, i + 1].into())),
+                ':' => ret.push((Token::Colon, [i, i + 1].into())),
                 ',' => ret.push((Token::Comma, [i, i + 1].into())),
+                '$' => ret.push((Token::Dollar, [i, i + 1].into())),
                 _ => {
                     return Err(LexError::Unrecognized {
                         pos: i,
@@ -116,8 +127,10 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
                     });
                 }
             },
-            State::Comment => if c == '\n' {
-                state = State::Normal;
+            State::Comment => {
+                if c == '\n' {
+                    state = State::Normal;
+                }
             }
             State::Digits(start) => match c {
                 '.' => {

@@ -22,8 +22,19 @@ pub enum LLType {
 
     // String is an i32 that points to a location in memory
     // containing:
-    // [i32 ref-count] [i32 capacity (bytes)] [i32 size (bytes)] [utf8-chars...]
+    // [i32 string-class][i32 ref-count] [i32 capacity (bytes)] [i32 size (bytes)] [utf8-chars...]
+    // If capacity is 0, ref-count should also always just be 0, and indicates
+    // that the string is immutable
     String,
+
+    // Almost any type.
+    // A 64-bit value that can represent any type except:
+    //   * 64-bit values (f64, i64),
+    //   * function types
+    // the first i32 is a tag, indicating the type of value,
+    // the last i32 is the actual value (this works, because
+    // pointers are 32-bits here)
+    Id,
 
     // Function is an i32 that points to the webassembly table
     Function(Box<LLFunctionType>),
@@ -37,6 +48,7 @@ impl LLType {
             LLType::I64 => LLValueType::I64,
             LLType::F64 => LLValueType::F64,
             LLType::String => LLValueType::I32,
+            LLType::Id => LLValueType::I64,
             LLType::Function(_) => LLValueType::I32,
         }
     }
@@ -72,6 +84,13 @@ pub enum LLExpr {
     SetVar(Span, Rc<str>, Box<LLExpr>),
     FunctionCall(Span, Rc<str>, Vec<LLExpr>),
     Block(Span, Vec<LLExpr>, Option<Box<LLExpr>>),
+
+    /// Inline assembly
+    ///     The expressions passed as arguments are assumed
+    ///     to be consumed by the inline assembly.
+    ///     It is assumed that a single value will be pushed
+    ///     onto the stack once done.
+    InlineAsm(Span, Vec<(LLType, LLExpr)>, LLType, Rc<str>),
 }
 
 impl LLExpr {
@@ -84,6 +103,7 @@ impl LLExpr {
             LLExpr::SetVar(span, ..) => *span,
             LLExpr::FunctionCall(span, ..) => *span,
             LLExpr::Block(span, ..) => *span,
+            LLExpr::InlineAsm(span, ..) => *span,
         }
     }
 }
