@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 /// given a list of (filename, wac-code) pairs,
 /// runs it
-pub fn run(sources: Vec<(&Rc<str>, &Rc<str>)>) -> Result<i32, Error> {
+pub fn run(sources: Vec<(Rc<str>, Rc<str>)>) -> Result<i32, Error> {
     let import_object = make_import_object();
     let wat_code = translate(sources)?;
     let wasm_code = wabt::wat2wasm(&wat_code)?;

@@ -1,3 +1,12 @@
-fn[pub] main() i32 {
-    42
+
+fn[pub] main() i32 [
+    x i32,
+] {
+    x = 4
+    __print_i32(x)
+    __hello()
+    __print_i32(x)
+    x = 842
+    __print_i32(x)
+    0
 }

@@ -16,6 +16,7 @@ pub enum Token<'a> {
     Colon,
     Comma,
     Dollar,
+    Eq,
     EOF,
 }
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -181,6 +182,7 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
                 ':' => ret.push((Token::Colon, [i, i + 1].into())),
                 ',' => ret.push((Token::Comma, [i, i + 1].into())),
                 '$' => ret.push((Token::Dollar, [i, i + 1].into())),
+                '=' => ret.push((Token::Eq, [i, i + 1].into())),
                 _ => {
                     return Err(LexError::Unrecognized {
                         pos: i,

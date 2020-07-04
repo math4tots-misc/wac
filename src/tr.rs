@@ -11,10 +11,13 @@ use std::rc::Rc;
 
 /// translates a list of (filename, wac-code) pairs into
 /// a wat webassembly module
-pub fn translate(sources: Vec<(&Rc<str>, &Rc<str>)>) -> Result<String, Error> {
+pub fn translate(mut sources: Vec<(Rc<str>, Rc<str>)>) -> Result<String, Error> {
+    let prelude_name: Rc<str> = "[prelude]".into();
+    let prelude_str: Rc<str> = include_str!("prelude.wac").into();
+    sources.insert(0, (prelude_name, prelude_str));
     let mut files = Vec::new();
     for (filename, data) in sources {
-        let mut parser = match Parser::new(data) {
+        let mut parser = match Parser::new(&data) {
             Ok(parser) => parser,
             Err(error) => return Err(Error::Lex(filename.clone(), error)),
         };
@@ -71,7 +74,7 @@ impl<'a> LocalScope<'a> {
             Some(e) => Ok(e),
             None => Err(Error::Type {
                 span,
-                expected: "Variable".into(),
+                expected: format!("Variable {}", name),
                 got: "NotFound".into(),
             }),
         }
@@ -84,7 +87,7 @@ impl<'a> LocalScope<'a> {
             Some(e) => Ok(e),
             None => Err(Error::Type {
                 span,
-                expected: "Function".into(),
+                expected: format!("Function {}", name),
                 got: "NotFound".into(),
             }),
         }
@@ -277,22 +280,17 @@ fn translate_expr(
             }
             match entry {
                 ScopeEntry::Local(vartype) => {
-                    translate_expr(out, sink, lscope, Some(vartype), setexpr)?;
                     match etype {
-                        Some(etype) if etype == vartype => {
-                            sink.writeln(format!("local.get $l_{}", name));
-                        }
                         Some(etype) => {
                             return Err(Error::Type {
                                 span: span.clone(),
                                 expected: format!("{:?}", etype),
-                                got: format!("{:?}", vartype),
+                                got: "Void (setvar)".into(),
                             })
                         }
                         None => {
-                            // we already checked this variable exists,
-                            // if we don't use the return value,
-                            // there's nothing we need to do here
+                            translate_expr(out, sink, lscope, Some(vartype), setexpr)?;
+                            sink.writeln(format!("local.set $l_{}", name));
                         }
                     }
                 }
@@ -475,7 +473,7 @@ fn parse_stmt(parser: &mut Parser) -> Result<Expr, ParseError> {
 }
 
 fn parse_expr(parser: &mut Parser) -> Result<Expr, ParseError> {
-    parse_postfix(parser)
+    parse_assign(parser)
 }
 
 fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
@@ -488,6 +486,10 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
         Token::Float(x) => {
             parser.gettok();
             Ok(Expr::Float(span, x))
+        }
+        Token::Name(name) => {
+            parser.gettok();
+            Ok(Expr::GetVar(span, name.into()))
         }
         Token::LBrace => parse_block(parser),
         _ => Err(ParseError::InvalidToken {
@@ -525,6 +527,34 @@ fn parse_postfix(parser: &mut Parser) -> Result<Expr, ParseError> {
                             span,
                             expected: "Function call".into(),
                             got: format!("indirect function calls not yet supported"),
+                        })
+                    }
+                }
+            }
+            _ => break,
+        }
+    }
+    Ok(e)
+}
+
+fn parse_assign(parser: &mut Parser) -> Result<Expr, ParseError> {
+    let mut e = parse_postfix(parser)?;
+    let start = parser.span();
+    loop {
+        match parser.peek() {
+            Token::Eq => {
+                let span = parser.span();
+                parser.gettok();
+                match e {
+                    Expr::GetVar(_, name) => {
+                        let setexpr = parse_expr(parser)?;
+                        e = Expr::SetVar(span.join(start), name, setexpr.into());
+                    }
+                    _ => {
+                        return Err(ParseError::InvalidToken {
+                            span,
+                            expected: "Assignment".into(),
+                            got: format!("assignments only supported for variables"),
                         })
                     }
                 }
