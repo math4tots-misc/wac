@@ -1,3 +1,5 @@
+//! Relatively language agnostic tools for parsing
+//! for grammer stuff, see parsef.rs
 use crate::lex;
 use crate::LexError;
 use crate::Span;
