@@ -1,10 +1,12 @@
 mod ir;
+mod lexer;
 mod rt;
-mod exec;
+mod wc;
 
 pub use ir::*;
+pub use lexer::*;
 pub use rt::*;
-pub use exec::*;
+pub use wc::*;
 
 #[cfg(test)]
 mod tests {
