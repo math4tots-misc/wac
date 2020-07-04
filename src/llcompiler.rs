@@ -1,4 +1,3 @@
-use crate::ALLOC_SO_FAR_PTR;
 use crate::parse;
 use crate::LLExpr;
 use crate::LLFile;
@@ -11,6 +10,7 @@ use crate::LLValueType;
 use crate::LLVisibility;
 use crate::ParseError;
 use crate::Span;
+use crate::ALLOC_SO_FAR_PTR;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::convert::Infallible;
@@ -38,8 +38,7 @@ pub enum TypeTag {
     Id,
 }
 
-impl TypeTag {
-}
+impl TypeTag {}
 
 pub fn compile<N: Into<Rc<str>>, D: AsRef<str>>(
     name_data_pairs: Vec<(N, D)>,
@@ -579,8 +578,10 @@ impl Out {
     fn get(self) -> String {
         // Store at
         let used_page_count = (self.next_free_memory_pos + PAGE_SIZE - 1) / PAGE_SIZE;
-        self.startfunc.writeln(format!("i32.const {}", ALLOC_SO_FAR_PTR));
-        self.startfunc.writeln(format!("i32.const {}", self.next_free_memory_pos));
+        self.startfunc
+            .writeln(format!("i32.const {}", ALLOC_SO_FAR_PTR));
+        self.startfunc
+            .writeln(format!("i32.const {}", self.next_free_memory_pos));
         self.startfunc.writeln("i32.store");
         self.memory.writeln(format!(
             r#"(memory $rt_mem (export "rt_mem") {})"#,

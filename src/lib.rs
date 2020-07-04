@@ -2,21 +2,23 @@ extern crate num_derive;
 extern crate wabt;
 extern crate wasmer_runtime as wr;
 
+mod exc;
 mod lexer;
 mod llcompiler;
 mod llir;
 mod llparser;
 mod run;
-mod exc;
 
+pub use exc::ALLOC_SO_FAR_PTR;
+pub use exc::ERROR_PTR;
 pub use lexer::lex;
 pub use lexer::LexError;
 pub use lexer::Span;
 pub use lexer::Token;
 pub use llcompiler::compile;
 pub use llcompiler::CompileError;
-pub use llcompiler::RESERVED_FOR_MALLOC;
 pub use llcompiler::PAGE_SIZE;
+pub use llcompiler::RESERVED_FOR_MALLOC;
 pub use llir::LLExpr;
 pub use llir::LLFile;
 pub use llir::LLFunction;
@@ -32,8 +34,6 @@ pub use run::main;
 pub use run::run;
 pub use run::run_files;
 pub use run::run_or_panic;
-pub use exc::ALLOC_SO_FAR_PTR;
-pub use exc::ERROR_PTR;
 
 #[derive(Debug)]
 pub enum Error {

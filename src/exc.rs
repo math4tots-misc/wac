@@ -1,5 +1,5 @@
-use crate::PAGE_SIZE;
 use crate::LLType;
+use crate::PAGE_SIZE;
 
 /// memory location 0 (4-bytes) contains the error pointer
 pub const ERROR_PTR: u32 = 0;
@@ -69,7 +69,9 @@ fn alloc(memory: &wr::Memory, size: u32) -> u32 {
     write(memory, ALLOC_SO_FAR_PTR, new_alloc_size);
 
     if old_page_count < new_page_count {
-        memory.grow(wr::units::Pages(new_page_count - old_page_count)).unwrap();
+        memory
+            .grow(wr::units::Pages(new_page_count - old_page_count))
+            .unwrap();
     }
 
     old_alloc_size
@@ -89,7 +91,9 @@ fn write(memory: &wr::Memory, ptr: u32, val: u32) {
 }
 
 fn write_buffer(memory: &wr::Memory, ptr: u32, arr: &[u8]) {
-    let cells = wr::WasmPtr::<u8, wr::Array>::new(ptr).deref(memory, ptr, arr.len() as u32).unwrap();
+    let cells = wr::WasmPtr::<u8, wr::Array>::new(ptr)
+        .deref(memory, ptr, arr.len() as u32)
+        .unwrap();
     for (cell, x) in cells.iter().zip(arr) {
         cell.set(*x);
     }
@@ -116,7 +120,7 @@ fn new_str(memory: &wr::Memory, s: &str) -> Option<u32> {
     let len = s.len() as u32;
     let buffer_size = len + 8;
     let ptr = malloc(memory, buffer_size)?;
-    write(memory, ptr, 1);  // refcnt
+    write(memory, ptr, 1); // refcnt
     write(memory, ptr + 4, len); // strlen
     write_buffer(memory, ptr + 8, s.as_bytes()); // str
     Some(ptr)

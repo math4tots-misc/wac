@@ -59,8 +59,7 @@ impl LLType {
         self as u32
     }
 
-    pub fn from_u32(x: u32) {
-    }
+    pub fn from_u32(x: u32) {}
 }
 
 impl From<LLType> for u32 {
