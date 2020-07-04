@@ -1,6 +1,7 @@
 
 fn[pub] main() i32 [
     x i32,
+    cstr i32,
 ] {
     x = 4
     __print_i32(x)
@@ -8,5 +9,9 @@ fn[pub] main() i32 [
     __print_i32(x)
     x = 842
     __print_i32(x)
+
+    cstr = $cstr("Hello world!\n")
+    __print_i32(cstr)
+    __print_cstr(cstr)
     0
 }

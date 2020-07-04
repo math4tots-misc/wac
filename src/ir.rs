@@ -46,6 +46,9 @@ pub enum Expr {
     SetVar(Span, Rc<str>, Box<Expr>),
     Block(Span, Vec<Expr>),
     FunctionCall(Span, Rc<str>, Vec<Expr>),
+
+    // intrinsics
+    CString(Span, Rc<str>),
 }
 
 pub enum Import {

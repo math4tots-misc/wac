@@ -8,6 +8,9 @@ use crate::Span;
 use crate::Token;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::cell::Cell;
+
+pub const RESERVED_BYTES: usize = 1024;
 
 /// translates a list of (filename, wac-code) pairs into
 /// a wat webassembly module
@@ -346,6 +349,22 @@ fn translate_expr(
                 }
             }
         }
+        Expr::CString(span, value) => {
+            match etype {
+                Some(Type::I32) => {
+                    let ptr = out.data(value.as_bytes());
+                    sink.writeln(format!("i32.const {}", ptr));
+                }
+                Some(etype) => {
+                    return Err(Error::Type {
+                        span: span.clone(),
+                        expected: format!("{:?}", etype),
+                        got: "i32 (cstr)".into(),
+                    })
+                }
+                None => {}
+            }
+        }
     }
     Ok(())
 }
@@ -491,6 +510,24 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
             parser.gettok();
             Ok(Expr::GetVar(span, name.into()))
         }
+        Token::Dollar => {
+            parser.gettok();
+            match parser.peek() {
+                Token::Name("cstr") => {
+                    parser.gettok();
+                    parser.expect(Token::LParen)?;
+                    let string = parser.expect_string()?;
+                    parser.expect(Token::RParen)?;
+                    let span = span.upto(parser.span());
+                    Ok(Expr::CString(span, string))
+                }
+                _ => Err(ParseError::InvalidToken {
+                    span,
+                    expected: "intrinsic name".into(),
+                    got: format!("{:?}", parser.peek()),
+                })
+            }
+        }
         Token::LBrace => parse_block(parser),
         _ => Err(ParseError::InvalidToken {
             span,
@@ -622,25 +659,47 @@ fn parse_type(parser: &mut Parser) -> Result<Type, ParseError> {
 struct Out {
     main: Rc<Sink>,
     imports: Rc<Sink>,
+    memory: Rc<Sink>,
+    data: Rc<Sink>,
     funcs: Rc<Sink>,
     exports: Rc<Sink>,
+
+    data_len: Cell<usize>,
 }
 
 impl Out {
     fn new() -> Self {
         let main = Sink::new();
         let imports = main.spawn();
+        let memory = main.spawn();
+        let data = main.spawn();
         let funcs = main.spawn();
         let exports = main.spawn();
         Self {
             main,
             imports,
+            memory,
+            data,
             funcs,
             exports,
+            data_len: Cell::new(RESERVED_BYTES),
         }
     }
 
     fn get(self) -> String {
+        self.memory.writeln("(memory $rt_mem 1)");
         self.main.get()
+    }
+
+    fn data(&self, data: &[u8]) -> u32 {
+        let reserve_len = (data.len() + 8 - 1) / 8 * 8;
+        let ptr = self.data_len.get();
+        self.data_len.set(reserve_len + ptr);
+        self.data.write(format!("(data (i32.const {}) \"", ptr));
+        for byte in data {
+            self.data.write(format!("\\{:0>2X}", byte));
+        }
+        self.data.writeln("\")");
+        ptr as u32
     }
 }
