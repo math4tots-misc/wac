@@ -5,6 +5,7 @@ pub enum Token<'a> {
     Float(f64),
     NormalString(&'a str),
     RawString(&'a str),
+    Newline,
     LParen,
     RParen,
     LBrace,
@@ -83,15 +84,30 @@ pub enum LexError {
         /// unterminated strin gliteral
         start: usize,
     },
+    MismatchedGroupingSymbols {
+        pos: usize,
+        open: char,
+        close: char,
+    },
+    UnterminatedGroupingSymbol {
+        open: char,
+    },
 }
 
 pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
     let mut ret = Vec::new();
     let mut chars = Chars::new(s);
     let mut state = State::Normal;
+    let mut grouping_stack = Vec::new();
     while let Some((c, i)) = chars.next() {
         match state {
             State::Normal => match c {
+                '\n' => match grouping_stack.last() {
+                    Some('{') | None => {
+                        ret.push((Token::Newline, [i, i + 1].into()));
+                    }
+                    _ => {}
+                },
                 _ if c.is_whitespace() => {}
                 '"' | '\'' => {
                     state = State::NormalString(i, c);
@@ -110,12 +126,57 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
                 '#' => {
                     state = State::Comment;
                 }
-                '(' => ret.push((Token::LParen, [i, i + 1].into())),
-                ')' => ret.push((Token::RParen, [i, i + 1].into())),
-                '[' => ret.push((Token::LBracket, [i, i + 1].into())),
-                ']' => ret.push((Token::RBracket, [i, i + 1].into())),
-                '{' => ret.push((Token::LBrace, [i, i + 1].into())),
-                '}' => ret.push((Token::RBrace, [i, i + 1].into())),
+                '(' => {
+                    grouping_stack.push(c);
+                    ret.push((Token::LParen, [i, i + 1].into()));
+                }
+                ')' => {
+                    match grouping_stack.pop() {
+                        Some('(') => {}
+                        other => {
+                            return Err(LexError::MismatchedGroupingSymbols {
+                                pos: i,
+                                open: other.unwrap_or('x'),
+                                close: c,
+                            })
+                        }
+                    }
+                    ret.push((Token::RParen, [i, i + 1].into()));
+                }
+                '[' => {
+                    grouping_stack.push(c);
+                    ret.push((Token::LBracket, [i, i + 1].into()));
+                }
+                ']' => {
+                    match grouping_stack.pop() {
+                        Some('[') => {}
+                        other => {
+                            return Err(LexError::MismatchedGroupingSymbols {
+                                pos: i,
+                                open: other.unwrap_or('x'),
+                                close: c,
+                            })
+                        }
+                    }
+                    ret.push((Token::RBracket, [i, i + 1].into()));
+                }
+                '{' => {
+                    grouping_stack.push(c);
+                    ret.push((Token::LBrace, [i, i + 1].into()));
+                }
+                '}' => {
+                    match grouping_stack.pop() {
+                        Some('{') => {}
+                        other => {
+                            return Err(LexError::MismatchedGroupingSymbols {
+                                pos: i,
+                                open: other.unwrap_or('x'),
+                                close: c,
+                            })
+                        }
+                    }
+                    ret.push((Token::RBrace, [i, i + 1].into()));
+                }
                 ';' => ret.push((Token::Semicolon, [i, i + 1].into())),
                 ':' => ret.push((Token::Colon, [i, i + 1].into())),
                 ',' => ret.push((Token::Comma, [i, i + 1].into())),
@@ -218,6 +279,9 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
                 state: format!("{:?}", state),
             });
         }
+    }
+    if let Some(ch) = grouping_stack.pop() {
+        return Err(LexError::UnterminatedGroupingSymbol { open: ch });
     }
     Ok(ret)
 }
@@ -327,6 +391,7 @@ mod tests {
                 Token::NormalString("normal string"),
                 Token::RawString("a"),
                 Token::RawString("raw string"),
+                Token::Newline,
                 Token::EOF,
             ],
         );

@@ -1,5 +1,5 @@
 extern crate wac;
 
-pub fn main() {
+fn main() {
     wac::main();
 }
