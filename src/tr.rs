@@ -4,10 +4,12 @@ use crate::Error;
 use crate::Parser;
 use crate::Sink;
 use crate::Span;
+use std::cell::Cell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::cell::Cell;
 
+/// Number of bytes at start of memory that's reserved
+/// Compile time values stored in memory start from this location
 pub const RESERVED_BYTES: usize = 1024;
 
 /// translates a list of (filename, wac-code) pairs into
@@ -280,21 +282,19 @@ fn translate_expr(
                 });
             }
             match entry {
-                ScopeEntry::Local(vartype) => {
-                    match etype {
-                        Some(etype) => {
-                            return Err(Error::Type {
-                                span: span.clone(),
-                                expected: format!("{:?}", etype),
-                                got: "Void (setvar)".into(),
-                            })
-                        }
-                        None => {
-                            translate_expr(out, sink, lscope, Some(vartype), setexpr)?;
-                            sink.writeln(format!("local.set $l_{}", name));
-                        }
+                ScopeEntry::Local(vartype) => match etype {
+                    Some(etype) => {
+                        return Err(Error::Type {
+                            span: span.clone(),
+                            expected: format!("{:?}", etype),
+                            got: "Void (setvar)".into(),
+                        })
                     }
-                }
+                    None => {
+                        translate_expr(out, sink, lscope, Some(vartype), setexpr)?;
+                        sink.writeln(format!("local.set $l_{}", name));
+                    }
+                },
             }
         }
         Expr::FunctionCall(span, fname, argexprs) => {
@@ -347,22 +347,34 @@ fn translate_expr(
                 }
             }
         }
-        Expr::CString(span, value) => {
-            match etype {
-                Some(Type::I32) => {
-                    let ptr = out.intern_cstr(value);
-                    sink.writeln(format!("i32.const {}", ptr));
-                }
-                Some(etype) => {
-                    return Err(Error::Type {
-                        span: span.clone(),
-                        expected: format!("{:?}", etype),
-                        got: "i32 (cstr)".into(),
-                    })
-                }
-                None => {}
+        Expr::If(_span, cond, body, other) => {
+            sink.writeln("(if ");
+            if let Some(etype) = etype {
+                sink.writeln(format!(" (result {})", translate_type(etype)));
             }
+            translate_expr(out, sink, lscope, Some(Type::I32), cond)?;
+            sink.writeln("(then");
+            translate_expr(out, sink, lscope, etype, body)?;
+            sink.writeln(")");
+            sink.writeln("(else");
+            translate_expr(out, sink, lscope, etype, other)?;
+            sink.writeln(")");
+            sink.writeln(")");
         }
+        Expr::CString(span, value) => match etype {
+            Some(Type::I32) => {
+                let ptr = out.intern_cstr(value);
+                sink.writeln(format!("i32.const {}", ptr));
+            }
+            Some(etype) => {
+                return Err(Error::Type {
+                    span: span.clone(),
+                    expected: format!("{:?}", etype),
+                    got: "i32 (cstr)".into(),
+                })
+            }
+            None => {}
+        },
     }
     Ok(())
 }

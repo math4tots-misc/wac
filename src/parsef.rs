@@ -1,9 +1,9 @@
 //! Parse functions/grammars that build on top of parser.rs
 use crate::ir::*;
-use crate::Parser;
-use crate::Token;
 use crate::ParseError;
+use crate::Parser;
 use crate::Pattern;
+use crate::Token;
 
 pub fn parse_file(parser: &mut Parser) -> Result<File, ParseError> {
     let mut imports = Vec::new();
@@ -142,6 +142,7 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
             parser.gettok();
             Ok(Expr::Float(span, x))
         }
+        Token::Name("if") => parse_if(parser),
         Token::Name(name) => {
             parser.gettok();
             Ok(Expr::GetVar(span, name.into()))
@@ -161,7 +162,7 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
                     span,
                     expected: "intrinsic name".into(),
                     got: format!("{:?}", parser.peek()),
-                })
+                }),
             }
         }
         Token::LBrace => parse_block(parser),
@@ -171,6 +172,30 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
             got: format!("{:?}", parser.peek()).into(),
         }),
     }
+}
+
+fn parse_if(parser: &mut Parser) -> Result<Expr, ParseError> {
+    let span = parser.span();
+    parser.expect(Token::Name("if"))?;
+    let cond = parse_expr(parser)?;
+    let body = parse_block(parser)?;
+    let other = if parser.consume(Token::Name("else")) {
+        match parser.peek() {
+            Token::Name("if") => parse_if(parser)?,
+            Token::LBrace => parse_block(parser)?,
+            _ => {
+                return Err(ParseError::InvalidToken {
+                    span,
+                    expected: "if or block (in else-branch)".into(),
+                    got: format!("{:?}", parser.peek()),
+                })
+            }
+        }
+    } else {
+        Expr::Block(span.clone(), vec![])
+    };
+    let span = span.upto(parser.span());
+    Ok(Expr::If(span, cond.into(), body.into(), other.into()))
 }
 
 fn parse_postfix(parser: &mut Parser) -> Result<Expr, ParseError> {

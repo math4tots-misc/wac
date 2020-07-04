@@ -15,5 +15,23 @@ fn[pub] main() i32 [
     __print_cstr(cstr)
 
     __print_cstr($cstr("Hello again"))
+
+    if 0 {
+        __print_cstr($cstr("1 is true"))
+    } else {
+        __print_cstr($cstr("1 is false"))
+    }
+
+    if 0 {
+        __print_cstr($cstr("1 is true XX"))
+    }
+
+    cstr = if 0 {
+        $cstr("str a")
+    } else {
+        $cstr("str b")
+    }
+    __print_cstr(cstr)
+
     0
 }

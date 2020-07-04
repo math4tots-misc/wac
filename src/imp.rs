@@ -33,9 +33,13 @@ pub fn make_import_object() -> wr::ImportObject {
 // }
 
 fn read_cstr(memory: &wr::Memory, ptr: i32) -> &str {
-    wr::WasmPtr::<i32, wr::Array>::new(ptr as u32).get_utf8_string_with_nul(memory).unwrap()
+    wr::WasmPtr::<i32, wr::Array>::new(ptr as u32)
+        .get_utf8_string_with_nul(memory)
+        .unwrap()
 }
 
 fn read_str(memory: &wr::Memory, len: i32, ptr: i32) -> &str {
-    wr::WasmPtr::<i32, wr::Array>::new(ptr as u32).get_utf8_string(memory, len as u32).unwrap()
+    wr::WasmPtr::<i32, wr::Array>::new(ptr as u32)
+        .get_utf8_string(memory, len as u32)
+        .unwrap()
 }
