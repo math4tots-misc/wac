@@ -6,8 +6,8 @@ use crate::Pattern;
 use crate::Sink;
 use crate::Span;
 use crate::Token;
-use std::rc::Rc;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 /// translates a list of (filename, wac-code) pairs into
 /// a wat webassembly module
@@ -38,9 +38,7 @@ pub fn translate(sources: Vec<(&Rc<str>, &Rc<str>)>) -> Result<String, Error> {
             functions.insert(func.name.clone(), func.type_().clone());
         }
     }
-    let gscope = GlobalScope {
-        functions,
-    };
+    let gscope = GlobalScope { functions };
     for (_filename, file) in files {
         for imp in file.imports {
             translate_import(&out, imp);
@@ -75,7 +73,7 @@ impl<'a> LocalScope<'a> {
                 span,
                 expected: "Variable".into(),
                 got: "NotFound".into(),
-            })
+            }),
         }
     }
     fn getf(&self, name: &Rc<str>) -> Option<FunctionType> {
@@ -88,7 +86,7 @@ impl<'a> LocalScope<'a> {
                 span,
                 expected: "Function".into(),
                 got: "NotFound".into(),
-            })
+            }),
         }
     }
 }
@@ -146,10 +144,7 @@ fn translate_func(out: &Out, gscope: &GlobalScope, func: Function) -> Result<(),
     for (lname, ltype) in &func.locals {
         locals.insert(lname.clone(), *ltype);
     }
-    let lscope = LocalScope {
-        g: gscope,
-        locals,
-    };
+    let lscope = LocalScope { g: gscope, locals };
     match func.visibility {
         Visibility::Public => {
             out.exports.writeln(format!(
@@ -180,7 +175,13 @@ fn translate_func(out: &Out, gscope: &GlobalScope, func: Function) -> Result<(),
     Ok(())
 }
 
-fn translate_expr(out: &Out, sink: &Rc<Sink>, lscope: &LocalScope, etype: Option<Type>, expr: &Expr) -> Result<(), Error> {
+fn translate_expr(
+    out: &Out,
+    sink: &Rc<Sink>,
+    lscope: &LocalScope,
+    etype: Option<Type>,
+    expr: &Expr,
+) -> Result<(), Error> {
     match expr {
         Expr::Int(span, x) => {
             match etype {
@@ -199,7 +200,7 @@ fn translate_expr(out: &Out, sink: &Rc<Sink>, lscope: &LocalScope, etype: Option
                 }
                 None => {
                     // no-op value is dropped
-                },
+                }
             }
         }
         Expr::Float(span, x) => {
@@ -219,7 +220,7 @@ fn translate_expr(out: &Out, sink: &Rc<Sink>, lscope: &LocalScope, etype: Option
                 }
                 None => {
                     // no-op value is dropped
-                },
+                }
             }
         }
         Expr::Block(span, exprs) => {
@@ -272,7 +273,7 @@ fn translate_expr(out: &Out, sink: &Rc<Sink>, lscope: &LocalScope, etype: Option
                     span: span.clone(),
                     expected: format!("{:?}", etype),
                     got: "Void (setvar)".into(),
-                })
+                });
             }
             match entry {
                 ScopeEntry::Local(vartype) => {
@@ -304,7 +305,7 @@ fn translate_expr(out: &Out, sink: &Rc<Sink>, lscope: &LocalScope, etype: Option
                     span: span.clone(),
                     expected: format!("{} args", ftype.parameter_types.len()),
                     got: format!("{} args", argexprs.len()),
-                })
+                });
             }
             for (argexpr, ptype) in argexprs.iter().zip(ftype.parameter_types) {
                 translate_expr(out, sink, lscope, Some(ptype), argexpr)?;
@@ -329,7 +330,7 @@ fn translate_expr(out: &Out, sink: &Rc<Sink>, lscope: &LocalScope, etype: Option
                                 span: span.clone(),
                                 expected: format!("{:?}", etype),
                                 got: "Void (function-return)".into(),
-                            })
+                            });
                         }
                     }
                 }
