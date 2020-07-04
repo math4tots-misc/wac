@@ -28,7 +28,7 @@ pub fn translate(mut sources: Vec<(Rc<str>, Rc<str>)>) -> Result<String, Error> 
         };
         files.push((filename, file));
     }
-    let out = Out::new();
+    let mut out = Out::new();
     let mut functions = HashMap::new();
     for (_filename, file) in &files {
         for imp in &file.imports {
@@ -48,7 +48,7 @@ pub fn translate(mut sources: Vec<(Rc<str>, Rc<str>)>) -> Result<String, Error> 
             translate_import(&out, imp);
         }
         for func in file.functions {
-            translate_func(&out, &gscope, func)?;
+            translate_func(&mut out, &gscope, func)?;
         }
     }
     Ok(out.get())
@@ -143,7 +143,7 @@ fn translate_import(out: &Out, imp: Import) {
     }
 }
 
-fn translate_func(out: &Out, gscope: &GlobalScope, func: Function) -> Result<(), Error> {
+fn translate_func(out: &mut Out, gscope: &GlobalScope, func: Function) -> Result<(), Error> {
     let mut locals = HashMap::new();
     for (lname, ltype) in &func.locals {
         locals.insert(lname.clone(), *ltype);
@@ -180,7 +180,7 @@ fn translate_func(out: &Out, gscope: &GlobalScope, func: Function) -> Result<(),
 }
 
 fn translate_expr(
-    out: &Out,
+    out: &mut Out,
     sink: &Rc<Sink>,
     lscope: &LocalScope,
     etype: Option<Type>,
@@ -350,7 +350,7 @@ fn translate_expr(
         Expr::CString(span, value) => {
             match etype {
                 Some(Type::I32) => {
-                    let ptr = out.data(value.as_bytes());
+                    let ptr = out.intern_cstr(value);
                     sink.writeln(format!("i32.const {}", ptr));
                 }
                 Some(etype) => {
@@ -376,6 +376,7 @@ struct Out {
     exports: Rc<Sink>,
 
     data_len: Cell<usize>,
+    intern_map: HashMap<Rc<str>, u32>,
 }
 
 impl Out {
@@ -394,6 +395,7 @@ impl Out {
             funcs,
             exports,
             data_len: Cell::new(RESERVED_BYTES),
+            intern_map: HashMap::new(),
         }
     }
 
@@ -412,5 +414,15 @@ impl Out {
         }
         self.data.writeln("\")");
         ptr as u32
+    }
+
+    fn intern_cstr(&mut self, s: &Rc<str>) -> u32 {
+        if !self.intern_map.contains_key(s) {
+            let mut buffer = s.as_bytes().to_vec();
+            buffer.push(0);
+            let ptr = self.data(&buffer);
+            self.intern_map.insert(s.clone(), ptr);
+        }
+        *self.intern_map.get(s).unwrap()
     }
 }

@@ -10,8 +10,10 @@ fn[pub] main() i32 [
     x = 842
     __print_i32(x)
 
-    cstr = $cstr("Hello world!\n")
+    cstr = $cstr("Hello world!")
     __print_i32(cstr)
     __print_cstr(cstr)
+
+    __print_cstr($cstr("Hello again"))
     0
 }
