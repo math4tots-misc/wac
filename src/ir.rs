@@ -1,4 +1,3 @@
-use crate::SpanPart;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -15,17 +14,6 @@ pub struct Span {
     main: usize,
     start: usize,
     end: usize,
-}
-
-impl Span {
-    pub fn new(source: Rc<Source>, part: SpanPart) -> Self {
-        Self {
-            source,
-            main: part.main,
-            start: part.start,
-            end: part.end,
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -98,12 +86,6 @@ impl Function {
             parameter_types: self.parameters.iter().map(|(_, t)| *t).collect(),
         }
     }
-    pub fn ops(&self) -> &Rc<Vec<FlatExpr>> {
-        match &self.body {
-            Expr::Flat(flat) => flat,
-            _ => panic!("Function has not yet been resolved"),
-        }
-    }
 }
 
 pub struct GlobalVar {
@@ -129,7 +111,7 @@ pub enum Expr {
     While(Span, Box<Expr>, Box<Expr>),
 
     Typed(TypedExpr),
-    Flat(Rc<Vec<FlatExpr>>),
+    Flat(Vec<FlatExpr>),
 }
 
 pub enum TypedExpr {
@@ -328,6 +310,7 @@ pub enum Import {
 
 pub struct FunctionImport {
     pub span: Span,
+    pub module_name: Rc<String>,
     pub function_name: Rc<String>,
     pub alias: Rc<String>,
     pub type_: FunctionType,
@@ -358,26 +341,16 @@ impl Module {
         for gl in &mut self.globalvars {
             let mut lscope = gscope.local();
             let span = gl.span.clone();
-            let dummyexpr = Expr::Int(span.clone(), 0);
+            let dummyexpr = Expr::Int(span, 0);
             let etype = gl.type_;
             gl.init = Expr::Typed(annotate_expr(
                 &mut lscope,
                 etype,
                 replace(&mut gl.init, dummyexpr),
             )?);
-            if lscope.decls.len() > 0 {
-                return Err(Error::Assertion {
-                    span,
-                    message: "nested vardecls not allowed here".to_owned().into(),
-                });
-            }
         }
         for func in &mut self.functions {
             let mut lscope = gscope.local();
-            for (name, ty) in &func.parameters {
-                lscope.decl(func.span.clone(), name.clone(), *ty);
-            }
-            let nparams = func.parameters.len();
             let span = func.span.clone();
             let dummyexpr = Expr::Int(span, 0);
             let etype = func.return_type;
@@ -386,9 +359,9 @@ impl Module {
                 etype,
                 replace(&mut func.body, dummyexpr),
             )?);
-            for (i, decl) in lscope.decls.into_iter().skip(nparams).enumerate() {
-                assert_eq!((nparams + i) as u32, decl.id);
-                func.locals.push((decl.name.clone(), decl.type_));
+            for (i, decl) in lscope.decls.into_iter().enumerate() {
+                assert_eq!(i, decl.id);
+                func.locals.push((decl.name, decl.type_));
             }
         }
         Ok(())
@@ -398,14 +371,14 @@ impl Module {
         for gl in &mut self.globalvars {
             let dummyexpr = Expr::Int(gl.span.clone(), 0);
             gl.init = Expr::Flat(match replace(&mut gl.init, dummyexpr) {
-                Expr::Typed(texpr) => texpr.flatten().into(),
+                Expr::Typed(texpr) => texpr.flatten(),
                 _ => panic!("annotate_types must be called before flatten_expressions"),
             });
         }
         for func in &mut self.functions {
             let dummyexpr = Expr::Int(func.span.clone(), 0);
             func.body = Expr::Flat(match replace(&mut func.body, dummyexpr) {
-                Expr::Typed(texpr) => texpr.flatten().into(),
+                Expr::Typed(texpr) => texpr.flatten(),
                 _ => panic!("annotate_types must be called before flatten_expressions"),
             });
         }
@@ -605,7 +578,7 @@ fn annotate_expr(scope: &mut LocalScope, etype: Type, e: Expr) -> Result<TypedEx
                     span,
                     expected: format!("{:?}", etype).into(),
                     got: "Void (while)".to_owned().into(),
-                });
+                })
             }
             let cond = annotate_expr(scope, Type::Bool, *cond)?;
             let body = annotate_expr(scope, Type::Void, *body)?;
@@ -627,21 +600,14 @@ fn auto_cast_to(span: Span, expr: TypedExpr, type_: Type) -> Result<TypedExpr, E
             span,
             got: format!("{:?}", src).into(),
             expected: format!("{:?}", target).into(),
-        }),
+        })
     }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum FunctionSource {
-    Local(usize),
-    Imported(usize),
 }
 
 #[derive(Debug)]
 pub struct FunctionInfo {
     pub span: Span,
     pub type_: FunctionType,
-    pub source: FunctionSource,
 }
 
 enum VarInfo {
@@ -688,11 +654,11 @@ impl GlobalScope {
     fn new(module: &Module) -> Result<Self, Error> {
         let mut functions = HashMap::<Rc<String>, Rc<FunctionInfo>>::new();
         let mut globals = HashMap::<Rc<String>, Rc<GlobalVarInfo>>::new();
-        let mut import_func_count = 0;
         for imp in &module.imports {
             match imp {
                 Import::Function(FunctionImport {
                     span,
+                    module_name: _,
                     function_name: _,
                     alias,
                     type_,
@@ -709,14 +675,12 @@ impl GlobalScope {
                         Rc::new(FunctionInfo {
                             span: span.clone(),
                             type_: type_.clone(),
-                            source: FunctionSource::Imported(import_func_count),
                         }),
                     );
-                    import_func_count += 1;
                 }
             }
         }
-        for (index, func) in module.functions.iter().enumerate() {
+        for func in &module.functions {
             if let Some(old) = functions.get(&func.name) {
                 return Err(Error::ConflictingDefinitions {
                     span1: old.span.clone(),
@@ -729,7 +693,6 @@ impl GlobalScope {
                 Rc::new(FunctionInfo {
                     span: func.span.clone(),
                     type_: func.type_(),
-                    source: FunctionSource::Local(index),
                 }),
             );
         }
@@ -787,11 +750,13 @@ impl<'a> LocalScope<'a> {
     fn get_err(&self, span: Span, name: &Rc<String>) -> Result<VarInfo, Error> {
         match self.get(&name) {
             Some(info) => Ok(info),
-            None => Err(Error::TypeError {
-                span: span.clone(),
-                expected: "Variable".to_owned().into(),
-                got: "NotFound".to_owned().into(),
-            }),
+            None => {
+                Err(Error::TypeError {
+                    span: span.clone(),
+                    expected: "Variable".to_owned().into(),
+                    got: "NotFound".to_owned().into(),
+                })
+            }
         }
     }
     fn decl(&mut self, span: Span, name: Rc<String>, type_: Type) -> Rc<LocalVarInfo> {
@@ -825,9 +790,5 @@ pub enum Error {
         span1: Span,
         span2: Span,
         name: Rc<String>,
-    },
-    Assertion {
-        span: Span,
-        message: Rc<String>,
     },
 }
