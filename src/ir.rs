@@ -25,7 +25,6 @@ pub struct Function {
     pub name: Rc<str>,
     pub parameters: Vec<(Rc<str>, Type)>,
     pub return_type: Option<Type>,
-    pub locals: Vec<(Rc<str>, Type)>,
     pub body: Expr,
 }
 
@@ -44,6 +43,7 @@ pub enum Expr {
     Float(Span, f64),
     GetVar(Span, Rc<str>),
     SetVar(Span, Rc<str>, Box<Expr>),
+    DeclVar(Span, Rc<str>, Option<Type>, Box<Expr>),
     Block(Span, Vec<Expr>),
     FunctionCall(Span, Rc<str>, Vec<Expr>),
     If(Span, Box<Expr>, Box<Expr>, Box<Expr>),

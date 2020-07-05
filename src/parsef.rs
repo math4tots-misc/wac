@@ -85,18 +85,6 @@ fn parse_func(parser: &mut Parser) -> Result<Function, ParseError> {
     } else {
         None
     };
-    let mut locals = Vec::new();
-    if parser.consume(Token::LBracket) {
-        while !parser.consume(Token::RBracket) {
-            let name = parser.expect_name()?;
-            let type_ = parse_type(parser)?;
-            locals.push((name, type_));
-            if !parser.consume(Token::Comma) {
-                parser.expect(Token::RBracket)?;
-                break;
-            }
-        }
-    }
     let body = parse_block(parser)?;
     let span = span.upto(parser.span());
     Ok(Function {
@@ -105,7 +93,6 @@ fn parse_func(parser: &mut Parser) -> Result<Function, ParseError> {
         name,
         parameters,
         return_type,
-        locals,
         body,
     })
 }
@@ -144,6 +131,24 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
         }
         Token::Name("if") => parse_if(parser),
         Token::Name("while") => parse_while(parser),
+        Token::Name("var") => {
+            parser.gettok();
+            let name = parser.expect_name()?;
+            let type_ = if parser.at(Pattern::Name) {
+                Some(parse_type(parser)?)
+            } else {
+                None
+            };
+            parser.expect(Token::Eq)?;
+            let setexpr = parse_expr(parser)?;
+            let span = span.upto(parser.span());
+            Ok(Expr::DeclVar(
+                span,
+                name,
+                type_,
+                setexpr.into(),
+            ))
+        }
         Token::Name(name) => {
             parser.gettok();
             Ok(Expr::GetVar(span, name.into()))

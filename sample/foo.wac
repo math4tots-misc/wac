@@ -1,18 +1,27 @@
 
-fn[pub] main() i32 [
-    x i32,
-    cstr i32,
-    i i32,
-    total i32,
-] {
-    x = 4
+fn[pub] main() i32 {
+    var x = 4
     __print_i32(x)
     __hello()
+
+    {
+        var x = 942
+        __print_cstr($cstr("Inside block, x = "))
+        __print_i32(x)
+        __print_cstr($cstr("Exiting block\n"))
+    }
+
     __print_i32(x)
     x = 842
     __print_i32(x)
 
-    cstr = $cstr("Hello world!")
+    {
+        __print_cstr($cstr("\nadd4(55) -> "))
+        __print_i32(add4(55))
+        __print_cstr($cstr(""))
+    }
+
+    var cstr = $cstr("Hello world!")
     __print_i32(cstr)
     __print_cstr(cstr)
 
@@ -35,8 +44,8 @@ fn[pub] main() i32 [
     }
     __print_cstr(cstr)
 
-    total = 0
-    i = 0
+    var total = 0
+    var i = 0
     while i < 1000 {
         # __print_i32(i)
         i = i + 1
@@ -47,4 +56,8 @@ fn[pub] main() i32 [
     __print_i32(total)
 
     0
+}
+
+fn add4(x i32) i32 {
+    x + 4
 }

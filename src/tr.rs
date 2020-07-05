@@ -60,29 +60,66 @@ struct GlobalScope {
     functions: HashMap<Rc<str>, FunctionType>,
 }
 
+/// local variable declaration
+struct LocalVarInfo {
+    #[allow(dead_code)]
+    span: Span,
+
+    /// the programmer provided name for this variable
+    original_name: Rc<str>,
+
+    type_: Type,
+
+    wasm_name: Rc<str>,
+}
+
 struct LocalScope<'a> {
     g: &'a GlobalScope,
-    locals: HashMap<Rc<str>, Type>,
+    locals: Vec<HashMap<Rc<str>, Rc<LocalVarInfo>>>,
     nlabels: usize,
     continue_labels: Vec<u32>,
     break_labels: Vec<u32>,
+    decls: Vec<Rc<LocalVarInfo>>,
 }
 
 impl<'a> LocalScope<'a> {
-    fn new(g: &'a GlobalScope, locals: HashMap<Rc<str>, Type>) -> Self {
+    fn new(g: &'a GlobalScope) -> Self {
         Self {
             g,
-            locals,
+            locals: vec![HashMap::new()],
             nlabels: 0,
             continue_labels: vec![],
             break_labels: vec![],
+            decls: vec![],
         }
     }
+    fn push(&mut self) {
+        self.locals.push(HashMap::new());
+    }
+    fn pop(&mut self) {
+        self.locals.pop().unwrap();
+    }
+    fn decl(&mut self, span: Span, original_name: Rc<str>, type_: Type) -> Rc<LocalVarInfo> {
+        let id = self.decls.len();
+        let wasm_name = format!("$l_{}_{}", id, original_name).into();
+        let info = Rc::new(LocalVarInfo {
+            span,
+            original_name,
+            type_,
+            wasm_name,
+        });
+        self.decls.push(info.clone());
+        self.locals.last_mut().unwrap().insert(info.original_name.clone(), info.clone());
+        info
+    }
     fn get(&self, name: &Rc<str>) -> Option<ScopeEntry> {
-        match self.locals.get(name) {
-            Some(t) => Some(ScopeEntry::Local(*t)),
-            None => None,
+        for map in self.locals.iter().rev() {
+            match map.get(name) {
+                Some(t) => return Some(ScopeEntry::Local(t.clone())),
+                None => {}
+            }
         }
+        None
     }
     fn get_or_err(&self, span: Span, name: &Rc<str>) -> Result<ScopeEntry, Error> {
         match self.get(name) {
@@ -115,7 +152,7 @@ impl<'a> LocalScope<'a> {
 }
 
 enum ScopeEntry {
-    Local(Type),
+    Local(Rc<LocalVarInfo>),
 }
 
 fn translate_func_type(ft: &FunctionType) -> String {
@@ -163,11 +200,8 @@ fn translate_import(out: &Out, imp: Import) {
 }
 
 fn translate_func(out: &mut Out, gscope: &GlobalScope, func: Function) -> Result<(), Error> {
-    let mut locals = HashMap::new();
-    for (lname, ltype) in &func.locals {
-        locals.insert(lname.clone(), *ltype);
-    }
-    let mut lscope = LocalScope::new(gscope, locals);
+    let mut lscope = LocalScope::new(gscope);
+
     match func.visibility {
         Visibility::Public => {
             out.exports.writeln(format!(
@@ -180,21 +214,27 @@ fn translate_func(out: &mut Out, gscope: &GlobalScope, func: Function) -> Result
 
     let sink = out.funcs.spawn();
     sink.writeln(format!("(func $f_{}", func.name));
-    for parameter_type in func.type_().parameter_types {
+
+    for parameter in &func.parameters {
+        let info = lscope.decl(func.span.clone(), parameter.0.clone(), parameter.1);
         sink.writeln(format!(
-            " (param $l_{} {})",
-            func.name,
-            translate_type(parameter_type)
+            " (param {} {})",
+            info.wasm_name,
+            translate_type(info.type_)
         ));
     }
     if let Some(return_type) = func.return_type {
         sink.writeln(format!(" (result {})", translate_type(return_type)));
     }
-    for (lname, ltype) in &func.locals {
-        sink.writeln(format!(" (local $l_{} {})", lname, translate_type(*ltype)));
-    }
+    // we won't know what locals we have until we finish translate_expr on the body
+    let locals_sink = sink.spawn();
     translate_expr(out, &sink, &mut lscope, func.return_type, &func.body)?;
     sink.writeln(")");
+
+    // declare all the local variables (skipping parameters)
+    for info in lscope.decls.into_iter().skip(func.parameters.len()) {
+        locals_sink.writeln(format!(" (local {} {})", info.wasm_name, translate_type(info.type_)));
+    }
     Ok(())
 }
 
@@ -248,10 +288,14 @@ fn translate_expr(
         }
         Expr::Block(span, exprs) => {
             if let Some(last) = exprs.last() {
+                lscope.push();
+
                 for expr in &exprs[..exprs.len() - 1] {
                     translate_expr(out, sink, lscope, None, expr)?;
                 }
                 translate_expr(out, sink, lscope, etype, last)?;
+
+                lscope.pop();
             } else {
                 match etype {
                     None => {}
@@ -268,16 +312,16 @@ fn translate_expr(
         Expr::GetVar(span, name) => {
             let entry = lscope.get_or_err(span.clone(), name)?;
             match entry {
-                ScopeEntry::Local(vartype) => {
+                ScopeEntry::Local(info) => {
                     match etype {
-                        Some(etype) if etype == vartype => {
-                            sink.writeln(format!("local.get $l_{}", name));
+                        Some(etype) if etype == info.type_ => {
+                            sink.writeln(format!("local.get {}", info.wasm_name));
                         }
                         Some(etype) => {
                             return Err(Error::Type {
                                 span: span.clone(),
                                 expected: format!("{:?}", etype),
-                                got: format!("{:?}", vartype),
+                                got: format!("{:?}", info.type_),
                             })
                         }
                         None => {
@@ -299,7 +343,7 @@ fn translate_expr(
                 });
             }
             match entry {
-                ScopeEntry::Local(vartype) => match etype {
+                ScopeEntry::Local(info) => match etype {
                     Some(etype) => {
                         return Err(Error::Type {
                             span: span.clone(),
@@ -308,11 +352,27 @@ fn translate_expr(
                         })
                     }
                     None => {
-                        translate_expr(out, sink, lscope, Some(vartype), setexpr)?;
-                        sink.writeln(format!("local.set $l_{}", name));
+                        translate_expr(out, sink, lscope, Some(info.type_), setexpr)?;
+                        sink.writeln(format!("local.set {}", info.wasm_name));
                     }
                 },
             }
+        }
+        Expr::DeclVar(span, name, type_, setexpr) => {
+            let type_ = match type_ {
+                Some(t) => *t,
+                None => guess_type(lscope, setexpr)?,
+            };
+            let info = lscope.decl(span.clone(), name.clone(), type_);
+            if let Some(etype) = etype {
+                return Err(Error::Type {
+                    span: span.clone(),
+                    expected: format!("{:?}", etype),
+                    got: "Void (declvar)".into(),
+                });
+            }
+            translate_expr(out, sink, lscope, Some(type_), setexpr)?;
+            sink.writeln(format!("local.set {}", info.wasm_name));
         }
         Expr::FunctionCall(span, fname, argexprs) => {
             let ftype = lscope.getf_or_err(span.clone(), fname)?;
@@ -527,12 +587,17 @@ fn guess_type(lscope: &mut LocalScope, expr: &Expr) -> Result<Type, Error> {
         Expr::Int(..) => Ok(Type::I32),
         Expr::Float(..) => Ok(Type::F32),
         Expr::GetVar(span, name) => match lscope.get_or_err(span.clone(), name)? {
-            ScopeEntry::Local(t) => Ok(t),
+            ScopeEntry::Local(info) => Ok(info.type_),
         },
         Expr::SetVar(span, ..) => Err(Error::Type {
             span: span.clone(),
             expected: "any-value".into(),
             got: "Void (setvar)".into(),
+        }),
+        Expr::DeclVar(span, ..) => Err(Error::Type {
+            span: span.clone(),
+            expected: "any-value".into(),
+            got: "Void (declvar)".into(),
         }),
         Expr::Block(span, exprs) => match exprs.last() {
             Some(last) => guess_type(lscope, last),
