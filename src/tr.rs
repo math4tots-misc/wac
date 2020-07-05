@@ -527,42 +527,7 @@ fn translate_expr(
                 translate_expr(out, sink, lscope, Some(ptype), argexpr)?;
             }
             sink.writeln(format!("call $f_{}", fname));
-            match etype {
-                Some(etype) => {
-                    match &ftype.return_type {
-                        Some(return_type) if *return_type == etype => {
-                            // types match
-                        }
-                        Some(return_type) => {
-                            return Err(Error::Type {
-                                span: span.clone(),
-                                expected: format!("{:?}", etype),
-                                got: format!("{:?}", return_type),
-                            })
-                        }
-                        None => {
-                            // expects etype, but returns void
-                            return Err(Error::Type {
-                                span: span.clone(),
-                                expected: format!("{:?}", etype),
-                                got: "Void (function-return)".into(),
-                            });
-                        }
-                    }
-                }
-                None => {
-                    match ftype.return_type {
-                        Some(return_type) => {
-                            // expects void, but returns something
-                            // we need to remove it
-                            drop(lscope, sink, return_type);
-                        }
-                        None => {
-                            // expects void, returns void
-                        }
-                    }
-                }
-            }
+            auto_cast(sink, span, lscope, ftype.return_type, etype)?;
         }
         Expr::If(_span, cond, body, other) => {
             sink.writeln("(if ");
