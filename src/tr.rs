@@ -329,6 +329,23 @@ fn translate_expr(
     expr: &Expr,
 ) -> Result<(), Error> {
     match expr {
+        Expr::Bool(span, x) => {
+            match etype {
+                Some(Type::Bool) => {
+                    sink.writeln(format!("(i32.const {})", if *x { 1 } else { 0 }));
+                }
+                Some(t) => {
+                    return Err(Error::Type {
+                        span: span.clone(),
+                        expected: format!("{:?}", t),
+                        got: "Bool".into(),
+                    })
+                }
+                None => {
+                    // no-op value is dropped
+                }
+            }
+        }
         Expr::Int(span, x) => {
             match etype {
                 Some(Type::I32) => {
@@ -544,7 +561,7 @@ fn translate_expr(
             if let Some(etype) = etype {
                 sink.writeln(format!(" (result {})", translate_type(etype)));
             }
-            translate_expr(out, sink, lscope, Some(Type::I32), cond)?;
+            translate_expr(out, sink, lscope, Some(Type::Bool), cond)?;
             sink.writeln("(then");
             translate_expr(out, sink, lscope, etype, body)?;
             sink.writeln(")");
@@ -563,7 +580,7 @@ fn translate_expr(
                 "(block $lbl_{} (loop $lbl_{}",
                 break_label, continue_label
             ));
-            translate_expr(out, sink, lscope, Some(Type::I32), cond)?;
+            translate_expr(out, sink, lscope, Some(Type::Bool), cond)?;
             sink.writeln("i32.eqz");
             sink.writeln(format!("br_if $lbl_{}", break_label));
             translate_expr(out, sink, lscope, None, body)?;
@@ -600,7 +617,7 @@ fn translate_expr(
 /// drops the TOS given that TOS is the provided type
 fn drop(_lscope: &mut LocalScope, sink: &Rc<Sink>, type_: Type) {
     match type_ {
-        Type::I32 | Type::I64 | Type::F32 | Type::F64 => {
+        Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 => {
             sink.writeln("drop");
         }
     }
@@ -625,7 +642,7 @@ fn op_cmp(
     translate_expr(out, sink, lscope, Some(gtype), left)?;
     translate_expr(out, sink, lscope, Some(gtype), right)?;
     match gtype {
-        Type::I32 | Type::I64 => {
+        Type::Bool | Type::I32 | Type::I64 => {
             sink.writeln(format!("{}.{}_s", translate_type(gtype), opname));
         }
         Type::F32 | Type::F64 => {
@@ -633,7 +650,7 @@ fn op_cmp(
         }
     }
     match etype {
-        Some(Type::I32) => {
+        Some(Type::Bool) => {
             // Ok, this value is already on the stack
         }
         Some(etype) => {
@@ -641,7 +658,7 @@ fn op_cmp(
             return Err(Error::Type {
                 span: span.clone(),
                 expected: format!("{:?}", etype),
-                got: "i32 (bool)".into(),
+                got: "Bool".into(),
             });
         }
         None => {
@@ -674,6 +691,13 @@ fn op_arith_binop(
         Type::I32 | Type::I64 | Type::F32 | Type::F64 => {
             sink.writeln(format!("{}.{}", translate_type(gtype), opname));
         }
+        _ => {
+            return Err(Error::Type {
+                span: span.clone(),
+                expected: "numeric value".into(),
+                got: format!("{:?}", gtype),
+            });
+        }
     }
     match etype {
         Some(etype) if etype == gtype => {
@@ -699,6 +723,7 @@ fn op_arith_binop(
 /// returning void will cause an error to be returned
 fn guess_type(lscope: &mut LocalScope, expr: &Expr) -> Result<Type, Error> {
     match expr {
+        Expr::Bool(..) => Ok(Type::Bool),
         Expr::Int(..) => Ok(Type::I32),
         Expr::Float(..) => Ok(Type::F32),
         Expr::GetVar(span, name) => match lscope.get_or_err(span.clone(), name)? {

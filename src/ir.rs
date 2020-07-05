@@ -48,6 +48,7 @@ pub struct GlobalVariable {
 }
 
 pub enum Expr {
+    Bool(Span, bool),
     Int(Span, i64),
     Float(Span, f64),
     GetVar(Span, Rc<str>),
@@ -84,6 +85,7 @@ pub enum Type {
     I64,
     F32,
     F64,
+    Bool,
 }
 
 impl Type {
@@ -93,6 +95,7 @@ impl Type {
             Type::I64 => WasmType::I64,
             Type::F32 => WasmType::F32,
             Type::F64 => WasmType::F64,
+            Type::Bool => WasmType::I32,
         }
     }
 }

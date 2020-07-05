@@ -177,6 +177,14 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
             parser.gettok();
             Ok(Expr::Float(span, x))
         }
+        Token::Name("true") => {
+            parser.gettok();
+            Ok(Expr::Bool(span, true))
+        }
+        Token::Name("false") => {
+            parser.gettok();
+            Ok(Expr::Bool(span, false))
+        }
         Token::Name("if") => parse_if(parser),
         Token::Name("while") => parse_while(parser),
         Token::Name("var") => {
