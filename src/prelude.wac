@@ -5,7 +5,7 @@ import fn "lang" "cstrlen" __cstrlen(i32) i32
 
 # We define the entrypoint to be __start so that main can be private
 fn[pub] __start() i32 {
-    main()
+    Main()
     0
 }
 

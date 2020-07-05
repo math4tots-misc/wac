@@ -1,6 +1,6 @@
 var gvar = 20
 
-fn main() {
+fn Main() {
     __print_cstr($cstr("heap start ->"))
     __print_i32(__WAC_heap_start)
     __print_cstr($cstr(""))
