@@ -563,12 +563,6 @@ fn translate_expr(
             lscope.break_labels.pop();
             lscope.continue_labels.pop();
         }
-        Expr::LessThan(span, left, right) => {
-            op_cmp(out, sink, lscope, etype, span, "lt", left, right)?;
-        }
-        Expr::Add(span, left, right) => {
-            op_arith_binop(out, sink, lscope, etype, span, "add", left, right)?;
-        }
         Expr::Binop(span, op, left, right) => match op {
             Binop::Less => op_cmp(out, sink, lscope, etype, span, "lt", left, right)?,
             Binop::LessOrEqual => op_cmp(out, sink, lscope, etype, span, "le", left, right)?,
@@ -793,11 +787,6 @@ fn guess_type(lscope: &mut LocalScope, expr: &Expr) -> Result<Type, Error> {
             expected: "any-value".into(),
             got: "Void (while)".into(),
         }),
-        Expr::LessThan(..) => {
-            // Should return a bool
-            Ok(Type::Bool)
-        }
-        Expr::Add(_, left, _) => guess_type(lscope, left),
         Expr::Binop(_span, op, left, _) => match op {
             Binop::Add | Binop::Subtract | Binop::Multiply => guess_type(lscope, left),
             Binop::Divide => Ok(Type::F32),

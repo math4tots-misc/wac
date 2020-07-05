@@ -60,8 +60,6 @@ pub enum Expr {
     While(SSpan, Box<Expr>, Box<Expr>),
 
     // builtin operators
-    LessThan(SSpan, Box<Expr>, Box<Expr>),
-    Add(SSpan, Box<Expr>, Box<Expr>),
     Binop(SSpan, Binop, Box<Expr>, Box<Expr>),
     Unop(SSpan, Unop, Box<Expr>),
 
