@@ -401,6 +401,7 @@ fn parse_function_type(parser: &mut Parser) -> Result<FunctionType, ParseError> 
 
 fn parse_type(parser: &mut Parser) -> Result<Type, ParseError> {
     let opt = match parser.peek() {
+        Token::Name("bool") => Some(Type::Bool),
         Token::Name("i32") => Some(Type::I32),
         Token::Name("i64") => Some(Type::I64),
         Token::Name("f32") => Some(Type::F32),
