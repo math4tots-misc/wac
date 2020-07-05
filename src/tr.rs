@@ -573,45 +573,44 @@ fn translate_expr(
             Binop::Multiply => op_arith_binop(out, sink, lscope, etype, span, "mul", left, right)?,
             _ => panic!("TODO: translate_expr binop {:?}", op),
         },
-        Expr::Unop(span, op, expr) => {
-            match op {
-                Unop::Plus | Unop::Minus => {
-                    let gtype = guess_type(lscope, expr)?;
-                    match gtype {
-                        Type::F32 | Type::F64 | Type::I32 | Type::I64 => {
-                            translate_expr(out, sink, lscope, Some(gtype), expr)?;
-                            match op {
-                                Unop::Plus => {}
-                                Unop::Minus => {
-                                    match gtype {
-                                        Type::F32 | Type::F64 => {
-                                            sink.writeln(format!("({}.neg ", translate_type(gtype)));
-                                        }
-                                        Type::I32 | Type::I64 => {
-                                            sink.writeln(format!("{}.const -1", translate_type(gtype)));
-                                            sink.writeln(format!("{}.mul", translate_type(gtype)));
-                                        }
-                                        _ => panic!("Unop gtype {:?}", gtype)
-                                    }
+        Expr::Unop(span, op, expr) => match op {
+            Unop::Plus | Unop::Minus => {
+                let gtype = guess_type(lscope, expr)?;
+                match gtype {
+                    Type::F32 | Type::F64 | Type::I32 | Type::I64 => {
+                        translate_expr(out, sink, lscope, Some(gtype), expr)?;
+                        match op {
+                            Unop::Plus => {}
+                            Unop::Minus => match gtype {
+                                Type::F32 | Type::F64 => {
+                                    sink.writeln(format!("({}.neg ", translate_type(gtype)));
                                 }
-                                _ => panic!("Unop {:?}", op),
-                            }
-                        }
-                        _ => {
-                            return Err(Error::Type {
-                                span: span.clone(),
-                                expected: "numeric".into(),
-                                got: format!("{:?}", gtype),
-                            })
+                                Type::I32 | Type::I64 => {
+                                    sink.writeln(format!("{}.const -1", translate_type(gtype)));
+                                    sink.writeln(format!("{}.mul", translate_type(gtype)));
+                                }
+                                _ => panic!("Unop gtype {:?}", gtype),
+                            },
+                            _ => panic!("Unop {:?}", op),
                         }
                     }
-                    auto_cast(sink, span, lscope, Some(gtype), etype)?
+                    _ => {
+                        return Err(Error::Type {
+                            span: span.clone(),
+                            expected: "numeric".into(),
+                            got: format!("{:?}", gtype),
+                        })
+                    }
                 }
-                Unop::Not => {
-                    translate_expr(out, sink, lscope, Some(Type::Bool), expr)?;
-                    sink.writeln("i32.eqz");
-                }
+                auto_cast(sink, span, lscope, Some(gtype), etype)?
             }
+            Unop::Not => {
+                translate_expr(out, sink, lscope, Some(Type::Bool), expr)?;
+                sink.writeln("i32.eqz");
+            }
+        },
+        Expr::AssertType(_span, type_, expr) => {
+            translate_expr(out, sink, lscope, Some(*type_), expr)?;
         }
         Expr::CString(span, value) => match etype {
             Some(Type::I32) => {
@@ -713,7 +712,13 @@ fn op_arith_binop(
 }
 
 /// perform a cast of TOS from src to dst for when implicitly needed
-fn auto_cast(sink: &Rc<Sink>, span: &SSpan, lscope: &mut LocalScope, src: Option<Type>, dst: Option<Type>) -> Result<(), Error> {
+fn auto_cast(
+    sink: &Rc<Sink>,
+    span: &SSpan,
+    lscope: &mut LocalScope,
+    src: Option<Type>,
+    dst: Option<Type>,
+) -> Result<(), Error> {
     match (src, dst) {
         (Some(src), Some(dst)) if src == dst => {}
         (None, None) => {}
@@ -806,7 +811,8 @@ fn guess_type(lscope: &mut LocalScope, expr: &Expr) -> Result<Type, Error> {
         Expr::Unop(_span, op, expr) => match op {
             Unop::Minus | Unop::Plus => guess_type(lscope, expr),
             Unop::Not => Ok(Type::Bool),
-        }
+        },
+        Expr::AssertType(_, type_, _) => Ok(*type_),
         Expr::CString(..) => {
             // Should return a pointer
             Ok(Type::I32)

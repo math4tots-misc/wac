@@ -18,9 +18,7 @@ const PREC_BITWISE_XOR: u32 = 275;
 #[allow(unused)]
 const PREC_BITWISE_OR: u32 = 250;
 const PREC_CMP: u32 = 200;
-#[allow(unused)]
 const PREC_LOGICAL_AND: u32 = 150;
-#[allow(unused)]
 const PREC_LOGICAL_OR: u32 = 140;
 const PREC_ASSIGN: u32 = 100;
 
@@ -385,6 +383,36 @@ fn parse_infix(parser: &mut Parser, mut lhs: Expr, prec: u32) -> Result<Expr, Pa
                 let right = parse_expr(parser, PREC_PRODUCT + 1)?;
                 let span = span.join(&start).upto(&parser.span());
                 lhs = Expr::Binop(span, op, lhs.into(), right.into());
+            }
+            Token::Name("and") => {
+                if prec > PREC_LOGICAL_AND {
+                    break;
+                }
+                let span = parser.span();
+                parser.gettok();
+                let rhs = parse_expr(parser, PREC_LOGICAL_AND + 1)?;
+                let span = span.join(&start).upto(&parser.span());
+                lhs = Expr::If(
+                    span.clone(),
+                    lhs.into(),
+                    Expr::AssertType(span.clone(), Type::Bool, rhs.into()).into(),
+                    Expr::Bool(span.clone(), false).into(),
+                )
+            }
+            Token::Name("or") => {
+                if prec > PREC_LOGICAL_OR {
+                    break;
+                }
+                let span = parser.span();
+                parser.gettok();
+                let rhs = parse_expr(parser, PREC_LOGICAL_AND + 1)?;
+                let span = span.join(&start).upto(&parser.span());
+                lhs = Expr::If(
+                    span.clone(),
+                    lhs.into(),
+                    Expr::Bool(span.clone(), true).into(),
+                    rhs.into(),
+                )
             }
             Token::Eq2 | Token::Ne | Token::Lt | Token::Gt | Token::Le | Token::Ge => {
                 if prec > PREC_CMP {

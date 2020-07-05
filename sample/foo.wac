@@ -1,6 +1,19 @@
 var gvar = 20
 
 fn Main() {
+
+    if true or false {
+        __print_cstr($cstr("true or false"))
+    } else {
+        __print_cstr($cstr("not true or false"))
+    }
+
+    if true and false {
+        __print_cstr($cstr("true and false"))
+    } else {
+        __print_cstr($cstr("not true and false"))
+    }
+
     __print_cstr($cstr("heap start ->"))
     __print_i32(__WAC_heap_start)
     __print_cstr($cstr(""))

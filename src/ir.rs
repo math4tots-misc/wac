@@ -62,6 +62,7 @@ pub enum Expr {
     // builtin operators
     Binop(SSpan, Binop, Box<Expr>, Box<Expr>),
     Unop(SSpan, Unop, Box<Expr>),
+    AssertType(SSpan, Type, Box<Expr>),
 
     // intrinsics
     CString(SSpan, Rc<str>),
