@@ -680,7 +680,7 @@ fn op_cmp(
             sink.writeln(format!("{}.{}", translate_type(gtype), opname));
         }
     }
-    auto_cast(sink, span, lscope, Some(gtype), etype)?;
+    auto_cast(sink, span, lscope, Some(Type::Bool), etype)?;
     Ok(())
 }
 
@@ -795,7 +795,7 @@ fn guess_type(lscope: &mut LocalScope, expr: &Expr) -> Result<Type, Error> {
         }),
         Expr::LessThan(..) => {
             // Should return a bool
-            Ok(Type::I32)
+            Ok(Type::Bool)
         }
         Expr::Add(_, left, _) => guess_type(lscope, left),
         Expr::Binop(_span, op, left, _) => match op {
