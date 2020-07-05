@@ -65,6 +65,7 @@ pub enum Expr {
 
     // intrinsics
     CString(Span, Rc<str>),
+    Asm(Span, Vec<Expr>, Option<Type>, Rc<str>),
 }
 
 pub enum Import {

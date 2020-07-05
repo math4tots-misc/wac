@@ -610,6 +610,26 @@ fn translate_expr(
             }
             None => {}
         },
+        Expr::Asm(span, args, type_, asm_code) => {
+            for arg in args {
+                let argtype = guess_type(lscope, arg)?;
+                translate_expr(out, sink, lscope, Some(argtype), arg)?;
+            }
+            sink.writeln(asm_code);
+
+            match (etype, *type_) {
+                (Some(etype), Some(type_)) if etype == type_ => {}
+                (None, None) => {}
+                (None, Some(type_)) => {
+                    drop(lscope, sink, type_);
+                }
+                (Some(etype), _) => return Err(Error::Type {
+                    span: span.clone(),
+                    expected: format!("{:?}", etype),
+                    got: format!("{:?}", type_),
+                }),
+            }
+        }
     }
     Ok(())
 }
@@ -777,6 +797,16 @@ fn guess_type(lscope: &mut LocalScope, expr: &Expr) -> Result<Type, Error> {
             // Should return a pointer
             Ok(Type::I32)
         }
+        Expr::Asm(span, _, type_, _) => match type_ {
+            Some(t) => Ok(*t),
+            None => {
+                return Err(Error::Type {
+                    span: span.clone(),
+                    expected: "any-value".into(),
+                    got: "Void (void-asm-expr)".into(),
+                })
+            }
+        }
     }
 }
 
@@ -823,6 +853,10 @@ impl Out {
 
     fn get(self) -> String {
         self.memory.writeln("(memory $rt_mem 1)");
+        self.gvars.writeln(format!(
+            "(global $rt_heap_start i32 (i32.const {}))",
+            self.data_len.get()
+        ));
         self.main.get()
     }
 

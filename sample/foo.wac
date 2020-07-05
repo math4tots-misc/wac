@@ -1,6 +1,9 @@
 var gvar = 20
 
 fn[pub] main() i32 {
+    __print_cstr($cstr("heap start ->"))
+    __print_i32(__WAC_heap_start)
+    __print_cstr($cstr(""))
 
     {
         __print_cstr($cstr("global var ->"))

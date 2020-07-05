@@ -2,3 +2,6 @@ import fn "lang" "hello" __hello()
 import fn "lang" "print_i32" __print_i32(i32)
 import fn "lang" "print_cstr" __print_cstr(i32)
 import fn "lang" "strlen" __strlen(i32) i32
+
+var __WAC_heap_start = $asm([], i32, "global.get $rt_heap_start")
+

@@ -215,6 +215,26 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
                     let span = span.upto(parser.span());
                     Ok(Expr::CString(span, string))
                 }
+                Token::Name("asm") => {
+                    parser.gettok();
+                    parser.expect(Token::LParen)?;
+                    parser.expect(Token::LBracket)?;
+                    let mut args = Vec::new();
+                    while !parser.consume(Token::RBracket) {
+                        args.push(parse_expr(parser)?);
+                        if !parser.consume(Token::Comma) {
+                            parser.expect(Token::RBracket)?;
+                            break;
+                        }
+                    }
+                    parser.expect(Token::Comma)?;
+                    let type_ = parse_voidable_type(parser)?;
+                    parser.expect(Token::Comma)?;
+                    let asm_code = parser.expect_string()?;
+                    parser.consume(Token::Comma);
+                    parser.expect(Token::RParen)?;
+                    Ok(Expr::Asm(span, args, type_, asm_code))
+                }
                 _ => Err(ParseError::InvalidToken {
                     span,
                     expected: "intrinsic name".into(),
@@ -397,6 +417,16 @@ fn parse_function_type(parser: &mut Parser) -> Result<FunctionType, ParseError> 
         parameter_types,
         return_type,
     })
+}
+
+fn parse_voidable_type(parser: &mut Parser) -> Result<Option<Type>, ParseError> {
+    match parser.peek() {
+        Token::Name("void") => {
+            parser.gettok();
+            Ok(None)
+        }
+        _ => Ok(Some(parse_type(parser)?)),
+    }
 }
 
 fn parse_type(parser: &mut Parser) -> Result<Type, ParseError> {
