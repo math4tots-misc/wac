@@ -143,6 +143,7 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
             Ok(Expr::Float(span, x))
         }
         Token::Name("if") => parse_if(parser),
+        Token::Name("while") => parse_while(parser),
         Token::Name(name) => {
             parser.gettok();
             Ok(Expr::GetVar(span, name.into()))
@@ -198,6 +199,15 @@ fn parse_if(parser: &mut Parser) -> Result<Expr, ParseError> {
     Ok(Expr::If(span, cond.into(), body.into(), other.into()))
 }
 
+fn parse_while(parser: &mut Parser) -> Result<Expr, ParseError> {
+    let span = parser.span();
+    parser.expect(Token::Name("while"))?;
+    let cond = parse_expr(parser)?;
+    let body = parse_block(parser)?;
+    let span = span.upto(parser.span());
+    Ok(Expr::While(span, cond.into(), body.into()))
+}
+
 fn parse_postfix(parser: &mut Parser) -> Result<Expr, ParseError> {
     let mut e = parse_atom(parser)?;
     let start = parser.span();
@@ -235,8 +245,44 @@ fn parse_postfix(parser: &mut Parser) -> Result<Expr, ParseError> {
     Ok(e)
 }
 
-fn parse_assign(parser: &mut Parser) -> Result<Expr, ParseError> {
+fn parse_sum(parser: &mut Parser) -> Result<Expr, ParseError> {
     let mut e = parse_postfix(parser)?;
+    let start = parser.span();
+    loop {
+        match parser.peek() {
+            Token::Plus => {
+                let span = parser.span();
+                parser.gettok();
+                let right = parse_sum(parser)?;
+                let span = span.join(start).upto(parser.span());
+                e = Expr::Add(span, e.into(), right.into());
+            }
+            _ => break,
+        }
+    }
+    Ok(e)
+}
+
+fn parse_cmp(parser: &mut Parser) -> Result<Expr, ParseError> {
+    // cmp is a bit different -- the grammar is such that
+    // chaining is not allowed for comparison operators
+    let mut e = parse_sum(parser)?;
+    let start = parser.span();
+    match parser.peek() {
+        Token::Lt => {
+            let span = parser.span();
+            parser.gettok();
+            let right = parse_sum(parser)?;
+            let span = span.join(start).upto(parser.span());
+            e = Expr::LessThan(span, e.into(), right.into());
+        }
+        _ => {}
+    }
+    Ok(e)
+}
+
+fn parse_assign(parser: &mut Parser) -> Result<Expr, ParseError> {
+    let mut e = parse_cmp(parser)?;
     let start = parser.span();
     loop {
         match parser.peek() {

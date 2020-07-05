@@ -47,6 +47,11 @@ pub enum Expr {
     Block(Span, Vec<Expr>),
     FunctionCall(Span, Rc<str>, Vec<Expr>),
     If(Span, Box<Expr>, Box<Expr>, Box<Expr>),
+    While(Span, Box<Expr>, Box<Expr>),
+
+    // builtin operators
+    LessThan(Span, Box<Expr>, Box<Expr>),
+    Add(Span, Box<Expr>, Box<Expr>),
 
     // intrinsics
     CString(Span, Rc<str>),

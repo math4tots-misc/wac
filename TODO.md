@@ -3,7 +3,8 @@
 * peek and poke
 * local variable declarations
     instead of requiring them upfront
-* control flow (while and if)
+* control flow (while)
+* control flow (return)
 * reference counted string type
 * refrence counted list type
 * refrence counted map type

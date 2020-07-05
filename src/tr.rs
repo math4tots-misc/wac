@@ -9,8 +9,8 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 /// Number of bytes at start of memory that's reserved
-/// Compile time values stored in memory start from this location
-pub const RESERVED_BYTES: usize = 1024;
+/// Compile-time constants stored in memory start from this location
+pub const RESERVED_BYTES: usize = 2048;
 
 /// translates a list of (filename, wac-code) pairs into
 /// a wat webassembly module
@@ -63,9 +63,21 @@ struct GlobalScope {
 struct LocalScope<'a> {
     g: &'a GlobalScope,
     locals: HashMap<Rc<str>, Type>,
+    nlabels: usize,
+    continue_labels: Vec<u32>,
+    break_labels: Vec<u32>,
 }
 
 impl<'a> LocalScope<'a> {
+    fn new(g: &'a GlobalScope, locals: HashMap<Rc<str>, Type>) -> Self {
+        Self {
+            g,
+            locals,
+            nlabels: 0,
+            continue_labels: vec![],
+            break_labels: vec![],
+        }
+    }
     fn get(&self, name: &Rc<str>) -> Option<ScopeEntry> {
         match self.locals.get(name) {
             Some(t) => Some(ScopeEntry::Local(*t)),
@@ -94,6 +106,11 @@ impl<'a> LocalScope<'a> {
                 got: "NotFound".into(),
             }),
         }
+    }
+    fn new_label_id(&mut self) -> u32 {
+        let id = self.nlabels as u32;
+        self.nlabels += 1;
+        id
     }
 }
 
@@ -150,7 +167,7 @@ fn translate_func(out: &mut Out, gscope: &GlobalScope, func: Function) -> Result
     for (lname, ltype) in &func.locals {
         locals.insert(lname.clone(), *ltype);
     }
-    let lscope = LocalScope { g: gscope, locals };
+    let mut lscope = LocalScope::new(gscope, locals);
     match func.visibility {
         Visibility::Public => {
             out.exports.writeln(format!(
@@ -176,7 +193,7 @@ fn translate_func(out: &mut Out, gscope: &GlobalScope, func: Function) -> Result
     for (lname, ltype) in &func.locals {
         sink.writeln(format!(" (local $l_{} {})", lname, translate_type(*ltype)));
     }
-    translate_expr(out, &sink, &lscope, func.return_type, &func.body)?;
+    translate_expr(out, &sink, &mut lscope, func.return_type, &func.body)?;
     sink.writeln(")");
     Ok(())
 }
@@ -184,7 +201,7 @@ fn translate_func(out: &mut Out, gscope: &GlobalScope, func: Function) -> Result
 fn translate_expr(
     out: &mut Out,
     sink: &Rc<Sink>,
-    lscope: &LocalScope,
+    lscope: &mut LocalScope,
     etype: Option<Type>,
     expr: &Expr,
 ) -> Result<(), Error> {
@@ -335,10 +352,10 @@ fn translate_expr(
                 }
                 None => {
                     match ftype.return_type {
-                        Some(_) => {
+                        Some(return_type) => {
                             // expects void, but returns something
                             // we need to remove it
-                            sink.writeln("drop");
+                            drop(lscope, sink, return_type);
                         }
                         None => {
                             // expects void, returns void
@@ -361,6 +378,32 @@ fn translate_expr(
             sink.writeln(")");
             sink.writeln(")");
         }
+        Expr::While(_span, cond, body) => {
+            let break_label = lscope.new_label_id();
+            let continue_label = lscope.new_label_id();
+            lscope.break_labels.push(break_label);
+            lscope.continue_labels.push(continue_label);
+
+            sink.writeln(format!(
+                "(block $lbl_{} (loop $lbl_{}",
+                break_label, continue_label
+            ));
+            translate_expr(out, sink, lscope, Some(Type::I32), cond)?;
+            sink.writeln("i32.eqz");
+            sink.writeln(format!("br_if $lbl_{}", break_label));
+            translate_expr(out, sink, lscope, None, body)?;
+            sink.writeln(format!("br $lbl_{}", continue_label));
+            sink.writeln("))");
+
+            lscope.break_labels.pop();
+            lscope.continue_labels.pop();
+        }
+        Expr::LessThan(span, left, right) => {
+            op_cmp(out, sink, lscope, etype, span, "lt", left, right)?;
+        }
+        Expr::Add(span, left, right) => {
+            op_arith_binop(out, sink, lscope, etype, span, "add", left, right)?;
+        }
         Expr::CString(span, value) => match etype {
             Some(Type::I32) => {
                 let ptr = out.intern_cstr(value);
@@ -377,6 +420,158 @@ fn translate_expr(
         },
     }
     Ok(())
+}
+
+/// drops the TOS given that TOS is the provided type
+fn drop(_lscope: &mut LocalScope, sink: &Rc<Sink>, type_: Type) {
+    match type_ {
+        Type::I32 | Type::I64 | Type::F32 | Type::F64 => {
+            sink.writeln("drop");
+        }
+    }
+}
+
+/// util for comparison operators (e.g. LessThan, GreaterThan, etc)
+///   * both arguments are always same type
+///   * guesses types based on first arg
+///   * always returns bool (i32)
+///   * signed and unsigend versions for ints (with *_s/_u suffix)
+fn op_cmp(
+    out: &mut Out,
+    sink: &Rc<Sink>,
+    lscope: &mut LocalScope,
+    etype: Option<Type>,
+    span: &Span,
+    opname: &str,
+    left: &Expr,
+    right: &Expr,
+) -> Result<(), Error> {
+    let gtype = guess_type(lscope, left)?;
+    translate_expr(out, sink, lscope, Some(gtype), left)?;
+    translate_expr(out, sink, lscope, Some(gtype), right)?;
+    match gtype {
+        Type::I32 | Type::I64 => {
+            sink.writeln(format!("{}.{}_s", translate_type(gtype), opname));
+        }
+        Type::F32 | Type::F64 => {
+            sink.writeln(format!("{}.{}", translate_type(gtype), opname));
+        }
+    }
+    match etype {
+        Some(Type::I32) => {
+            // Ok, this value is already on the stack
+        }
+        Some(etype) => {
+            // Mismatched types
+            return Err(Error::Type {
+                span: span.clone(),
+                expected: format!("{:?}", etype),
+                got: "i32 (bool)".into(),
+            });
+        }
+        None => {
+            // Unused result, drop it now
+            drop(lscope, sink, Type::I32);
+        }
+    }
+    Ok(())
+}
+
+/// util for binary arithmetic operators (e.g. Add, Subtract, etc)
+///   * both arguments are always same type
+///   * guesses types based on first arg
+///   * always returns argument type
+///   * not split by sign
+fn op_arith_binop(
+    out: &mut Out,
+    sink: &Rc<Sink>,
+    lscope: &mut LocalScope,
+    etype: Option<Type>,
+    span: &Span,
+    opname: &str,
+    left: &Expr,
+    right: &Expr,
+) -> Result<(), Error> {
+    let gtype = guess_type(lscope, left)?;
+    translate_expr(out, sink, lscope, Some(gtype), left)?;
+    translate_expr(out, sink, lscope, Some(gtype), right)?;
+    match gtype {
+        Type::I32 | Type::I64 | Type::F32 | Type::F64 => {
+            sink.writeln(format!("{}.{}", translate_type(gtype), opname));
+        }
+    }
+    match etype {
+        Some(etype) if etype == gtype => {
+            // Ok, this value is already on the stack
+        }
+        Some(etype) => {
+            // Mismatched types
+            return Err(Error::Type {
+                span: span.clone(),
+                expected: format!("{:?}", etype),
+                got: format!("{:?}", gtype),
+            });
+        }
+        None => {
+            // Unused result, drop it now
+            drop(lscope, sink, gtype);
+        }
+    }
+    Ok(())
+}
+
+/// tries to guess the type of an expression that must return some value
+/// returning void will cause an error to be returned
+fn guess_type(lscope: &mut LocalScope, expr: &Expr) -> Result<Type, Error> {
+    match expr {
+        Expr::Int(..) => Ok(Type::I32),
+        Expr::Float(..) => Ok(Type::F32),
+        Expr::GetVar(span, name) => match lscope.get_or_err(span.clone(), name)? {
+            ScopeEntry::Local(t) => Ok(t),
+        },
+        Expr::SetVar(span, ..) => Err(Error::Type {
+            span: span.clone(),
+            expected: "any-value".into(),
+            got: "Void (setvar)".into(),
+        }),
+        Expr::Block(span, exprs) => match exprs.last() {
+            Some(last) => guess_type(lscope, last),
+            None => {
+                return Err(Error::Type {
+                    span: span.clone(),
+                    expected: "any-value".into(),
+                    got: "Void (empty-block)".into(),
+                })
+            }
+        },
+        Expr::FunctionCall(span, name, _) => {
+            match lscope.getf_or_err(span.clone(), name)?.return_type {
+                Some(t) => Ok(t),
+                None => {
+                    return Err(Error::Type {
+                        span: span.clone(),
+                        expected: "any-value".into(),
+                        got: "Void (void-returning-function)".into(),
+                    })
+                }
+            }
+        }
+        Expr::If(_, _, body, _) => guess_type(lscope, body),
+        Expr::While(span, ..) => Err(Error::Type {
+            span: span.clone(),
+            expected: "any-value".into(),
+            got: "Void (while)".into(),
+        }),
+        Expr::LessThan(..) => {
+            // Should return a bool
+            Ok(Type::I32)
+        }
+        Expr::Add(_, left, _) => guess_type(lscope, left),
+        Expr::CString(..) => {
+            // Should return a pointer
+            Ok(Type::I32)
+        }
+    }
 }
 
 struct Out {

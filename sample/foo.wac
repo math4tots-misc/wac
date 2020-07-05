@@ -2,6 +2,8 @@
 fn[pub] main() i32 [
     x i32,
     cstr i32,
+    i i32,
+    total i32,
 ] {
     x = 4
     __print_i32(x)
@@ -32,6 +34,17 @@ fn[pub] main() i32 [
         $cstr("str b")
     }
     __print_cstr(cstr)
+
+    total = 0
+    i = 0
+    while i < 1000 {
+        # __print_i32(i)
+        i = i + 1
+        total = total + i
+    }
+
+    __print_cstr($cstr("total: "))
+    __print_i32(total)
 
     0
 }

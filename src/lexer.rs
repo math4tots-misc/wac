@@ -16,6 +16,18 @@ pub enum Token<'a> {
     Colon,
     Comma,
     Dollar,
+    Plus,
+    Minus,
+    Star,
+    Slash,
+    Slash2,
+    Percent,
+    Lt,
+    Le,
+    Gt,
+    Ge,
+    Ne,
+    Eq2,
     Eq,
     EOF,
 }
@@ -182,7 +194,11 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
                 ':' => ret.push((Token::Colon, [i, i + 1].into())),
                 ',' => ret.push((Token::Comma, [i, i + 1].into())),
                 '$' => ret.push((Token::Dollar, [i, i + 1].into())),
-                '=' => ret.push((Token::Eq, [i, i + 1].into())),
+                '+' => ret.push((Token::Plus, [i, i + 1].into())),
+                '-' => ret.push((Token::Minus, [i, i + 1].into())),
+                '*' => ret.push((Token::Star, [i, i + 1].into())),
+                '%' => ret.push((Token::Percent, [i, i + 1].into())),
+                '=' | '!' | '<' | '>' | '/' => state = State::Combine(c),
                 _ => {
                     return Err(LexError::Unrecognized {
                         pos: i,
@@ -194,6 +210,32 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
                 if c == '\n' {
                     state = State::Normal;
                 }
+            }
+            State::Combine(first) => {
+                match (first, c) {
+                    ('=', '=') => ret.push((Token::Eq2, [i - 1, i + 1].into())),
+                    ('/', '/') => ret.push((Token::Slash2, [i - 1, i + 1].into())),
+                    ('!', '=') => ret.push((Token::Ne, [i - 1, i + 1].into())),
+                    ('<', '=') => ret.push((Token::Le, [i - 1, i + 1].into())),
+                    ('>', '=') => ret.push((Token::Ge, [i - 1, i + 1].into())),
+                    _ => {
+                        // the first character on its own can be a token,
+                        // but doesn't combine with the second one
+                        chars.put_back(c);
+                        let tok = match first {
+                            '=' => Token::Eq,
+                            '<' => Token::Lt,
+                            '>' => Token::Gt,
+                            '/' => Token::Slash,
+                            _ => return Err(LexError::Unrecognized {
+                                pos: i,
+                                text: format!("{}{}", first, c),
+                            }),
+                        };
+                        ret.push((tok, [i - 1, i].into()));
+                    }
+                }
+                state = State::Normal;
             }
             State::Digits(start) => match c {
                 '.' => {
@@ -292,6 +334,7 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
 enum State {
     Normal,
     Comment,
+    Combine(char),
     Digits(usize),
     DigitsAfterDot(usize),
     Name(usize),
