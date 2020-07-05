@@ -14,6 +14,11 @@ pub enum Error {
         expected: String,
         got: String,
     },
+    ConflictingDefinitions {
+        span1: Span,
+        span2: Span,
+        name: Rc<str>,
+    },
 }
 
 impl From<wabt::Error> for Error {

@@ -4,6 +4,7 @@ use std::rc::Rc;
 pub struct File {
     pub imports: Vec<Import>,
     pub functions: Vec<Function>,
+    pub globalvars: Vec<GlobalVariable>,
 }
 
 pub struct FunctionImport {
@@ -36,6 +37,14 @@ impl Function {
             return_type: self.return_type,
         }
     }
+}
+
+pub struct GlobalVariable {
+    pub span: Span,
+    pub visibility: Visibility,
+    pub name: Rc<str>,
+    pub type_: Option<Type>,
+    pub init: Expr,
 }
 
 pub enum Expr {

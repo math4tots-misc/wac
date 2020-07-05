@@ -25,11 +25,13 @@ pub fn parse_file(parser: &mut Parser) -> Result<File, ParseError> {
             type_,
         }));
     }
+    let mut globalvars = Vec::new();
     let mut functions = Vec::new();
     consume_delim(parser);
     while !parser.at(Token::EOF) {
         match parser.peek() {
             Token::Name("fn") => functions.push(parse_func(parser)?),
+            Token::Name("var") => globalvars.push(parse_globalvar(parser)?),
             _ => {
                 return Err(ParseError::InvalidToken {
                     span: parser.span(),
@@ -40,7 +42,11 @@ pub fn parse_file(parser: &mut Parser) -> Result<File, ParseError> {
         }
         consume_delim(parser);
     }
-    Ok(File { imports, functions })
+    Ok(File {
+        imports,
+        functions,
+        globalvars,
+    })
 }
 
 fn parse_func(parser: &mut Parser) -> Result<Function, ParseError> {
@@ -97,6 +103,48 @@ fn parse_func(parser: &mut Parser) -> Result<Function, ParseError> {
     })
 }
 
+fn parse_globalvar(parser: &mut Parser) -> Result<GlobalVariable, ParseError> {
+    let span = parser.span();
+    parser.expect(Token::Name("var"))?;
+    let mut visibility = Visibility::Private;
+    if parser.consume(Token::LBracket) {
+        loop {
+            match parser.peek() {
+                Token::Name("pub") => {
+                    parser.gettok();
+                    visibility = Visibility::Public;
+                }
+                Token::RBracket => {
+                    parser.gettok();
+                    break;
+                }
+                _ => {
+                    return Err(ParseError::InvalidToken {
+                        span,
+                        expected: "Function attribute".into(),
+                        got: format!("{:?}", parser.peek()),
+                    })
+                }
+            }
+        }
+    }
+    let name = parser.expect_name()?;
+    let type_ = if parser.at(Pattern::Name) {
+        Some(parse_type(parser)?)
+    } else {
+        None
+    };
+    parser.expect(Token::Eq)?;
+    let init = parse_expr(parser)?;
+    Ok(GlobalVariable {
+        span,
+        visibility,
+        name,
+        type_,
+        init,
+    })
+}
+
 fn consume_delim(parser: &mut Parser) {
     loop {
         match parser.peek() {
@@ -142,12 +190,7 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
             parser.expect(Token::Eq)?;
             let setexpr = parse_expr(parser)?;
             let span = span.upto(parser.span());
-            Ok(Expr::DeclVar(
-                span,
-                name,
-                type_,
-                setexpr.into(),
-            ))
+            Ok(Expr::DeclVar(span, name, type_, setexpr.into()))
         }
         Token::Name(name) => {
             parser.gettok();

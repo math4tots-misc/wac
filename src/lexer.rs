@@ -227,10 +227,12 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
                             '<' => Token::Lt,
                             '>' => Token::Gt,
                             '/' => Token::Slash,
-                            _ => return Err(LexError::Unrecognized {
-                                pos: i,
-                                text: format!("{}{}", first, c),
-                            }),
+                            _ => {
+                                return Err(LexError::Unrecognized {
+                                    pos: i,
+                                    text: format!("{}{}", first, c),
+                                })
+                            }
                         };
                         ret.push((tok, [i - 1, i].into()));
                     }

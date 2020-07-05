@@ -32,6 +32,8 @@ pub fn translate(mut sources: Vec<(Rc<str>, Rc<str>)>) -> Result<String, Error> 
     }
     let mut out = Out::new();
     let mut functions = HashMap::new();
+
+    // collect all function signatures
     for (_filename, file) in &files {
         for imp in &file.imports {
             match imp {
@@ -44,7 +46,35 @@ pub fn translate(mut sources: Vec<(Rc<str>, Rc<str>)>) -> Result<String, Error> 
             functions.insert(func.name.clone(), func.type_().clone());
         }
     }
-    let gscope = GlobalScope { functions };
+    let mut gscope = GlobalScope::new(functions);
+
+    // translate all global variables
+    // NOTE: global variables that appear before cannot refer to
+    // global variables that appear later
+    // NOTE: it kinda sucks that the behavior of the code will depend on the
+    // order in which you provide the files
+    for (_filename, file) in &files {
+        for gvar in &file.globalvars {
+            let mut lscope = LocalScope::new(&gscope);
+            let type_ = if let Some(t) = gvar.type_ {
+                t
+            } else {
+                guess_type(&mut lscope, &gvar.init)?
+            };
+            let init_sink = out.start.spawn();
+            translate_expr(&mut out, &init_sink, &mut lscope, Some(type_), &gvar.init)?;
+            let info = gscope.decl(gvar.span.clone(), gvar.name.clone(), type_)?;
+            init_sink.writeln(format!("global.set {}", info.wasm_name));
+            out.gvars.writeln(format!(
+                "(global {} (mut {}) ({}.const 0))",
+                info.wasm_name,
+                translate_type(info.type_),
+                translate_type(info.type_),
+            ));
+        }
+    }
+
+    // translate the functions
     for (_filename, file) in files {
         for imp in file.imports {
             translate_import(&out, imp);
@@ -58,6 +88,48 @@ pub fn translate(mut sources: Vec<(Rc<str>, Rc<str>)>) -> Result<String, Error> 
 
 struct GlobalScope {
     functions: HashMap<Rc<str>, FunctionType>,
+    varmap: HashMap<Rc<str>, Rc<GlobalVarInfo>>,
+    decls: Vec<Rc<GlobalVarInfo>>,
+}
+
+impl GlobalScope {
+    fn new(functions: HashMap<Rc<str>, FunctionType>) -> Self {
+        Self {
+            functions,
+            varmap: HashMap::new(),
+            decls: vec![],
+        }
+    }
+
+    fn decl(&mut self, span: Span, name: Rc<str>, type_: Type) -> Result<Rc<GlobalVarInfo>, Error> {
+        if let Some(info) = self.varmap.get(&name) {
+            return Err(Error::ConflictingDefinitions {
+                span1: info.span.clone(),
+                span2: span,
+                name,
+            });
+        }
+        let wasm_name = format!("$g_{}", name).into();
+        let info = Rc::new(GlobalVarInfo {
+            span,
+            original_name: name.clone(),
+            type_,
+            wasm_name,
+        });
+        self.decls.push(info.clone());
+        self.varmap.insert(name.clone(), info.clone());
+        Ok(info)
+    }
+}
+
+/// global variable declaration
+struct GlobalVarInfo {
+    #[allow(dead_code)]
+    span: Span,
+    #[allow(dead_code)]
+    original_name: Rc<str>,
+    type_: Type,
+    wasm_name: Rc<str>,
 }
 
 /// local variable declaration
@@ -109,7 +181,10 @@ impl<'a> LocalScope<'a> {
             wasm_name,
         });
         self.decls.push(info.clone());
-        self.locals.last_mut().unwrap().insert(info.original_name.clone(), info.clone());
+        self.locals
+            .last_mut()
+            .unwrap()
+            .insert(info.original_name.clone(), info.clone());
         info
     }
     fn get(&self, name: &Rc<str>) -> Option<ScopeEntry> {
@@ -119,7 +194,10 @@ impl<'a> LocalScope<'a> {
                 None => {}
             }
         }
-        None
+        match self.g.varmap.get(name) {
+            Some(t) => Some(ScopeEntry::Global(t.clone())),
+            None => None,
+        }
     }
     fn get_or_err(&self, span: Span, name: &Rc<str>) -> Result<ScopeEntry, Error> {
         match self.get(name) {
@@ -153,6 +231,7 @@ impl<'a> LocalScope<'a> {
 
 enum ScopeEntry {
     Local(Rc<LocalVarInfo>),
+    Global(Rc<GlobalVarInfo>),
 }
 
 fn translate_func_type(ft: &FunctionType) -> String {
@@ -233,7 +312,11 @@ fn translate_func(out: &mut Out, gscope: &GlobalScope, func: Function) -> Result
 
     // declare all the local variables (skipping parameters)
     for info in lscope.decls.into_iter().skip(func.parameters.len()) {
-        locals_sink.writeln(format!(" (local {} {})", info.wasm_name, translate_type(info.type_)));
+        locals_sink.writeln(format!(
+            " (local {} {})",
+            info.wasm_name,
+            translate_type(info.type_)
+        ));
     }
     Ok(())
 }
@@ -321,7 +404,26 @@ fn translate_expr(
                             return Err(Error::Type {
                                 span: span.clone(),
                                 expected: format!("{:?}", etype),
-                                got: format!("{:?}", info.type_),
+                                got: format!("{:?} (localvar)", info.type_),
+                            })
+                        }
+                        None => {
+                            // we already checked this variable exists,
+                            // if we don't use the return value,
+                            // there's nothing we need to do here
+                        }
+                    }
+                }
+                ScopeEntry::Global(info) => {
+                    match etype {
+                        Some(etype) if etype == info.type_ => {
+                            sink.writeln(format!("global.get {}", info.wasm_name));
+                        }
+                        Some(etype) => {
+                            return Err(Error::Type {
+                                span: span.clone(),
+                                expected: format!("{:?}", etype),
+                                got: format!("{:?} (globalvar)", info.type_),
                             })
                         }
                         None => {
@@ -348,12 +450,25 @@ fn translate_expr(
                         return Err(Error::Type {
                             span: span.clone(),
                             expected: format!("{:?}", etype),
-                            got: "Void (setvar)".into(),
+                            got: "Void (local.setvar)".into(),
                         })
                     }
                     None => {
                         translate_expr(out, sink, lscope, Some(info.type_), setexpr)?;
                         sink.writeln(format!("local.set {}", info.wasm_name));
+                    }
+                },
+                ScopeEntry::Global(info) => match etype {
+                    Some(etype) => {
+                        return Err(Error::Type {
+                            span: span.clone(),
+                            expected: format!("{:?}", etype),
+                            got: "Void (global.setvar)".into(),
+                        })
+                    }
+                    None => {
+                        translate_expr(out, sink, lscope, Some(info.type_), setexpr)?;
+                        sink.writeln(format!("global.set {}", info.wasm_name));
                     }
                 },
             }
@@ -588,6 +703,7 @@ fn guess_type(lscope: &mut LocalScope, expr: &Expr) -> Result<Type, Error> {
         Expr::Float(..) => Ok(Type::F32),
         Expr::GetVar(span, name) => match lscope.get_or_err(span.clone(), name)? {
             ScopeEntry::Local(info) => Ok(info.type_),
+            ScopeEntry::Global(info) => Ok(info.type_),
         },
         Expr::SetVar(span, ..) => Err(Error::Type {
             span: span.clone(),
@@ -644,7 +760,9 @@ struct Out {
     imports: Rc<Sink>,
     memory: Rc<Sink>,
     data: Rc<Sink>,
+    gvars: Rc<Sink>,
     funcs: Rc<Sink>,
+    start: Rc<Sink>,
     exports: Rc<Sink>,
 
     data_len: Cell<usize>,
@@ -657,14 +775,21 @@ impl Out {
         let imports = main.spawn();
         let memory = main.spawn();
         let data = main.spawn();
+        let gvars = main.spawn();
         let funcs = main.spawn();
+        main.writeln("(func $__rt_start");
+        let start = main.spawn();
+        main.writeln(")");
+        main.writeln("(start $__rt_start)");
         let exports = main.spawn();
         Self {
             main,
             imports,
             memory,
             data,
+            gvars,
             funcs,
+            start,
             exports,
             data_len: Cell::new(RESERVED_BYTES),
             intern_map: HashMap::new(),

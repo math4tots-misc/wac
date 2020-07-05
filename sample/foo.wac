@@ -1,5 +1,16 @@
+var gvar = 20
 
 fn[pub] main() i32 {
+
+    {
+        __print_cstr($cstr("global var ->"))
+        __print_i32(gvar)
+        gvar = 82 + 5
+        __print_cstr($cstr("global var ->"))
+        __print_i32(gvar)
+        __print_cstr($cstr(""))
+    }
+
     var x = 4
     __print_i32(x)
     __hello()
