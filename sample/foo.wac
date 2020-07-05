@@ -5,6 +5,9 @@ fn Main() {
     __print_i32(__WAC_heap_start)
     __print_cstr($cstr(""))
 
+    __print_cstr($cstr("heap mul ->"))
+    __print_i32(5 * 7)
+    __print_cstr($cstr(""))
     {
         __print_cstr($cstr("global var ->"))
         __print_i32(gvar)

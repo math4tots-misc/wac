@@ -62,10 +62,42 @@ pub enum Expr {
     // builtin operators
     LessThan(SSpan, Box<Expr>, Box<Expr>),
     Add(SSpan, Box<Expr>, Box<Expr>),
+    Binop(SSpan, Binop, Box<Expr>, Box<Expr>),
+    Unop(SSpan, Unop, Box<Expr>),
 
     // intrinsics
     CString(SSpan, Rc<str>),
     Asm(SSpan, Vec<Expr>, Option<Type>, Rc<str>),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Binop {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    TruncDivide,
+    Remainder,
+
+    BitwiseAnd,
+    BitwiseOr,
+    BitwiseXor,
+    ShiftLeft,
+    ShiftRight,
+
+    Equal,
+    NotEqual,
+    Less,
+    LessOrEqual,
+    Greater,
+    GreaterOrEqual,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Unop {
+    Plus,
+    Minus,
+    Not,
 }
 
 pub enum Import {

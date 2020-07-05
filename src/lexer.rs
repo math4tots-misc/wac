@@ -22,6 +22,7 @@ pub enum Token<'a> {
     Slash,
     Slash2,
     Percent,
+    Exclamation,
     Lt,
     Le,
     Gt,
@@ -29,6 +30,8 @@ pub enum Token<'a> {
     Ne,
     Eq2,
     Eq,
+    Lt2,
+    Gt2,
     EOF,
 }
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -116,18 +119,18 @@ impl LexError {
                 pos,
 
                 /// the start of the unrecognized token
-                text: _,
+                    text: _,
             } => [*pos, *pos + 1].into(),
             LexError::BadRawStringQuote {
                 /// the index where we expected to see the quote char
                 pos,
 
                 /// the actual character that was seen instead of ' or "
-                actual: _,
+                    actual: _,
             } => [*pos, *pos + 1].into(),
             LexError::BadEndState {
                 /// string describing the end state encountered
-                state: _,
+                    state: _,
             } => [0, 1].into(),
             LexError::UnterminatedStringLiteral {
                 /// index into the string marking the start of the
@@ -139,9 +142,7 @@ impl LexError {
                 open: _,
                 close: _,
             } => [*pos, *pos + 1].into(),
-            LexError::UnterminatedGroupingSymbol {
-                open: _,
-            } => [0, 1].into(),
+            LexError::UnterminatedGroupingSymbol { open: _ } => [0, 1].into(),
         }
     }
 }
@@ -257,6 +258,8 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
                     ('!', '=') => ret.push((Token::Ne, [i - 1, i + 1].into())),
                     ('<', '=') => ret.push((Token::Le, [i - 1, i + 1].into())),
                     ('>', '=') => ret.push((Token::Ge, [i - 1, i + 1].into())),
+                    ('<', '<') => ret.push((Token::Lt2, [i - 1, i + 1].into())),
+                    ('>', '>') => ret.push((Token::Gt2, [i - 1, i + 1].into())),
                     _ => {
                         // the first character on its own can be a token,
                         // but doesn't combine with the second one
@@ -266,6 +269,7 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
                             '<' => Token::Lt,
                             '>' => Token::Gt,
                             '/' => Token::Slash,
+                            '!' => Token::Exclamation,
                             _ => {
                                 return Err(LexError::Unrecognized {
                                     pos: i,

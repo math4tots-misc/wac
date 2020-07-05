@@ -1,8 +1,8 @@
 use crate::LexError;
 use crate::ParseError;
 use crate::Span;
-use std::rc::Rc;
 use std::fmt;
+use std::rc::Rc;
 
 pub struct Source {
     pub name: Rc<str>,
@@ -41,10 +41,21 @@ impl SSpan {
     pub fn format(&self) -> String {
         let i = self.span.main;
         let lineno = self.source.data[..i].matches('\n').count();
-        let lstart = self.source.data[..i].rfind('\n').map(|j| j + 1).unwrap_or(0);
-        let lend = self.source.data[i..].find('\n').map(|j| i + j).unwrap_or(self.source.data.len());
+        let lstart = self.source.data[..i]
+            .rfind('\n')
+            .map(|j| j + 1)
+            .unwrap_or(0);
+        let lend = self.source.data[i..]
+            .find('\n')
+            .map(|j| i + j)
+            .unwrap_or(self.source.data.len());
         let line = &self.source.data[lstart..lend];
-        format!("on line {}\n{}\n{}*\n", lineno, line, " ".repeat(i - lstart))
+        format!(
+            "on line {}\n{}\n{}*\n",
+            lineno,
+            line,
+            " ".repeat(i - lstart)
+        )
     }
 }
 
@@ -77,24 +88,19 @@ impl Error {
 
     pub fn format(&self) -> String {
         match self {
-            Self::Lex(span, er) => {
-                format!("{}{:?}", span.format(), er)
-            }
+            Self::Lex(span, er) => format!("{}{:?}", span.format(), er),
             Self::Parse(er) => er.format(),
             Self::Type {
                 span,
                 expected,
                 got,
-            } => {
-                format!("{}Expected {} but got {}", span.format(), expected, got)
-            }
-            Self::ConflictingDefinitions {
-                span1,
-                span2,
-                name,
-            } => {
-                format!("{}{}Conflicting definitions for {}", span1.format(), span2.format(), name)
-            }
+            } => format!("{}Expected {} but got {}", span.format(), expected, got),
+            Self::ConflictingDefinitions { span1, span2, name } => format!(
+                "{}{}Conflicting definitions for {}",
+                span1.format(),
+                span2.format(),
+                name
+            ),
             Self::Wabt(_) | Self::Wasmer(_) => format!("{:?}", self),
         }
     }

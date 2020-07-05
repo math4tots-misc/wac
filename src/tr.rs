@@ -1,10 +1,11 @@
 use crate::ir::*;
 use crate::parse_file;
-use crate::Source;
+use crate::Binop;
 use crate::Error;
 use crate::Parser;
-use crate::Sink;
 use crate::SSpan;
+use crate::Sink;
+use crate::Source;
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -103,7 +104,12 @@ impl GlobalScope {
         }
     }
 
-    fn decl(&mut self, span: SSpan, name: Rc<str>, type_: Type) -> Result<Rc<GlobalVarInfo>, Error> {
+    fn decl(
+        &mut self,
+        span: SSpan,
+        name: Rc<str>,
+        type_: Type,
+    ) -> Result<Rc<GlobalVarInfo>, Error> {
         if let Some(info) = self.varmap.get(&name) {
             return Err(Error::ConflictingDefinitions {
                 span1: info.span.clone(),
@@ -598,6 +604,56 @@ fn translate_expr(
         Expr::Add(span, left, right) => {
             op_arith_binop(out, sink, lscope, etype, span, "add", left, right)?;
         }
+        Expr::Binop(span, op, left, right) => match op {
+            Binop::Less => op_cmp(out, sink, lscope, etype, span, "lt", left, right)?,
+            Binop::LessOrEqual => op_cmp(out, sink, lscope, etype, span, "le", left, right)?,
+            Binop::Greater => op_cmp(out, sink, lscope, etype, span, "gt", left, right)?,
+            Binop::GreaterOrEqual => op_cmp(out, sink, lscope, etype, span, "ge", left, right)?,
+            Binop::Add => op_arith_binop(out, sink, lscope, etype, span, "add", left, right)?,
+            Binop::Subtract => op_arith_binop(out, sink, lscope, etype, span, "sub", left, right)?,
+            Binop::Multiply => op_arith_binop(out, sink, lscope, etype, span, "mul", left, right)?,
+            _ => panic!("TODO: translate_expr binop {:?}", op),
+        },
+        Expr::Unop(span, op, expr) => {
+            match op {
+                Unop::Plus | Unop::Minus => {
+                    let gtype = guess_type(lscope, expr)?;
+                    match gtype {
+                        Type::F32 | Type::F64 | Type::I32 | Type::I64 => {
+                            translate_expr(out, sink, lscope, Some(gtype), expr)?;
+                            match op {
+                                Unop::Plus => {}
+                                Unop::Minus => {
+                                    match gtype {
+                                        Type::F32 | Type::F64 => {
+                                            sink.writeln(format!("({}.neg ", translate_type(gtype)));
+                                        }
+                                        Type::I32 | Type::I64 => {
+                                            sink.writeln(format!("{}.const -1", translate_type(gtype)));
+                                            sink.writeln(format!("{}.mul", translate_type(gtype)));
+                                        }
+                                        _ => panic!("Unop gtype {:?}", gtype)
+                                    }
+                                }
+                                _ => panic!("Unop {:?}", op),
+                            }
+                        }
+                        _ => {
+                            return Err(Error::Type {
+                                span: span.clone(),
+                                expected: "numeric".into(),
+                                got: format!("{:?}", gtype),
+                            })
+                        }
+                    }
+                    auto_cast(sink, span, lscope, Some(gtype), etype)?
+                }
+                Unop::Not => {
+                    translate_expr(out, sink, lscope, Some(Type::Bool), expr)?;
+                    sink.writeln("i32.eqz");
+                }
+            }
+        }
         Expr::CString(span, value) => match etype {
             Some(Type::I32) => {
                 let ptr = out.intern_cstr(value);
@@ -618,19 +674,7 @@ fn translate_expr(
                 translate_expr(out, sink, lscope, Some(argtype), arg)?;
             }
             sink.writeln(asm_code);
-
-            match (etype, *type_) {
-                (Some(etype), Some(type_)) if etype == type_ => {}
-                (None, None) => {}
-                (None, Some(type_)) => {
-                    drop(lscope, sink, type_);
-                }
-                (Some(etype), _) => return Err(Error::Type {
-                    span: span.clone(),
-                    expected: format!("{:?}", etype),
-                    got: format!("{:?}", type_),
-                }),
-            }
+            auto_cast(sink, span, lscope, *type_, etype)?;
         }
     }
     Ok(())
@@ -671,23 +715,7 @@ fn op_cmp(
             sink.writeln(format!("{}.{}", translate_type(gtype), opname));
         }
     }
-    match etype {
-        Some(Type::Bool) => {
-            // Ok, this value is already on the stack
-        }
-        Some(etype) => {
-            // Mismatched types
-            return Err(Error::Type {
-                span: span.clone(),
-                expected: format!("{:?}", etype),
-                got: "Bool".into(),
-            });
-        }
-        None => {
-            // Unused result, drop it now
-            drop(lscope, sink, Type::I32);
-        }
-    }
+    auto_cast(sink, span, lscope, Some(gtype), etype)?;
     Ok(())
 }
 
@@ -721,21 +749,31 @@ fn op_arith_binop(
             });
         }
     }
-    match etype {
-        Some(etype) if etype == gtype => {
-            // Ok, this value is already on the stack
+    auto_cast(sink, span, lscope, Some(gtype), etype)?;
+    Ok(())
+}
+
+/// perform a cast of TOS from src to dst for when implicitly needed
+fn auto_cast(sink: &Rc<Sink>, span: &SSpan, lscope: &mut LocalScope, src: Option<Type>, dst: Option<Type>) -> Result<(), Error> {
+    match (src, dst) {
+        (Some(src), Some(dst)) if src == dst => {}
+        (None, None) => {}
+        (Some(src), None) => {
+            drop(lscope, sink, src);
         }
-        Some(etype) => {
-            // Mismatched types
+        (Some(src), Some(dst)) => {
             return Err(Error::Type {
                 span: span.clone(),
-                expected: format!("{:?}", etype),
-                got: format!("{:?}", gtype),
+                expected: format!("{:?}", dst),
+                got: format!("{:?}", src),
             });
         }
-        None => {
-            // Unused result, drop it now
-            drop(lscope, sink, gtype);
+        (None, Some(dst)) => {
+            return Err(Error::Type {
+                span: span.clone(),
+                expected: format!("{:?}", dst),
+                got: "Void".into(),
+            });
         }
     }
     Ok(())
@@ -795,6 +833,26 @@ fn guess_type(lscope: &mut LocalScope, expr: &Expr) -> Result<Type, Error> {
             Ok(Type::I32)
         }
         Expr::Add(_, left, _) => guess_type(lscope, left),
+        Expr::Binop(_span, op, left, _) => match op {
+            Binop::Add | Binop::Subtract | Binop::Multiply => guess_type(lscope, left),
+            Binop::Divide => Ok(Type::F32),
+            Binop::TruncDivide | Binop::Remainder => Ok(Type::I32),
+            Binop::BitwiseAnd
+            | Binop::BitwiseOr
+            | Binop::BitwiseXor
+            | Binop::ShiftLeft
+            | Binop::ShiftRight => Ok(Type::I32),
+            Binop::Less
+            | Binop::LessOrEqual
+            | Binop::Greater
+            | Binop::GreaterOrEqual
+            | Binop::Equal
+            | Binop::NotEqual => Ok(Type::Bool),
+        },
+        Expr::Unop(_span, op, expr) => match op {
+            Unop::Minus | Unop::Plus => guess_type(lscope, expr),
+            Unop::Not => Ok(Type::Bool),
+        }
         Expr::CString(..) => {
             // Should return a pointer
             Ok(Type::I32)
@@ -808,7 +866,7 @@ fn guess_type(lscope: &mut LocalScope, expr: &Expr) -> Result<Type, Error> {
                     got: "Void (void-asm-expr)".into(),
                 })
             }
-        }
+        },
     }
 }
 

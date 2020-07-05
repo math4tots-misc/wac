@@ -2,10 +2,10 @@
 //! for grammer stuff, see parsef.rs
 use crate::lex;
 use crate::LexError;
+use crate::SSpan;
 use crate::Source;
 use crate::Span;
 use crate::Token;
-use crate::SSpan;
 use std::rc::Rc;
 
 pub struct Parser<'a> {
@@ -201,12 +201,8 @@ impl ParseError {
                 span,
                 expected,
                 got,
-            } => {
-                format!("{}Expected {}, but got {}\n", span.format(), expected, got)
-            }
-            Self::InvalidEscape(span, ch) => {
-                format!("{}Invalid escape char {}", span.format(), ch)
-            }
+            } => format!("{}Expected {}, but got {}\n", span.format(), expected, got),
+            Self::InvalidEscape(span, ch) => format!("{}Invalid escape char {}", span.format(), ch),
             Self::NoSuchIntrinsic(span, name) => {
                 format!("{}No such intrinsic: {}", span.format(), name)
             }
