@@ -225,6 +225,7 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
                 Token::Exclamation => Unop::Not,
                 t => panic!("parse_atom Plus/Minus {:?}", t),
             };
+            parser.gettok();
             let expr = parse_expr(parser, PREC_UNARY)?;
             Ok(Expr::Unop(span, op, expr.into()))
         }
