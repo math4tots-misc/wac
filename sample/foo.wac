@@ -1,6 +1,6 @@
 var gvar = 20
 
-fn[pub] main() i32 {
+fn main() {
     __print_cstr($cstr("heap start ->"))
     __print_i32(__WAC_heap_start)
     __print_cstr($cstr(""))
@@ -68,8 +68,6 @@ fn[pub] main() i32 {
 
     __print_cstr($cstr("total: "))
     __print_i32(total)
-
-    0
 }
 
 fn add4(x i32) i32 {

@@ -10,6 +10,6 @@ pub fn run(sources: Vec<(Rc<str>, Rc<str>)>) -> Result<i32, Error> {
     let wat_code = translate(sources)?;
     let wasm_code = wabt::wat2wasm(&wat_code)?;
     let instance = wr::instantiate(&wasm_code, &import_object)?;
-    let main: wr::Func<(), i32> = instance.exports.get("f_main")?;
+    let main: wr::Func<(), i32> = instance.exports.get("f___start")?;
     Ok(main.call()?)
 }

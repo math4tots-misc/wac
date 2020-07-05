@@ -863,7 +863,8 @@ impl Out {
     }
 
     fn data(&self, data: &[u8]) -> u32 {
-        let reserve_len = (data.len() + 8 - 1) / 8 * 8;
+        // data is reserved with 16-byte alignment
+        let reserve_len = (data.len() + 16 - 1) / 16 * 16;
         let ptr = self.data_len.get();
         self.data_len.set(reserve_len + ptr);
         self.data.write(format!("(data (i32.const {}) \"", ptr));
