@@ -9,13 +9,9 @@ const PREC_POSTFIX: u32 = 1000;
 const PREC_UNARY: u32 = 900;
 const PREC_PRODUCT: u32 = 600;
 const PREC_SUM: u32 = 500;
-#[allow(unused)]
 const PREC_SHIFT: u32 = 400;
-#[allow(unused)]
 const PREC_BITWISE_AND: u32 = 300;
-#[allow(unused)]
 const PREC_BITWISE_XOR: u32 = 275;
-#[allow(unused)]
 const PREC_BITWISE_OR: u32 = 250;
 const PREC_CMP: u32 = 200;
 const PREC_LOGICAL_AND: u32 = 150;
@@ -383,6 +379,51 @@ fn parse_infix(parser: &mut Parser, mut lhs: Expr, prec: u32) -> Result<Expr, Pa
                 let right = parse_expr(parser, PREC_PRODUCT + 1)?;
                 let span = span.join(&start).upto(&parser.span());
                 lhs = Expr::Binop(span, op, lhs.into(), right.into());
+            }
+            Token::Caret => {
+                if prec > PREC_BITWISE_XOR {
+                    break;
+                }
+                let span = parser.span();
+                parser.gettok();
+                let rhs = parse_expr(parser, PREC_BITWISE_XOR + 1)?;
+                let span = span.join(&start).upto(&parser.span());
+                lhs = Expr::Binop(span, Binop::BitwiseXor, lhs.into(), rhs.into());
+            }
+            Token::Ampersand => {
+                if prec > PREC_BITWISE_AND {
+                    break;
+                }
+                let span = parser.span();
+                parser.gettok();
+                let rhs = parse_expr(parser, PREC_BITWISE_AND + 1)?;
+                let span = span.join(&start).upto(&parser.span());
+                lhs = Expr::Binop(span, Binop::BitwiseAnd, lhs.into(), rhs.into());
+            }
+            Token::VerticalBar => {
+                if prec > PREC_BITWISE_OR {
+                    break;
+                }
+                let span = parser.span();
+                parser.gettok();
+                let rhs = parse_expr(parser, PREC_BITWISE_OR + 1)?;
+                let span = span.join(&start).upto(&parser.span());
+                lhs = Expr::Binop(span, Binop::BitwiseOr, lhs.into(), rhs.into());
+            }
+            Token::Lt2 | Token::Gt2 => {
+                if prec > PREC_SHIFT {
+                    break;
+                }
+                let op = match parser.peek() {
+                    Token::Lt2 => Binop::ShiftLeft,
+                    Token::Gt2 => Binop::ShiftRight,
+                    tok => panic!("{:?}", tok),
+                };
+                let span = parser.span();
+                parser.gettok();
+                let rhs = parse_expr(parser, PREC_SHIFT + 1)?;
+                let span = span.join(&start).upto(&parser.span());
+                lhs = Expr::Binop(span, op, lhs.into(), rhs.into());
             }
             Token::Name("and") => {
                 if prec > PREC_LOGICAL_AND {

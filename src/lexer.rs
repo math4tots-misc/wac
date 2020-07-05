@@ -23,6 +23,9 @@ pub enum Token<'a> {
     Slash2,
     Percent,
     Exclamation,
+    Caret,
+    Ampersand,
+    VerticalBar,
     Lt,
     Le,
     Gt,
@@ -238,6 +241,9 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
                 '-' => ret.push((Token::Minus, [i, i + 1].into())),
                 '*' => ret.push((Token::Star, [i, i + 1].into())),
                 '%' => ret.push((Token::Percent, [i, i + 1].into())),
+                '^' => ret.push((Token::Caret, [i, i + 1].into())),
+                '&' => ret.push((Token::Ampersand, [i, i + 1].into())),
+                '|' => ret.push((Token::VerticalBar, [i, i + 1].into())),
                 '=' | '!' | '<' | '>' | '/' => state = State::Combine(c),
                 _ => {
                     return Err(LexError::Unrecognized {

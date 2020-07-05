@@ -10,6 +10,8 @@ use std::cell::Cell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+pub const PAGE_SIZE: usize = 65536;
+
 /// Number of bytes at start of memory that's reserved
 /// Compile-time constants stored in memory start from this location
 pub const RESERVED_BYTES: usize = 2048;
@@ -571,6 +573,11 @@ fn translate_expr(
             Binop::Add => op_arith_binop(out, sink, lscope, etype, span, "add", left, right)?,
             Binop::Subtract => op_arith_binop(out, sink, lscope, etype, span, "sub", left, right)?,
             Binop::Multiply => op_arith_binop(out, sink, lscope, etype, span, "mul", left, right)?,
+            Binop::BitwiseAnd => op_bitwise_binop(out, sink, lscope, etype, span, "and", left, right)?,
+            Binop::BitwiseOr => op_bitwise_binop(out, sink, lscope, etype, span, "or", left, right)?,
+            Binop::BitwiseXor => op_bitwise_binop(out, sink, lscope, etype, span, "xor", left, right)?,
+            Binop::ShiftLeft => op_bitwise_binop(out, sink, lscope, etype, span, "shl", left, right)?,
+            Binop::ShiftRight => op_bitwise_binop(out, sink, lscope, etype, span, "shr_u", left, right)?,
             _ => panic!("TODO: translate_expr binop {:?}", op),
         },
         Expr::Unop(span, op, expr) => match op {
@@ -708,6 +715,26 @@ fn op_arith_binop(
         }
     }
     auto_cast(sink, span, lscope, Some(gtype), etype)?;
+    Ok(())
+}
+
+/// util for binary bitwise operators
+///   * both arguments are always i32
+///   * always returns i32
+fn op_bitwise_binop(
+    out: &mut Out,
+    sink: &Rc<Sink>,
+    lscope: &mut LocalScope,
+    etype: Option<Type>,
+    span: &SSpan,
+    opname: &str,
+    left: &Expr,
+    right: &Expr,
+) -> Result<(), Error> {
+    translate_expr(out, sink, lscope, Some(Type::I32), left)?;
+    translate_expr(out, sink, lscope, Some(Type::I32), right)?;
+    sink.writeln(format!("i32.{}", opname));
+    auto_cast(sink, span, lscope, Some(Type::I32), etype)?;
     Ok(())
 }
 
@@ -872,10 +899,12 @@ impl Out {
     }
 
     fn get(self) -> String {
-        self.memory.writeln("(memory $rt_mem 1)");
+        let len = self.data_len.get();
+        let page_len = (len + (PAGE_SIZE - 1)) / PAGE_SIZE;
+        self.memory.writeln(format!("(memory $rt_mem {})", page_len));
         self.gvars.writeln(format!(
             "(global $rt_heap_start i32 (i32.const {}))",
-            self.data_len.get()
+            len,
         ));
         self.main.get()
     }

@@ -2,6 +2,10 @@ var gvar = 20
 
 fn Main() {
 
+    # __print_i32(-1 >> 1)
+    __print_i32((1 << 22) - (1 << 21))
+    __print_i32(1 << 22)
+
     if true or false {
         __print_cstr($cstr("true or false"))
     } else {
