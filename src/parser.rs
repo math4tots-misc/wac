@@ -2,19 +2,23 @@
 //! for grammer stuff, see parsef.rs
 use crate::lex;
 use crate::LexError;
+use crate::Source;
 use crate::Span;
 use crate::Token;
+use crate::SSpan;
 use std::rc::Rc;
 
 pub struct Parser<'a> {
+    source: Rc<Source>,
     i: usize,
     tokens_and_spans: Vec<(Token<'a>, Span)>,
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(s: &'a str) -> Result<Self, LexError> {
-        let tokens_and_spans = lex(s)?;
+    pub fn new(source: &'a Rc<Source>) -> Result<Self, LexError> {
+        let tokens_and_spans = lex(&source.data)?;
         Ok(Self {
+            source: source.clone(),
             i: 0,
             tokens_and_spans,
         })
@@ -22,8 +26,12 @@ impl<'a> Parser<'a> {
     pub fn peek(&self) -> Token<'a> {
         self.tokens_and_spans[self.i].0
     }
-    pub fn span(&self) -> Span {
-        self.tokens_and_spans[self.i].1
+    pub fn span(&self) -> SSpan {
+        let span = self.tokens_and_spans[self.i].1;
+        SSpan {
+            source: self.source.clone(),
+            span: span,
+        }
     }
     pub fn gettok(&mut self) -> Token<'a> {
         let token = self.peek();
@@ -80,8 +88,9 @@ impl<'a> Parser<'a> {
                 Ok(s.into())
             }
             Token::NormalString(s) => {
+                let span = self.span();
                 self.gettok();
-                Ok(resolve_escapes(s)?)
+                Ok(resolve_escapes(s, span)?)
             }
             _ => Err(ParseError::InvalidToken {
                 span: self.span(),
@@ -92,7 +101,7 @@ impl<'a> Parser<'a> {
     }
 }
 
-fn resolve_escapes(s: &str) -> Result<Rc<str>, ParseError> {
+fn resolve_escapes(s: &str, span: SSpan) -> Result<Rc<str>, ParseError> {
     enum State {
         Normal,
         Escape,
@@ -117,7 +126,7 @@ fn resolve_escapes(s: &str) -> Result<Rc<str>, ParseError> {
                     '"' => ret.push('"'),
                     '\'' => ret.push('\''),
                     '\\' => ret.push('\\'),
-                    _ => return Err(ParseError::InvalidEscape(c)),
+                    _ => return Err(ParseError::InvalidEscape(span, c)),
                 }
                 state = State::Normal;
             }
@@ -169,10 +178,38 @@ impl<'a> From<Token<'a>> for Pattern<'a> {
 #[derive(Debug)]
 pub enum ParseError {
     InvalidToken {
-        span: Span,
+        span: SSpan,
         expected: String,
         got: String,
     },
-    InvalidEscape(char),
-    NoSuchIntrinsic(Span, Rc<str>),
+    InvalidEscape(SSpan, char),
+    NoSuchIntrinsic(SSpan, Rc<str>),
+}
+
+impl ParseError {
+    pub fn span(&self) -> SSpan {
+        match self {
+            Self::InvalidToken { span, .. } => span.clone(),
+            Self::InvalidEscape(span, ..) => span.clone(),
+            Self::NoSuchIntrinsic(span, ..) => span.clone(),
+        }
+    }
+
+    pub fn format(&self) -> String {
+        match self {
+            Self::InvalidToken {
+                span,
+                expected,
+                got,
+            } => {
+                format!("{}Expected {}, but got {}\n", span.format(), expected, got)
+            }
+            Self::InvalidEscape(span, ch) => {
+                format!("{}Invalid escape char {}", span.format(), ch)
+            }
+            Self::NoSuchIntrinsic(span, name) => {
+                format!("{}No such intrinsic: {}", span.format(), name)
+            }
+        }
+    }
 }

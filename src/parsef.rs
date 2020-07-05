@@ -15,7 +15,7 @@ pub fn parse_file(parser: &mut Parser) -> Result<File, ParseError> {
         let function_name = parser.expect_string()?;
         let alias = parser.expect_name()?;
         let type_ = parse_function_type(parser)?;
-        let span = span.upto(parser.span());
+        let span = span.upto(&parser.span());
         consume_delim(parser);
         imports.push(Import::Function(FunctionImport {
             span,
@@ -92,7 +92,7 @@ fn parse_func(parser: &mut Parser) -> Result<Function, ParseError> {
         None
     };
     let body = parse_block(parser)?;
-    let span = span.upto(parser.span());
+    let span = span.upto(&parser.span());
     Ok(Function {
         span,
         visibility,
@@ -197,7 +197,7 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
             };
             parser.expect(Token::Eq)?;
             let setexpr = parse_expr(parser)?;
-            let span = span.upto(parser.span());
+            let span = span.upto(&parser.span());
             Ok(Expr::DeclVar(span, name, type_, setexpr.into()))
         }
         Token::Name(name) => {
@@ -212,7 +212,7 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
                     parser.expect(Token::LParen)?;
                     let string = parser.expect_string()?;
                     parser.expect(Token::RParen)?;
-                    let span = span.upto(parser.span());
+                    let span = span.upto(&parser.span());
                     Ok(Expr::CString(span, string))
                 }
                 Token::Name("asm") => {
@@ -271,7 +271,7 @@ fn parse_if(parser: &mut Parser) -> Result<Expr, ParseError> {
     } else {
         Expr::Block(span.clone(), vec![])
     };
-    let span = span.upto(parser.span());
+    let span = span.upto(&parser.span());
     Ok(Expr::If(span, cond.into(), body.into(), other.into()))
 }
 
@@ -280,7 +280,7 @@ fn parse_while(parser: &mut Parser) -> Result<Expr, ParseError> {
     parser.expect(Token::Name("while"))?;
     let cond = parse_expr(parser)?;
     let body = parse_block(parser)?;
-    let span = span.upto(parser.span());
+    let span = span.upto(&parser.span());
     Ok(Expr::While(span, cond.into(), body.into()))
 }
 
@@ -303,7 +303,7 @@ fn parse_postfix(parser: &mut Parser) -> Result<Expr, ParseError> {
                             }
                         }
                         let end = parser.span();
-                        let span = span.join(start).upto(end);
+                        let span = span.join(&start).upto(&end);
                         e = Expr::FunctionCall(span, name, args);
                     }
                     _ => {
@@ -330,7 +330,7 @@ fn parse_sum(parser: &mut Parser) -> Result<Expr, ParseError> {
                 let span = parser.span();
                 parser.gettok();
                 let right = parse_sum(parser)?;
-                let span = span.join(start).upto(parser.span());
+                let span = span.join(&start).upto(&parser.span());
                 e = Expr::Add(span, e.into(), right.into());
             }
             _ => break,
@@ -349,7 +349,7 @@ fn parse_cmp(parser: &mut Parser) -> Result<Expr, ParseError> {
             let span = parser.span();
             parser.gettok();
             let right = parse_sum(parser)?;
-            let span = span.join(start).upto(parser.span());
+            let span = span.join(&start).upto(&parser.span());
             e = Expr::LessThan(span, e.into(), right.into());
         }
         _ => {}
@@ -368,7 +368,7 @@ fn parse_assign(parser: &mut Parser) -> Result<Expr, ParseError> {
                 match e {
                     Expr::GetVar(_, name) => {
                         let setexpr = parse_expr(parser)?;
-                        e = Expr::SetVar(span.join(start), name, setexpr.into());
+                        e = Expr::SetVar(span.join(&start), name, setexpr.into());
                     }
                     _ => {
                         return Err(ParseError::InvalidToken {
@@ -393,7 +393,7 @@ fn parse_block(parser: &mut Parser) -> Result<Expr, ParseError> {
     while !parser.consume(Token::RBrace) {
         exprs.push(parse_stmt(parser)?);
     }
-    let span = span.upto(parser.span());
+    let span = span.upto(&parser.span());
     Ok(Expr::Block(span, exprs))
 }
 

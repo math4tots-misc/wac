@@ -107,6 +107,45 @@ pub enum LexError {
     },
 }
 
+impl LexError {
+    pub fn span(&self) -> Span {
+        match self {
+            LexError::Unrecognized {
+                /// the index into the string where we encountered the
+                /// unrecognized token
+                pos,
+
+                /// the start of the unrecognized token
+                text: _,
+            } => [*pos, *pos + 1].into(),
+            LexError::BadRawStringQuote {
+                /// the index where we expected to see the quote char
+                pos,
+
+                /// the actual character that was seen instead of ' or "
+                actual: _,
+            } => [*pos, *pos + 1].into(),
+            LexError::BadEndState {
+                /// string describing the end state encountered
+                state: _,
+            } => [0, 1].into(),
+            LexError::UnterminatedStringLiteral {
+                /// index into the string marking the start of the
+                /// unterminated strin gliteral
+                start,
+            } => [*start, *start + 1].into(),
+            LexError::MismatchedGroupingSymbols {
+                pos,
+                open: _,
+                close: _,
+            } => [*pos, *pos + 1].into(),
+            LexError::UnterminatedGroupingSymbol {
+                open: _,
+            } => [0, 1].into(),
+        }
+    }
+}
+
 pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
     let mut ret = Vec::new();
     let mut chars = Chars::new(s);

@@ -26,13 +26,13 @@ pub fn main() {
                 std::process::exit(exitcode);
             }
             Err(error) => {
-                panic!("{:?}", error);
+                panic!("{}", error.format());
             }
         },
         Mode::CompileOnly => match translate(sources) {
             Ok(string) => println!("{}", string),
             Err(error) => {
-                panic!("{:?}", error);
+                panic!("{}", error.format());
             }
         },
     }

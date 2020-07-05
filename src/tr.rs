@@ -1,9 +1,10 @@
 use crate::ir::*;
 use crate::parse_file;
+use crate::Source;
 use crate::Error;
 use crate::Parser;
 use crate::Sink;
-use crate::Span;
+use crate::SSpan;
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -20,14 +21,15 @@ pub fn translate(mut sources: Vec<(Rc<str>, Rc<str>)>) -> Result<String, Error> 
     sources.insert(0, (prelude_name, prelude_str));
     let mut files = Vec::new();
     for (filename, data) in sources {
-        let mut parser = match Parser::new(&data) {
+        let source = Rc::new(Source {
+            name: filename.clone(),
+            data: data.clone(),
+        });
+        let mut parser = match Parser::new(&source) {
             Ok(parser) => parser,
-            Err(error) => return Err(Error::Lex(filename.clone(), error)),
+            Err(error) => return Err(Error::from_lex(source.clone(), error)),
         };
-        let file = match parse_file(&mut parser) {
-            Ok(file) => file,
-            Err(error) => return Err(Error::Parse(filename.clone(), error)),
-        };
+        let file = parse_file(&mut parser)?;
         files.push((filename, file));
     }
     let mut out = Out::new();
@@ -101,7 +103,7 @@ impl GlobalScope {
         }
     }
 
-    fn decl(&mut self, span: Span, name: Rc<str>, type_: Type) -> Result<Rc<GlobalVarInfo>, Error> {
+    fn decl(&mut self, span: SSpan, name: Rc<str>, type_: Type) -> Result<Rc<GlobalVarInfo>, Error> {
         if let Some(info) = self.varmap.get(&name) {
             return Err(Error::ConflictingDefinitions {
                 span1: info.span.clone(),
@@ -125,7 +127,7 @@ impl GlobalScope {
 /// global variable declaration
 struct GlobalVarInfo {
     #[allow(dead_code)]
-    span: Span,
+    span: SSpan,
     #[allow(dead_code)]
     original_name: Rc<str>,
     type_: Type,
@@ -135,7 +137,7 @@ struct GlobalVarInfo {
 /// local variable declaration
 struct LocalVarInfo {
     #[allow(dead_code)]
-    span: Span,
+    span: SSpan,
 
     /// the programmer provided name for this variable
     original_name: Rc<str>,
@@ -171,7 +173,7 @@ impl<'a> LocalScope<'a> {
     fn pop(&mut self) {
         self.locals.pop().unwrap();
     }
-    fn decl(&mut self, span: Span, original_name: Rc<str>, type_: Type) -> Rc<LocalVarInfo> {
+    fn decl(&mut self, span: SSpan, original_name: Rc<str>, type_: Type) -> Rc<LocalVarInfo> {
         let id = self.decls.len();
         let wasm_name = format!("$l_{}_{}", id, original_name).into();
         let info = Rc::new(LocalVarInfo {
@@ -199,7 +201,7 @@ impl<'a> LocalScope<'a> {
             None => None,
         }
     }
-    fn get_or_err(&self, span: Span, name: &Rc<str>) -> Result<ScopeEntry, Error> {
+    fn get_or_err(&self, span: SSpan, name: &Rc<str>) -> Result<ScopeEntry, Error> {
         match self.get(name) {
             Some(e) => Ok(e),
             None => Err(Error::Type {
@@ -212,7 +214,7 @@ impl<'a> LocalScope<'a> {
     fn getf(&self, name: &Rc<str>) -> Option<FunctionType> {
         self.g.functions.get(name).cloned()
     }
-    fn getf_or_err(&self, span: Span, name: &Rc<str>) -> Result<FunctionType, Error> {
+    fn getf_or_err(&self, span: SSpan, name: &Rc<str>) -> Result<FunctionType, Error> {
         match self.getf(name) {
             Some(e) => Ok(e),
             None => Err(Error::Type {
@@ -653,7 +655,7 @@ fn op_cmp(
     sink: &Rc<Sink>,
     lscope: &mut LocalScope,
     etype: Option<Type>,
-    span: &Span,
+    span: &SSpan,
     opname: &str,
     left: &Expr,
     right: &Expr,
@@ -699,7 +701,7 @@ fn op_arith_binop(
     sink: &Rc<Sink>,
     lscope: &mut LocalScope,
     etype: Option<Type>,
-    span: &Span,
+    span: &SSpan,
     opname: &str,
     left: &Expr,
     right: &Expr,

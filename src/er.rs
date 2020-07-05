@@ -2,23 +2,108 @@ use crate::LexError;
 use crate::ParseError;
 use crate::Span;
 use std::rc::Rc;
+use std::fmt;
+
+pub struct Source {
+    pub name: Rc<str>,
+    pub data: Rc<str>,
+}
+
+impl fmt::Debug for Source {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Source({})", self.name)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SSpan {
+    pub source: Rc<Source>,
+    pub span: Span,
+}
+
+impl SSpan {
+    pub(crate) fn join(&self, other: &Self) -> Self {
+        // TODO: check self.source and other.source
+        // are the same pointer
+        Self {
+            source: self.source.clone(),
+            span: self.span.join(other.span),
+        }
+    }
+    pub(crate) fn upto(&self, other: &Self) -> Self {
+        // TODO: check self.source and other.source
+        // are the same pointer
+        Self {
+            source: self.source.clone(),
+            span: self.span.upto(other.span),
+        }
+    }
+    pub fn format(&self) -> String {
+        let i = self.span.main;
+        let lineno = self.source.data[..i].matches('\n').count();
+        let lstart = self.source.data[..i].rfind('\n').map(|j| j + 1).unwrap_or(0);
+        let lend = self.source.data[i..].find('\n').map(|j| i + j).unwrap_or(self.source.data.len());
+        let line = &self.source.data[lstart..lend];
+        format!("on line {}\n{}\n{}*\n", lineno, line, " ".repeat(i - lstart))
+    }
+}
 
 #[derive(Debug)]
 pub enum Error {
-    Lex(Rc<str>, LexError),
-    Parse(Rc<str>, ParseError),
+    Lex(SSpan, LexError),
+    Parse(ParseError),
     Wabt(wabt::Error),
     Wasmer(wr::error::Error),
     Type {
-        span: Span,
+        span: SSpan,
         expected: String,
         got: String,
     },
     ConflictingDefinitions {
-        span1: Span,
-        span2: Span,
+        span1: SSpan,
+        span2: SSpan,
         name: Rc<str>,
     },
+}
+
+impl Error {
+    pub fn from_lex(source: Rc<Source>, le: LexError) -> Self {
+        let span = SSpan {
+            source,
+            span: le.span(),
+        };
+        Self::Lex(span, le)
+    }
+
+    pub fn format(&self) -> String {
+        match self {
+            Self::Lex(span, er) => {
+                format!("{}{:?}", span.format(), er)
+            }
+            Self::Parse(er) => er.format(),
+            Self::Type {
+                span,
+                expected,
+                got,
+            } => {
+                format!("{}Expected {} but got {}", span.format(), expected, got)
+            }
+            Self::ConflictingDefinitions {
+                span1,
+                span2,
+                name,
+            } => {
+                format!("{}{}Conflicting definitions for {}", span1.format(), span2.format(), name)
+            }
+            Self::Wabt(_) | Self::Wasmer(_) => format!("{:?}", self),
+        }
+    }
+}
+
+impl From<ParseError> for Error {
+    fn from(e: ParseError) -> Self {
+        Self::Parse(e)
+    }
 }
 
 impl From<wabt::Error> for Error {

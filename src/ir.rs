@@ -1,4 +1,4 @@
-use crate::Span;
+use crate::SSpan;
 use std::rc::Rc;
 
 pub struct File {
@@ -8,7 +8,7 @@ pub struct File {
 }
 
 pub struct FunctionImport {
-    pub span: Span,
+    pub span: SSpan,
     pub module_name: Rc<str>,
     pub function_name: Rc<str>,
     pub alias: Rc<str>,
@@ -21,7 +21,7 @@ pub enum Visibility {
 }
 
 pub struct Function {
-    pub span: Span,
+    pub span: SSpan,
     pub visibility: Visibility,
     pub name: Rc<str>,
     pub parameters: Vec<(Rc<str>, Type)>,
@@ -40,7 +40,7 @@ impl Function {
 }
 
 pub struct GlobalVariable {
-    pub span: Span,
+    pub span: SSpan,
     pub visibility: Visibility,
     pub name: Rc<str>,
     pub type_: Option<Type>,
@@ -48,24 +48,24 @@ pub struct GlobalVariable {
 }
 
 pub enum Expr {
-    Bool(Span, bool),
-    Int(Span, i64),
-    Float(Span, f64),
-    GetVar(Span, Rc<str>),
-    SetVar(Span, Rc<str>, Box<Expr>),
-    DeclVar(Span, Rc<str>, Option<Type>, Box<Expr>),
-    Block(Span, Vec<Expr>),
-    FunctionCall(Span, Rc<str>, Vec<Expr>),
-    If(Span, Box<Expr>, Box<Expr>, Box<Expr>),
-    While(Span, Box<Expr>, Box<Expr>),
+    Bool(SSpan, bool),
+    Int(SSpan, i64),
+    Float(SSpan, f64),
+    GetVar(SSpan, Rc<str>),
+    SetVar(SSpan, Rc<str>, Box<Expr>),
+    DeclVar(SSpan, Rc<str>, Option<Type>, Box<Expr>),
+    Block(SSpan, Vec<Expr>),
+    FunctionCall(SSpan, Rc<str>, Vec<Expr>),
+    If(SSpan, Box<Expr>, Box<Expr>, Box<Expr>),
+    While(SSpan, Box<Expr>, Box<Expr>),
 
     // builtin operators
-    LessThan(Span, Box<Expr>, Box<Expr>),
-    Add(Span, Box<Expr>, Box<Expr>),
+    LessThan(SSpan, Box<Expr>, Box<Expr>),
+    Add(SSpan, Box<Expr>, Box<Expr>),
 
     // intrinsics
-    CString(Span, Rc<str>),
-    Asm(Span, Vec<Expr>, Option<Type>, Rc<str>),
+    CString(SSpan, Rc<str>),
+    Asm(SSpan, Vec<Expr>, Option<Type>, Rc<str>),
 }
 
 pub enum Import {
