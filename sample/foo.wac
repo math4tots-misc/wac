@@ -34,6 +34,10 @@ fn StringStuff() {
 }
 
 fn Main() {
+    var list = [1, 2, 3]
+    var llen = __listlen(list)
+    __hello($cstr("llen"), llen)
+
     StringStuff()
     var ptr = SomeOtherFunc()
     __hello($cstr("STRPTR outside"), ptr)

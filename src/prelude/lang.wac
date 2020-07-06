@@ -21,3 +21,11 @@ fn __read(ptr i32) i32 {
 fn __write(ptr i32, value i32) {
     $asm([ptr, value], void, "i32.store")
 }
+
+fn __read_i64(ptr i32) i64 {
+    $asm([ptr], i64, "i64.load")
+}
+
+fn __write_i64(ptr i32, value i64) {
+    $asm([ptr, value], void, "i64.store")
+}

@@ -1,0 +1,97 @@
+
+# list layout:
+#   [refcnt i32][len(count) i32][capacity(count) i32][ptr to buffer i32]
+#
+# The actual buffer is an array of i64 'id' objects
+#
+fn __WAC_list_release(ptr i32) {
+    var refcnt = __read(ptr) - 1
+    if refcnt > 0 {
+        # __hello($cstr("LIST (RELEASE)"), refcnt)
+        __write(ptr, refcnt)
+    } else {
+        # __hello($cstr("LIST IS BEING FREED!!"), ptr)
+
+        # free the buffer
+        __free(__read(ptr + 8), __read(ptr + 12))
+
+        # free the info
+        __free(16, ptr)
+    }
+}
+
+fn __WAC_list_retain(ptr i32) {
+    __write(ptr, __read(ptr) + 1)
+    # __hello($cstr("LIST (RETAIN)"), __read(ptr))
+}
+
+fn __listlen(s list) i32 {
+    # Gets the length of the given string
+    var ptr = $asm([], i32, "local.get $l_0_s")
+    __read(ptr + 4)
+}
+
+fn __WAC_UNSAFE_listptr(s list) i32 {
+    # Returns the given list as an i32
+    # This is unsafe since if the last reference was given,
+    # the returned pointer would point to freed data
+    $asm([], i32, "local.get $l_0_s")
+}
+
+fn __new_list() list {
+    var ptr = __malloc(16)
+
+    # refcnt
+    __write(ptr, 1)
+
+    # len (starts empty)
+    __write(ptr + 4, 0)
+
+    # capacity (starts with no allocation)
+    __write(ptr + 8, 0)
+
+    # ptr to buffer (starts as null)
+    __write(ptr + 12, 0)
+
+    $asm([], list, "local.get $l_0_ptr")
+}
+
+fn __list_push_raw(list i32, item i64) {
+    __WAC_id_retain(item)
+    __list_push_raw_no_retain(list, item)
+}
+
+fn __list_push_raw_no_retain(list i32, item i64) {
+
+    var len = __read(list + 4)
+    var capacity = __read(list + 8)
+
+    if capacity < len + 1 {
+        var new_capacity = if capacity is 0 {
+            2
+        } else {
+            capacity * 4
+        }
+
+        # Update the 'capacity' field
+        __write(list + 8, new_capacity)
+
+        # Update with larger buffer
+        __write(
+            list + 12,
+            __realloc(8 * capacity, 8 * new_capacity, __read(list + 12)),
+        )
+    }
+
+    # __hello($cstr("new len"), len + 1)
+    # __hello($cstr("cap"), capacity)
+    # __hello($cstr("buf"), __read(list + 12))
+    # __print_cstr($cstr(""))
+
+    # update the 'len' field
+    __write(list + 4, len + 1)
+
+    var buffer = __read(list + 12)
+
+    __write_i64(buffer + 8 * len, item)
+}

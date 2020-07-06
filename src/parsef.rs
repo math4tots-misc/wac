@@ -272,6 +272,18 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
                 }),
             }
         }
+        Token::LBracket => {
+            parser.gettok();
+            let mut exprs = Vec::new();
+            while !parser.consume(Token::RBracket) {
+                exprs.push(parse_expr(parser, 0)?);
+                if !parser.consume(Token::Comma) {
+                    parser.expect(Token::RBracket)?;
+                    break;
+                }
+            }
+            Ok(Expr::List(span, exprs))
+        }
         Token::LParen => {
             parser.gettok();
             let expr = parse_expr(parser, 0)?;
@@ -570,6 +582,7 @@ fn parse_type(parser: &mut Parser) -> Result<Type, ParseError> {
         Token::Name("f64") => Some(Type::F64),
         Token::Name("bool") => Some(Type::Bool),
         Token::Name("str") => Some(Type::String),
+        Token::Name("list") => Some(Type::List),
         Token::Name("id") => Some(Type::Id),
         _ => None,
     };

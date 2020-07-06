@@ -25,6 +25,7 @@ pub fn translate(mut sources: Vec<(Rc<str>, Rc<str>)>) -> Result<String, Error> 
         ("[prelude:malloc]".into(), crate::prelude::MALLOC.into()),
         ("[prelude:str]".into(), crate::prelude::STR.into()),
         ("[prelude:id]".into(), crate::prelude::ID.into()),
+        ("[prelude:list]".into(), crate::prelude::LIST.into()),
     ];
 
     sources.splice(0..0, prelude);
@@ -397,6 +398,10 @@ fn translate_expr(
                 Some(Type::Bool) => {
                     sink.writeln(format!("(i32.const {})", if *x { 1 } else { 0 }));
                 }
+                Some(Type::Id) => {
+                    sink.writeln(format!("(i32.const {})", if *x { 1 } else { 0 }));
+                    cast_to_id(sink, TAG_BOOL);
+                }
                 Some(t) => {
                     return Err(Error::Type {
                         span: span.clone(),
@@ -423,6 +428,10 @@ fn translate_expr(
                 Some(Type::F64) => {
                     sink.writeln(format!("(f64.const {})", x));
                 }
+                Some(Type::Id) => {
+                    sink.writeln(format!("(i32.const {})", x));
+                    cast_to_id(sink, TAG_I32);
+                }
                 Some(t) => {
                     return Err(Error::Type {
                         span: span.clone(),
@@ -442,6 +451,11 @@ fn translate_expr(
                 }
                 Some(Type::F64) => {
                     sink.writeln(format!("(f64.const {})", x));
+                }
+                Some(Type::Id) => {
+                    sink.writeln(format!("(f32.const {})", x));
+                    sink.writeln("i32.reinterpret_f32");
+                    cast_to_id(sink, TAG_F32);
                 }
                 Some(t) => {
                     return Err(Error::Type {
@@ -467,6 +481,15 @@ fn translate_expr(
                     // no-op value is dropped
                 }
             }
+        }
+        Expr::List(span, exprs) => {
+            sink.writeln("call $f___new_list");
+            for expr in exprs {
+                raw_dup(lscope, sink, WasmType::I32);
+                translate_expr(out, sink, lscope, Some(Type::Id), expr)?;
+                sink.writeln("call $f___list_push_raw_no_retain");
+            }
+            auto_cast(sink, span, lscope, Some(Type::List), etype)?;
         }
         Expr::Block(span, exprs) => {
             if let Some(last) = exprs.last() {
@@ -822,14 +845,21 @@ fn release(lscope: &mut LocalScope, sink: &Rc<Sink>, type_: Type, dp: DropPolicy
         Type::String => {
             match dp {
                 DropPolicy::Drop => {},
-                DropPolicy::Keep => dup(lscope, sink, WasmType::I32),
+                DropPolicy::Keep => raw_dup(lscope, sink, WasmType::I32),
             }
             sink.writeln("call $f___WAC_str_release");
+        }
+        Type::List => {
+            match dp {
+                DropPolicy::Drop => {},
+                DropPolicy::Keep => raw_dup(lscope, sink, WasmType::I32),
+            }
+            sink.writeln("call $f___WAC_list_release");
         }
         Type::Id => {
             match dp {
                 DropPolicy::Drop => {},
-                DropPolicy::Keep => dup(lscope, sink, WasmType::I64),
+                DropPolicy::Keep => raw_dup(lscope, sink, WasmType::I64),
             }
             sink.writeln("call $f___WAC_id_release");
         }
@@ -844,6 +874,10 @@ fn release_var(sink: &Rc<Sink>, scope: Scope, wasm_name: &Rc<str>, type_: Type) 
         Type::String => {
             sink.writeln(format!("{}.get {}", scope, wasm_name));
             sink.writeln("call $f___WAC_str_release");
+        }
+        Type::List => {
+            sink.writeln(format!("{}.get {}", scope, wasm_name));
+            sink.writeln("call $f___WAC_list_release");
         }
         Type::Id => {
             sink.writeln(format!("{}.get {}", scope, wasm_name));
@@ -884,14 +918,21 @@ fn retain(lscope: &mut LocalScope, sink: &Rc<Sink>, type_: Type, dp: DropPolicy)
         Type::String => {
             match dp {
                 DropPolicy::Drop => {},
-                DropPolicy::Keep => dup(lscope, sink, WasmType::I32),
+                DropPolicy::Keep => raw_dup(lscope, sink, WasmType::I32),
             }
             sink.writeln("call $f___WAC_str_retain");
+        }
+        Type::List => {
+            match dp {
+                DropPolicy::Drop => {},
+                DropPolicy::Keep => raw_dup(lscope, sink, WasmType::I32),
+            }
+            sink.writeln("call $f___WAC_list_retain");
         }
         Type::Id => {
             match dp {
                 DropPolicy::Drop => {},
-                DropPolicy::Keep => dup(lscope, sink, WasmType::I64),
+                DropPolicy::Keep => raw_dup(lscope, sink, WasmType::I64),
             }
             sink.writeln("call $f___WAC_id_retain");
         }
@@ -901,7 +942,7 @@ fn retain(lscope: &mut LocalScope, sink: &Rc<Sink>, type_: Type, dp: DropPolicy)
 /// Duplicates TOS
 /// Requires a WasmType -- this function does not take into account
 /// any sort of reference counting
-fn dup(lscope: &mut LocalScope, sink: &Rc<Sink>, wasm_type: WasmType) {
+fn raw_dup(lscope: &mut LocalScope, sink: &Rc<Sink>, wasm_type: WasmType) {
     let t = translate_wasm_type(wasm_type);
     let tmpvar = format!("$rt_tmp_dup_{}", t);
     lscope.helper(&tmpvar, wasm_type.wac());
@@ -949,6 +990,7 @@ fn op_cmp(
             sink.writeln(format!("{}.{}", translate_type(gtype), opname));
         }
         Type::String => panic!("TODO: String comparisons not yet supported"),
+        Type::List => panic!("TODO: List comparisons not yet supported"),
         Type::Id => panic!("TODO: Id comparisons not yet supported"),
     }
     auto_cast(sink, span, lscope, Some(Type::Bool), etype)?;
@@ -1009,6 +1051,15 @@ fn op_bitwise_binop(
     Ok(())
 }
 
+/// adds opcodes to convert an i32 type to an 'id'
+fn cast_to_id(sink: &Rc<Sink>, tag: i32) {
+    sink.writeln("i64.extend_i32_u");
+    sink.writeln(format!("i64.const {}", tag));
+    sink.writeln("i64.const 32");
+    sink.writeln("i64.shl");
+    sink.writeln("i64.or");
+}
+
 /// perform a cast of TOS from src to dst for when implicitly needed
 fn auto_cast(
     sink: &Rc<Sink>,
@@ -1023,12 +1074,18 @@ fn auto_cast(
         (Some(Type::I32), Some(Type::F32)) => {
             sink.writeln("f32.convert_i32_s");
         }
+        (Some(Type::I32), Some(Type::Id)) => {
+            cast_to_id(sink, TAG_I32);
+        }
+        (Some(Type::F32), Some(Type::Id)) => {
+            sink.writeln("i32.reinterpret_f32");
+            cast_to_id(sink, TAG_F32);
+        }
         (Some(Type::String), Some(Type::Id)) => {
-            sink.writeln("i64.extend_i32_u");
-            sink.writeln(format!("i64.const {}", TAG_STRING));
-            sink.writeln("i64.const 32");
-            sink.writeln("i64.shl");
-            sink.writeln("i64.or");
+            cast_to_id(sink, TAG_STRING);
+        }
+        (Some(Type::List), Some(Type::Id)) => {
+            cast_to_id(sink, TAG_LIST);
         }
         (Some(src), None) => {
             release(lscope, sink, src, DropPolicy::Drop);
@@ -1077,6 +1134,7 @@ fn guess_type(lscope: &mut LocalScope, expr: &Expr) -> Result<Type, Error> {
         Expr::Int(..) => Ok(Type::I32),
         Expr::Float(..) => Ok(Type::F32),
         Expr::String(..) => Ok(Type::String),
+        Expr::List(..) => Ok(Type::List),
         Expr::GetVar(span, name) => match lscope.get_or_err(span.clone(), name)? {
             ScopeEntry::Local(info) => Ok(info.type_),
             ScopeEntry::Global(info) => Ok(info.type_),

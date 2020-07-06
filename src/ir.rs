@@ -52,6 +52,7 @@ pub enum Expr {
     Int(SSpan, i64),
     Float(SSpan, f64),
     String(SSpan, Rc<str>),
+    List(SSpan, Vec<Expr>),
     GetVar(SSpan, Rc<str>),
     SetVar(SSpan, Rc<str>, Box<Expr>),
     DeclVar(SSpan, Rc<str>, Option<Type>, Box<Expr>),
@@ -131,7 +132,8 @@ pub const TAG_F32: i32 = 3;
 pub const TAG_F64: i32 = 4;
 pub const TAG_BOOL: i32 = 5;
 pub const TAG_STRING: i32 = 6;
-pub const TAG_ID: i32 = 7;
+pub const TAG_LIST: i32 = 7;
+pub const TAG_ID: i32 = 8;
 
 #[repr(i32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -147,6 +149,11 @@ pub enum Type {
     //   [refcnt i32][size i32][utf8...]
     String = TAG_STRING,
 
+    // Reference counted list type
+    // i32 that points to:
+    //   [refcnt i32][size i32][capacity i32][utf8...]
+    List = TAG_LIST,
+
     // i64 value that can represent all types except
     // other i64 types
     Id = TAG_ID,
@@ -156,7 +163,7 @@ impl Type {
     pub fn primitive(self) -> bool {
         match self {
             Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Bool => true,
-            Type::String | Type::Id => false,
+            Type::String | Type::List | Type::Id => false,
         }
     }
     pub fn wasm(self) -> WasmType {
@@ -167,6 +174,7 @@ impl Type {
             Type::F64 => WasmType::F64,
             Type::Bool => WasmType::I32,
             Type::String => WasmType::I32,
+            Type::List => WasmType::I32,
             Type::Id => WasmType::I64,
         }
     }
