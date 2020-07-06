@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Token<'a> {
     Name(&'a str),
@@ -399,7 +401,7 @@ enum State {
 struct Chars<'a> {
     chars_exhausted: bool,
     pos: usize,
-    lookahead: Option<char>,
+    lookahead: VecDeque<char>,
     chars: std::str::Chars<'a>,
 }
 
@@ -408,31 +410,22 @@ impl<'a> Chars<'a> {
         Self {
             chars_exhausted: false,
             pos: 0,
-            lookahead: None,
+            lookahead: VecDeque::new(),
             chars: s.chars(),
         }
     }
     fn peek(&mut self) -> Option<char> {
-        match self.lookahead {
-            Some(ch) => Some(ch),
-            None => {
-                self.lookahead = self.chars.next();
-                self.lookahead
-            }
-        }
-    }
-    fn next(&mut self) -> Option<(char, usize)> {
-        let opt_ch = match self.lookahead {
-            Some(ch) => {
-                self.lookahead = None;
-                Some(ch)
-            }
+        match self.lookahead.front() {
+            Some(ch) => Some(*ch),
             None => {
                 if self.chars_exhausted {
                     None
                 } else {
                     match self.chars.next() {
-                        Some(ch) => Some(ch),
+                        Some(c) => {
+                            self.lookahead.push_back(c);
+                            Some(c)
+                        }
                         None => {
                             self.chars_exhausted = true;
                             // This way, from the point of view of the main
@@ -440,14 +433,18 @@ impl<'a> Chars<'a> {
                             // character
                             // (we use newline instead of just a space to
                             // ensure comments are properly terminated)
-                            Some('\n')
+                            self.lookahead.push_back('\n');
+                            None
                         }
                     }
                 }
             }
-        };
-        let pos = self.pos;
-        if let Some(ch) = opt_ch {
+        }
+    }
+    fn next(&mut self) -> Option<(char, usize)> {
+        self.peek(); // 'prime' lookahead
+        if let Some(ch) = self.lookahead.pop_front() {
+            let pos = self.pos;
             self.pos += ch.len_utf8();
             Some((ch, pos))
         } else {
@@ -455,10 +452,7 @@ impl<'a> Chars<'a> {
         }
     }
     fn put_back(&mut self, ch: char) {
-        if self.lookahead.is_some() {
-            panic!("put_back more than 1 char not allowd");
-        }
-        self.lookahead = Some(ch);
+        self.lookahead.push_front(ch);
         self.pos -= ch.len_utf8();
     }
 }

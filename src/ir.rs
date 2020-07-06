@@ -84,6 +84,8 @@ pub enum Binop {
     ShiftLeft,
     ShiftRight,
 
+    Is,
+    IsNot,
     Equal,
     NotEqual,
     Less,

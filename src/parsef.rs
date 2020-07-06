@@ -456,21 +456,33 @@ fn parse_infix(parser: &mut Parser, mut lhs: Expr, prec: u32) -> Result<Expr, Pa
                     rhs.into(),
                 )
             }
-            Token::Eq2 | Token::Ne | Token::Lt | Token::Gt | Token::Le | Token::Ge => {
+            Token::Eq2
+            | Token::Ne
+            | Token::Lt
+            | Token::Gt
+            | Token::Le
+            | Token::Ge
+            | Token::Name("is") => {
                 if prec > PREC_CMP {
                     break;
                 }
-                let op = match parser.peek() {
+                let mut op = match parser.peek() {
                     Token::Eq2 => Binop::Equal,
                     Token::Ne => Binop::NotEqual,
                     Token::Lt => Binop::Less,
                     Token::Gt => Binop::Greater,
                     Token::Le => Binop::LessOrEqual,
                     Token::Ge => Binop::GreaterOrEqual,
+                    Token::Name("is") => Binop::Is,
                     tok => panic!("{:?}", tok),
                 };
                 let span = parser.span();
                 parser.gettok();
+                if let Binop::Is = op {
+                    if parser.consume(Token::Name("not")) {
+                        op = Binop::IsNot;
+                    }
+                }
                 let right = parse_expr(parser, PREC_CMP + 1)?;
                 let span = span.join(&start).upto(&parser.span());
                 lhs = Expr::Binop(span, op, lhs.into(), right.into());

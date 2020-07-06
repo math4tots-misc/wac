@@ -538,18 +538,15 @@ fn translate_expr(
             auto_cast(sink, span, lscope, ftype.return_type, etype)?;
         }
         Expr::If(_span, cond, body, other) => {
-            sink.writeln("(if ");
+            translate_expr(out, sink, lscope, Some(Type::Bool), cond)?;
+            sink.writeln("if");
             if let Some(etype) = etype {
                 sink.writeln(format!(" (result {})", translate_type(etype)));
             }
-            translate_expr(out, sink, lscope, Some(Type::Bool), cond)?;
-            sink.writeln("(then");
             translate_expr(out, sink, lscope, etype, body)?;
-            sink.writeln(")");
-            sink.writeln("(else");
+            sink.writeln("else");
             translate_expr(out, sink, lscope, etype, other)?;
-            sink.writeln(")");
-            sink.writeln(")");
+            sink.writeln("end");
         }
         Expr::While(_span, cond, body) => {
             let break_label = lscope.new_label_id();
@@ -576,6 +573,34 @@ fn translate_expr(
             Binop::LessOrEqual => op_cmp(out, sink, lscope, etype, span, "le", left, right)?,
             Binop::Greater => op_cmp(out, sink, lscope, etype, span, "gt", left, right)?,
             Binop::GreaterOrEqual => op_cmp(out, sink, lscope, etype, span, "ge", left, right)?,
+            Binop::Is => {
+                let left_type = guess_type(lscope, left)?;
+                let right_type = guess_type(lscope, right)?;
+                let gtype = common_type(lscope, span, left_type, right_type)?;
+                translate_expr(out, sink, lscope, Some(gtype), left)?;
+                translate_expr(out, sink, lscope, Some(gtype), right)?;
+                sink.writeln(match gtype.wasm() {
+                    WasmType::I32 => "i32.eq",
+                    WasmType::I64 => "i64.eq",
+                    WasmType::F32 => "f32.eq",
+                    WasmType::F64 => "f64.eq",
+                });
+                auto_cast(sink, span, lscope, Some(Type::Bool), etype)?;
+            }
+            Binop::IsNot => {
+                let left_type = guess_type(lscope, left)?;
+                let right_type = guess_type(lscope, right)?;
+                let gtype = common_type(lscope, span, left_type, right_type)?;
+                translate_expr(out, sink, lscope, Some(gtype), left)?;
+                translate_expr(out, sink, lscope, Some(gtype), right)?;
+                sink.writeln(match gtype.wasm() {
+                    WasmType::I32 => "i32.ne",
+                    WasmType::I64 => "i64.ne",
+                    WasmType::F32 => "f32.ne",
+                    WasmType::F64 => "f64.ne",
+                });
+                auto_cast(sink, span, lscope, Some(Type::Bool), etype)?;
+            }
             Binop::Add => op_arith_binop(out, sink, lscope, etype, span, "add", left, right)?,
             Binop::Subtract => op_arith_binop(out, sink, lscope, etype, span, "sub", left, right)?,
             Binop::Multiply => op_arith_binop(out, sink, lscope, etype, span, "mul", left, right)?,
@@ -600,19 +625,31 @@ fn translate_expr(
                         sink.writeln("f32.div");
                         explicit_cast(sink, span, lscope, Some(Type::F32), Some(Type::I32))?;
                     }
-                    _ => return Err(Error::Type {
-                        span: span.clone(),
-                        expected: format!("{:?}", etype),
-                        got: "Int".into(),
-                    }),
+                    _ => {
+                        return Err(Error::Type {
+                            span: span.clone(),
+                            expected: format!("{:?}", etype),
+                            got: "Int".into(),
+                        })
+                    }
                 }
                 auto_cast(sink, span, lscope, Some(Type::I32), etype)?;
             }
-            Binop::BitwiseAnd => op_bitwise_binop(out, sink, lscope, etype, span, "and", left, right)?,
-            Binop::BitwiseOr => op_bitwise_binop(out, sink, lscope, etype, span, "or", left, right)?,
-            Binop::BitwiseXor => op_bitwise_binop(out, sink, lscope, etype, span, "xor", left, right)?,
-            Binop::ShiftLeft => op_bitwise_binop(out, sink, lscope, etype, span, "shl", left, right)?,
-            Binop::ShiftRight => op_bitwise_binop(out, sink, lscope, etype, span, "shr_u", left, right)?,
+            Binop::BitwiseAnd => {
+                op_bitwise_binop(out, sink, lscope, etype, span, "and", left, right)?
+            }
+            Binop::BitwiseOr => {
+                op_bitwise_binop(out, sink, lscope, etype, span, "or", left, right)?
+            }
+            Binop::BitwiseXor => {
+                op_bitwise_binop(out, sink, lscope, etype, span, "xor", left, right)?
+            }
+            Binop::ShiftLeft => {
+                op_bitwise_binop(out, sink, lscope, etype, span, "shl", left, right)?
+            }
+            Binop::ShiftRight => {
+                op_bitwise_binop(out, sink, lscope, etype, span, "shr_u", left, right)?
+            }
             _ => panic!("TODO: translate_expr binop {:?}", op),
         },
         Expr::Unop(span, op, expr) => match op {
@@ -686,6 +723,20 @@ fn drop(_lscope: &mut LocalScope, sink: &Rc<Sink>, type_: Type) {
         Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 => {
             sink.writeln("drop");
         }
+    }
+}
+
+/// Return the most specific shared type between the two types
+/// Returns an error if no such type exists
+fn common_type(_lscope: &mut LocalScope, span: &SSpan, a: Type, b: Type) -> Result<Type, Error> {
+    match (a, b) {
+        _ if a == b => Ok(a),
+        (Type::I32, Type::F32) | (Type::F32, Type::I32) => Ok(Type::F32),
+        _ => Err(Error::Type {
+            span: span.clone(),
+            expected: format!("{:?}", a),
+            got: format!("{:?}", b),
+        }),
     }
 }
 
@@ -875,8 +926,12 @@ fn guess_type(lscope: &mut LocalScope, expr: &Expr) -> Result<Type, Error> {
             expected: "any-value".into(),
             got: "Void (while)".into(),
         }),
-        Expr::Binop(_span, op, left, _) => match op {
-            Binop::Add | Binop::Subtract | Binop::Multiply => guess_type(lscope, left),
+        Expr::Binop(span, op, left, right) => match op {
+            Binop::Add | Binop::Subtract | Binop::Multiply => {
+                let a = guess_type(lscope, left)?;
+                let b = guess_type(lscope, right)?;
+                common_type(lscope, span, a, b)
+            }
             Binop::Divide => Ok(Type::F32),
             Binop::TruncDivide | Binop::Remainder => Ok(Type::I32),
             Binop::BitwiseAnd
@@ -889,7 +944,9 @@ fn guess_type(lscope: &mut LocalScope, expr: &Expr) -> Result<Type, Error> {
             | Binop::Greater
             | Binop::GreaterOrEqual
             | Binop::Equal
-            | Binop::NotEqual => Ok(Type::Bool),
+            | Binop::NotEqual
+            | Binop::Is
+            | Binop::IsNot => Ok(Type::Bool),
         },
         Expr::Unop(_span, op, expr) => match op {
             Unop::Minus | Unop::Plus => guess_type(lscope, expr),
@@ -957,11 +1014,10 @@ impl Out {
     fn get(self) -> String {
         let len = self.data_len.get();
         let page_len = (len + (PAGE_SIZE - 1)) / PAGE_SIZE;
-        self.memory.writeln(format!("(memory $rt_mem {})", page_len));
-        self.gvars.writeln(format!(
-            "(global $rt_heap_start i32 (i32.const {}))",
-            len,
-        ));
+        self.memory
+            .writeln(format!("(memory $rt_mem {})", page_len));
+        self.gvars
+            .writeln(format!("(global $rt_heap_start i32 (i32.const {}))", len,));
         self.main.get()
     }
 

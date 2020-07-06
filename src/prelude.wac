@@ -18,12 +18,15 @@ var __WAC_freelist_64 = 0
 var __WAC_freelist_256 = 0
 var __WAC_freelist_1024 = 0
 
+# Number of bytes in a page
+var __WAC_PAGE_SIZE = 65536
+
 fn __malloc(len i32) i32 {
-    # TODO: 16-byte alignment
-    # TODO: actually make free-able
-    var ptr = __WAC_heap_end
-    __WAC_heap_end = __WAC_heap_end + len
-    ptr
+    if len <= 16 {
+        if __WAC_freelist_16 is 0 {
+        }
+    }
+    0
 }
 
 fn __free(len i32, ptr i32) {
@@ -34,6 +37,16 @@ fn __WAC_alloc(len i32) i32 {
     len = (len + (16 - 1)) // 16
 
     var ptr = __WAC_heap_end
+
+    var required_page_count = (ptr + __WAC_PAGE_SIZE - 1) // __WAC_PAGE_SIZE
+    var current_page_count = $asm([], i32, "memory.size")
+
+    if current_page_count < required_page_count {
+        if $asm([required_page_count - current_page_count], i32, "memory.grow") is -1 {
+            # TODO: out of memory, alert in some way
+        }
+    }
+
     __WAC_heap_end = __WAC_heap_end + len
     ptr
 }

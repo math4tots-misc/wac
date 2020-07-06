@@ -51,7 +51,8 @@ impl SSpan {
             .unwrap_or(self.source.data.len());
         let line = &self.source.data[lstart..lend];
         format!(
-            "on line {}\n{}\n{}*\n",
+            "in {} on line {}\n{}\n{}*\n",
+            self.source.name,
             lineno,
             line,
             " ".repeat(i - lstart)
