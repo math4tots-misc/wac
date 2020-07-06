@@ -570,6 +570,7 @@ fn parse_type(parser: &mut Parser) -> Result<Type, ParseError> {
         Token::Name("f64") => Some(Type::F64),
         Token::Name("bool") => Some(Type::Bool),
         Token::Name("str") => Some(Type::String),
+        Token::Name("id") => Some(Type::Id),
         _ => None,
     };
     if let Some(t) = opt {

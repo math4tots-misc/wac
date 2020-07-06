@@ -24,6 +24,7 @@ pub fn translate(mut sources: Vec<(Rc<str>, Rc<str>)>) -> Result<String, Error> 
         ("[prelude:lang]".into(), crate::prelude::LANG.into()),
         ("[prelude:malloc]".into(), crate::prelude::MALLOC.into()),
         ("[prelude:str]".into(), crate::prelude::STR.into()),
+        ("[prelude:id]".into(), crate::prelude::ID.into()),
     ];
 
     sources.splice(0..0, prelude);
@@ -41,6 +42,16 @@ pub fn translate(mut sources: Vec<(Rc<str>, Rc<str>)>) -> Result<String, Error> 
         files.push((filename, file));
     }
     let mut out = Out::new();
+
+    // some universal constants
+    out.gvars.writeln(format!("(global $rt_tag_i32  i32 (i32.const {}))", TAG_I32));
+    out.gvars.writeln(format!("(global $rt_tag_i64  i32 (i32.const {}))", TAG_I64));
+    out.gvars.writeln(format!("(global $rt_tag_f32  i32 (i32.const {}))", TAG_F32));
+    out.gvars.writeln(format!("(global $rt_tag_f64  i32 (i32.const {}))", TAG_F64));
+    out.gvars.writeln(format!("(global $rt_tag_bool i32 (i32.const {}))", TAG_BOOL));
+    out.gvars.writeln(format!("(global $rt_tag_str  i32 (i32.const {}))", TAG_STRING));
+    out.gvars.writeln(format!("(global $rt_tag_id   i32 (i32.const {}))", TAG_ID));
+
     let mut functions = HashMap::new();
 
     // collect all function signatures
@@ -446,17 +457,11 @@ fn translate_expr(
         }
         Expr::String(span, value) => {
             match etype {
-                Some(Type::String) => {
+                Some(t) => {
                     let ptr = out.intern_str(value);
                     sink.writeln(format!("(i32.const {})", ptr));
                     retain(lscope, sink, Type::String, DropPolicy::Keep);
-                }
-                Some(t) => {
-                    return Err(Error::Type {
-                        span: span.clone(),
-                        expected: format!("{:?}", t),
-                        got: "str".into(),
-                    })
+                    auto_cast(sink, span, lscope, Some(Type::String), Some(t))?;
                 }
                 None => {
                     // no-op value is dropped
@@ -491,16 +496,10 @@ fn translate_expr(
             match entry {
                 ScopeEntry::Local(info) => {
                     match etype {
-                        Some(etype) if etype == info.type_ => {
+                        Some(etype) => {
                             sink.writeln(format!("local.get {}", info.wasm_name));
                             retain(lscope, sink, info.type_, DropPolicy::Keep);
-                        }
-                        Some(etype) => {
-                            return Err(Error::Type {
-                                span: span.clone(),
-                                expected: format!("{:?}", etype),
-                                got: format!("{:?} (localvar)", info.type_),
-                            })
+                            auto_cast(sink, span, lscope, Some(info.type_), Some(etype))?;
                         }
                         None => {
                             // we already checked this variable exists,
@@ -511,16 +510,10 @@ fn translate_expr(
                 }
                 ScopeEntry::Global(info) => {
                     match etype {
-                        Some(etype) if etype == info.type_ => {
+                        Some(etype) => {
                             sink.writeln(format!("global.get {}", info.wasm_name));
                             retain(lscope, sink, info.type_, DropPolicy::Keep);
-                        }
-                        Some(etype) => {
-                            return Err(Error::Type {
-                                span: span.clone(),
-                                expected: format!("{:?}", etype),
-                                got: format!("{:?} (globalvar)", info.type_),
-                            })
+                            auto_cast(sink, span, lscope, Some(info.type_), Some(etype))?;
                         }
                         None => {
                             // we already checked this variable exists,
@@ -833,6 +826,13 @@ fn release(lscope: &mut LocalScope, sink: &Rc<Sink>, type_: Type, dp: DropPolicy
             }
             sink.writeln("call $f___WAC_str_release");
         }
+        Type::Id => {
+            match dp {
+                DropPolicy::Drop => {},
+                DropPolicy::Keep => dup(lscope, sink, WasmType::I64),
+            }
+            sink.writeln("call $f___WAC_id_release");
+        }
     }
 }
 
@@ -844,6 +844,10 @@ fn release_var(sink: &Rc<Sink>, scope: Scope, wasm_name: &Rc<str>, type_: Type) 
         Type::String => {
             sink.writeln(format!("{}.get {}", scope, wasm_name));
             sink.writeln("call $f___WAC_str_release");
+        }
+        Type::Id => {
+            sink.writeln(format!("{}.get {}", scope, wasm_name));
+            sink.writeln("call $f___WAC_id_release");
         }
     }
 }
@@ -883,6 +887,13 @@ fn retain(lscope: &mut LocalScope, sink: &Rc<Sink>, type_: Type, dp: DropPolicy)
                 DropPolicy::Keep => dup(lscope, sink, WasmType::I32),
             }
             sink.writeln("call $f___WAC_str_retain");
+        }
+        Type::Id => {
+            match dp {
+                DropPolicy::Drop => {},
+                DropPolicy::Keep => dup(lscope, sink, WasmType::I64),
+            }
+            sink.writeln("call $f___WAC_id_retain");
         }
     }
 }
@@ -938,6 +949,7 @@ fn op_cmp(
             sink.writeln(format!("{}.{}", translate_type(gtype), opname));
         }
         Type::String => panic!("TODO: String comparisons not yet supported"),
+        Type::Id => panic!("TODO: Id comparisons not yet supported"),
     }
     auto_cast(sink, span, lscope, Some(Type::Bool), etype)?;
     Ok(())
@@ -1010,6 +1022,13 @@ fn auto_cast(
         (None, None) => {}
         (Some(Type::I32), Some(Type::F32)) => {
             sink.writeln("f32.convert_i32_s");
+        }
+        (Some(Type::String), Some(Type::Id)) => {
+            sink.writeln("i64.extend_i32_u");
+            sink.writeln(format!("i64.const {}", TAG_STRING));
+            sink.writeln("i64.const 32");
+            sink.writeln("i64.shl");
+            sink.writeln("i64.or");
         }
         (Some(src), None) => {
             release(lscope, sink, src, DropPolicy::Drop);

@@ -9,6 +9,7 @@ fn SomeFunc(s str) {
 
 fn SomeOtherFunc() i32 {
     var s = "Hello world!"
+    var id_s id = s
     __hello($cstr("STRPTR == split a =="), 0)
     var ptr = __WAC_UNSAFE_strptr(s)
     __hello($cstr("STRPTR before"), ptr)
@@ -20,12 +21,26 @@ fn SomeOtherFunc() i32 {
     ptr
 }
 
+fn StringStuff() {
+    var s = "Hello world"
+    var x id = s
+    var x_raw = $asm([], i64, "local.get $l_1_x")
+    var s_raw = $asm([], i32, "local.get $l_0_s")
+    var tag = __WAC_id_tag(x_raw)
+    var val = __WAC_id_value(x_raw)
+    __hello($cstr("x id tag"), tag)
+    __hello($cstr("x id val"), val)
+    __hello($cstr("s_raw"), s_raw)
+}
+
 fn Main() {
+    StringStuff()
     var ptr = SomeOtherFunc()
     __hello($cstr("STRPTR outside"), ptr)
     __hello($cstr("REFCNT outside"), __read(ptr))
+}
 
-    $cstr(r###"
+fn OldMain() {
     # __print_i32(__WAC_page_count())
 
     __print_f32(1 / 2)
@@ -117,7 +132,6 @@ fn Main() {
 
     __print_cstr($cstr("total: "))
     __print_i32(total)
-    "###)
 }
 
 fn add4(x i32) i32 {

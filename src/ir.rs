@@ -125,25 +125,38 @@ impl WasmType {
     }
 }
 
+pub const TAG_I32: i32 = 1;
+pub const TAG_I64: i32 = 2;
+pub const TAG_F32: i32 = 3;
+pub const TAG_F64: i32 = 4;
+pub const TAG_BOOL: i32 = 5;
+pub const TAG_STRING: i32 = 6;
+pub const TAG_ID: i32 = 7;
+
+#[repr(i32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Type {
-    I32,
-    I64,
-    F32,
-    F64,
-    Bool,
+    I32 = TAG_I32,
+    I64 = TAG_I64,
+    F32 = TAG_F32,
+    F64 = TAG_F64,
+    Bool = TAG_BOOL,
 
     // Reference counted str type
     // i32 that points to:
     //   [refcnt i32][size i32][utf8...]
-    String,
+    String = TAG_STRING,
+
+    // i64 value that can represent all types except
+    // other i64 types
+    Id = TAG_ID,
 }
 
 impl Type {
     pub fn primitive(self) -> bool {
         match self {
             Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Bool => true,
-            Type::String => false,
+            Type::String | Type::Id => false,
         }
     }
     pub fn wasm(self) -> WasmType {
@@ -154,6 +167,7 @@ impl Type {
             Type::F64 => WasmType::F64,
             Type::Bool => WasmType::I32,
             Type::String => WasmType::I32,
+            Type::Id => WasmType::I64,
         }
     }
 }
