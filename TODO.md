@@ -16,7 +16,29 @@
     grouping bits of data together should be possible
     to keep things simple, they should be dumb structs
     behind reference counted pointers
+* trait functions
+    something that's implemented like
 
+        # define new trait function
+        trait fn Len(self)
+
+        # define its implementation for various
+        # types
+        impl Len(self list) {
+            ...
+        }
+        impl Len(self str) {
+            ...
+        }
+
+        # then just use it like any other function
+        fn Main() {
+            Len("hello")
+        }
+
+    Since this would be pretty heavy on dispatch,
+    some sort of inline caching (like how interface dispatch is
+    implemented for Java/Smalltalk) may be sorely needed here
 
 # DONE
 
