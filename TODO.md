@@ -8,6 +8,10 @@
 * refrence counted list type
 * refrence counted map type
 * refrence counted set type
+* global constants
+* some sort of switch or match (may depend on first
+    having some sort of global constants mechanism
+    to be useful)
 * memory management (some sort of malloc and free)
 * 'id' type
     it should be able to represent all pointer

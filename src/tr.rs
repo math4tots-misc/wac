@@ -567,7 +567,7 @@ fn translate_expr(
                     }
                     None => {
                         // There's no need to retain here, because anything that's currently
-                        // on the stack already have a retain on them. By popping from the
+                        // on the stack already has a retain on it. By popping from the
                         // stack, we're transferring the retain on the stack into the
                         // variable itself.
                         //
@@ -587,7 +587,7 @@ fn translate_expr(
                     }
                     None => {
                         // There's no need to retain here, because anything that's currently
-                        // on the stack already have a retain on them. By popping from the
+                        // on the stack already has a retain on it. By popping from the
                         // stack, we're transferring the retain on the stack into the
                         // variable itself.
                         //
