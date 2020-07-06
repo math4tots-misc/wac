@@ -135,7 +135,7 @@ fn parse_globalvar(parser: &mut Parser) -> Result<GlobalVariable, ParseError> {
                 _ => {
                     return Err(ParseError::InvalidToken {
                         span,
-                        expected: "Function attribute".into(),
+                        expected: "Global variable attribute".into(),
                         got: format!("{:?}", parser.peek()),
                     })
                 }
