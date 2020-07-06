@@ -1,0 +1,25 @@
+var i32 = $asm([], type, "global.get $rt_tag_i32")
+var i64 = $asm([], type, "global.get $rt_tag_i64")
+var f32 = $asm([], type, "global.get $rt_tag_f32")
+var f64 = $asm([], type, "global.get $rt_tag_f64")
+var bool = $asm([], type, "global.get $rt_tag_bool")
+var str = $asm([], type, "global.get $rt_tag_str")
+var id = $asm([], type, "global.get $rt_tag_id")
+
+fn TypeOf(x id) type {
+    $asm([], type, r#"
+        local.get $l_0_x
+        i64.const 32
+        i64.shr_u
+        i32.wrap_i64
+    "#)
+}
+
+fn __WAC_typeof_raw(x i64) type {
+    $asm([], type, r#"
+        local.get $l_0_x
+        i64.const 32
+        i64.shr_u
+        i32.wrap_i64
+    "#)
+}

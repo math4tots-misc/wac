@@ -131,9 +131,10 @@ pub const TAG_I64: i32 = 2;
 pub const TAG_F32: i32 = 3;
 pub const TAG_F64: i32 = 4;
 pub const TAG_BOOL: i32 = 5;
-pub const TAG_STRING: i32 = 6;
-pub const TAG_LIST: i32 = 7;
-pub const TAG_ID: i32 = 8;
+pub const TAG_TYPE: i32 = 6;
+pub const TAG_STRING: i32 = 7;
+pub const TAG_LIST: i32 = 8;
+pub const TAG_ID: i32 = 9;
 
 #[repr(i32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -143,6 +144,10 @@ pub enum Type {
     F32 = TAG_F32,
     F64 = TAG_F64,
     Bool = TAG_BOOL,
+
+    // a primitive i32 type that uniquely identifies
+    // a type (in practice, the type tag)
+    Type = TAG_TYPE,
 
     // Reference counted str type
     // i32 that points to:
@@ -162,7 +167,7 @@ pub enum Type {
 impl Type {
     pub fn primitive(self) -> bool {
         match self {
-            Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Bool => true,
+            Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Bool | Type::Type => true,
             Type::String | Type::List | Type::Id => false,
         }
     }
@@ -173,6 +178,7 @@ impl Type {
             Type::F32 => WasmType::F32,
             Type::F64 => WasmType::F64,
             Type::Bool => WasmType::I32,
+            Type::Type => WasmType::I32,
             Type::String => WasmType::I32,
             Type::List => WasmType::I32,
             Type::Id => WasmType::I64,

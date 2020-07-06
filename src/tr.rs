@@ -26,6 +26,7 @@ pub fn translate(mut sources: Vec<(Rc<str>, Rc<str>)>) -> Result<String, Error> 
         ("[prelude:str]".into(), crate::prelude::STR.into()),
         ("[prelude:id]".into(), crate::prelude::ID.into()),
         ("[prelude:list]".into(), crate::prelude::LIST.into()),
+        ("[prelude:type]".into(), crate::prelude::TYPE.into()),
     ];
 
     sources.splice(0..0, prelude);
@@ -50,7 +51,9 @@ pub fn translate(mut sources: Vec<(Rc<str>, Rc<str>)>) -> Result<String, Error> 
     out.gvars.writeln(format!("(global $rt_tag_f32  i32 (i32.const {}))", TAG_F32));
     out.gvars.writeln(format!("(global $rt_tag_f64  i32 (i32.const {}))", TAG_F64));
     out.gvars.writeln(format!("(global $rt_tag_bool i32 (i32.const {}))", TAG_BOOL));
+    out.gvars.writeln(format!("(global $rt_tag_type i32 (i32.const {}))", TAG_TYPE));
     out.gvars.writeln(format!("(global $rt_tag_str  i32 (i32.const {}))", TAG_STRING));
+    out.gvars.writeln(format!("(global $rt_tag_list i32 (i32.const {}))", TAG_LIST));
     out.gvars.writeln(format!("(global $rt_tag_id   i32 (i32.const {}))", TAG_ID));
 
     let mut functions = HashMap::new();
@@ -836,7 +839,7 @@ fn translate_expr(
 /// the drop parameter determines if the value will be consumed/dropped or not
 fn release(lscope: &mut LocalScope, sink: &Rc<Sink>, type_: Type, dp: DropPolicy) {
     match type_ {
-        Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 => {
+        Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Type => {
             match dp {
                 DropPolicy::Drop => sink.writeln("drop"),
                 DropPolicy::Keep => {}
@@ -870,7 +873,7 @@ fn release(lscope: &mut LocalScope, sink: &Rc<Sink>, type_: Type, dp: DropPolicy
 /// overall, should leave the stack unchanged
 fn release_var(sink: &Rc<Sink>, scope: Scope, wasm_name: &Rc<str>, type_: Type) {
     match type_ {
-        Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 => {}
+        Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Type => {}
         Type::String => {
             sink.writeln(format!("{}.get {}", scope, wasm_name));
             sink.writeln("call $f___WAC_str_release");
@@ -909,7 +912,7 @@ impl fmt::Display for Scope {
 /// the drop parameter determines if the value will be consumed/dropped or not
 fn retain(lscope: &mut LocalScope, sink: &Rc<Sink>, type_: Type, dp: DropPolicy) {
     match type_ {
-        Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 => {
+        Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Type => {
             match dp {
                 DropPolicy::Drop => sink.writeln("drop"),
                 DropPolicy::Keep => {}
@@ -989,6 +992,7 @@ fn op_cmp(
         Type::F32 | Type::F64 => {
             sink.writeln(format!("{}.{}", translate_type(gtype), opname));
         }
+        Type::Type => panic!("TODO: Type comparisons not yet supported"),
         Type::String => panic!("TODO: String comparisons not yet supported"),
         Type::List => panic!("TODO: List comparisons not yet supported"),
         Type::Id => panic!("TODO: Id comparisons not yet supported"),
