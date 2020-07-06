@@ -364,6 +364,12 @@ fn translate_expr(
                 Some(Type::I64) => {
                     sink.writeln(format!("(i64.const {})", x));
                 }
+                Some(Type::F32) => {
+                    sink.writeln(format!("(f32.const {})", x));
+                }
+                Some(Type::F64) => {
+                    sink.writeln(format!("(f64.const {})", x));
+                }
                 Some(t) => {
                     return Err(Error::Type {
                         span: span.clone(),
@@ -573,6 +579,35 @@ fn translate_expr(
             Binop::Add => op_arith_binop(out, sink, lscope, etype, span, "add", left, right)?,
             Binop::Subtract => op_arith_binop(out, sink, lscope, etype, span, "sub", left, right)?,
             Binop::Multiply => op_arith_binop(out, sink, lscope, etype, span, "mul", left, right)?,
+            Binop::Divide => {
+                translate_expr(out, sink, lscope, Some(Type::F32), left)?;
+                translate_expr(out, sink, lscope, Some(Type::F32), right)?;
+                sink.writeln("f32.div");
+                auto_cast(sink, span, lscope, Some(Type::F32), etype)?;
+            }
+            Binop::TruncDivide => {
+                let gltype = guess_type(lscope, left)?;
+                let grtype = guess_type(lscope, right)?;
+                match (gltype, grtype) {
+                    (Type::I32, Type::I32) => {
+                        translate_expr(out, sink, lscope, Some(gltype), left)?;
+                        translate_expr(out, sink, lscope, Some(grtype), right)?;
+                        sink.writeln("i32.div_s");
+                    }
+                    (Type::F32, Type::I32) | (Type::I32, Type::F32) | (Type::F32, Type::F32) => {
+                        translate_expr(out, sink, lscope, Some(Type::F32), left)?;
+                        translate_expr(out, sink, lscope, Some(Type::F32), right)?;
+                        sink.writeln("f32.div");
+                        explicit_cast(sink, span, lscope, Some(Type::F32), Some(Type::I32))?;
+                    }
+                    _ => return Err(Error::Type {
+                        span: span.clone(),
+                        expected: format!("{:?}", etype),
+                        got: "Int".into(),
+                    }),
+                }
+                auto_cast(sink, span, lscope, Some(Type::I32), etype)?;
+            }
             Binop::BitwiseAnd => op_bitwise_binop(out, sink, lscope, etype, span, "and", left, right)?,
             Binop::BitwiseOr => op_bitwise_binop(out, sink, lscope, etype, span, "or", left, right)?,
             Binop::BitwiseXor => op_bitwise_binop(out, sink, lscope, etype, span, "xor", left, right)?,
@@ -749,6 +784,9 @@ fn auto_cast(
     match (src, dst) {
         (Some(src), Some(dst)) if src == dst => {}
         (None, None) => {}
+        (Some(Type::I32), Some(Type::F32)) => {
+            sink.writeln("f32.convert_i32_s");
+        }
         (Some(src), None) => {
             drop(lscope, sink, src);
         }
@@ -766,6 +804,24 @@ fn auto_cast(
                 got: "Void".into(),
             });
         }
+    }
+    Ok(())
+}
+
+/// perform a cast of TOS from src to dst for when explicitly requested
+/// "stronger" than auto_cast
+fn explicit_cast(
+    sink: &Rc<Sink>,
+    span: &SSpan,
+    lscope: &mut LocalScope,
+    src: Option<Type>,
+    dst: Option<Type>,
+) -> Result<(), Error> {
+    match (src, dst) {
+        (Some(Type::F32), Some(Type::I32)) => {
+            sink.writeln("i32.trunc_f32_s");
+        }
+        _ => auto_cast(sink, span, lscope, src, dst)?,
     }
     Ok(())
 }

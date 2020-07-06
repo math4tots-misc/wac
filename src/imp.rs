@@ -7,6 +7,9 @@ pub fn make_import_object() -> wr::ImportObject {
             "print_i32" => wr::func!(|_: &mut wr::Ctx, i: i32| {
                 println!("{}", i);
             }),
+            "print_f32" => wr::func!(|_: &mut wr::Ctx, i: f32| {
+                println!("{}", i);
+            }),
             "cstrlen" => wr::func!(|ctx: &mut wr::Ctx, ptr: i32| -> i32 {
                 read_cstr(ctx.memory(0), ptr).len() as u32 as i32
             }),
