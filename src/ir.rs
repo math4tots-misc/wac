@@ -51,6 +51,7 @@ pub enum Expr {
     Bool(SSpan, bool),
     Int(SSpan, i64),
     Float(SSpan, f64),
+    String(SSpan, Rc<str>),
     GetVar(SSpan, Rc<str>),
     SetVar(SSpan, Rc<str>, Box<Expr>),
     DeclVar(SSpan, Rc<str>, Option<Type>, Box<Expr>),
@@ -113,6 +114,17 @@ pub enum WasmType {
     F64,
 }
 
+impl WasmType {
+    pub fn wac(self) -> Type {
+        match self {
+            Self::I32 => Type::I32,
+            Self::I64 => Type::I64,
+            Self::F32 => Type::F32,
+            Self::F64 => Type::F64,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Type {
     I32,
@@ -120,9 +132,20 @@ pub enum Type {
     F32,
     F64,
     Bool,
+
+    // Reference counted str type
+    // i32 that points to:
+    //   [refcnt i32][size i32][utf8...]
+    String,
 }
 
 impl Type {
+    pub fn primitive(self) -> bool {
+        match self {
+            Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Bool => true,
+            Type::String => false,
+        }
+    }
     pub fn wasm(self) -> WasmType {
         match self {
             Type::I32 => WasmType::I32,
@@ -130,6 +153,7 @@ impl Type {
             Type::F32 => WasmType::F32,
             Type::F64 => WasmType::F64,
             Type::Bool => WasmType::I32,
+            Type::String => WasmType::I32,
         }
     }
 }

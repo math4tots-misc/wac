@@ -192,6 +192,10 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
             parser.gettok();
             Ok(Expr::Float(span, x))
         }
+        Token::NormalString(_) | Token::RawString(_) => {
+            let s = parser.expect_string()?;
+            Ok(Expr::String(span, s))
+        }
         Token::Name("true") => {
             parser.gettok();
             Ok(Expr::Bool(span, true))
@@ -560,11 +564,12 @@ fn parse_voidable_type(parser: &mut Parser) -> Result<Option<Type>, ParseError> 
 
 fn parse_type(parser: &mut Parser) -> Result<Type, ParseError> {
     let opt = match parser.peek() {
-        Token::Name("bool") => Some(Type::Bool),
         Token::Name("i32") => Some(Type::I32),
         Token::Name("i64") => Some(Type::I64),
         Token::Name("f32") => Some(Type::F32),
         Token::Name("f64") => Some(Type::F64),
+        Token::Name("bool") => Some(Type::Bool),
+        Token::Name("str") => Some(Type::String),
         _ => None,
     };
     if let Some(t) = opt {

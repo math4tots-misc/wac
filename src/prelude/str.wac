@@ -1,0 +1,43 @@
+
+# str layout:
+#   [refcnt i32][len(bytes) i32][utf8...]
+#
+fn __WAC_str_release(ptr i32) {
+    if ptr is not 0 {
+        var refcnt = __read(ptr) - 1
+        if refcnt > 0 {
+            # __hello($cstr("STRING (RELEASE)"), refcnt)
+            __write(ptr, refcnt)
+        } else {
+            # __hello($cstr("STRING IS BEING FREED!!"), ptr)
+            __free(__read(ptr + 4) + 8, ptr)
+        }
+    }
+}
+
+fn __WAC_str_retain(ptr i32) {
+    if ptr is not 0 {
+        __write(ptr, __read(ptr) + 1)
+        # __hello($cstr("STRING (RETAIN)"), __read(ptr))
+    }
+}
+
+fn __print_str(s str) {
+    var len = __strlen(s)
+    var ptr = __WAC_UNSAFE_strptr(s)
+    __print_str_raw(__read(ptr + 4), ptr + 8)
+}
+
+fn __strlen(s str) i32 {
+    # Gets the length of the given string
+    # (i.e. number of bytes in its utf8 representation)
+    var ptr = $asm([], i32, "local.get $l_0_s")
+    __read(ptr + 4)
+}
+
+fn __WAC_UNSAFE_strptr(s str) i32 {
+    # Returns the given str as an i32
+    # This is unsafe since if the last reference was given,
+    # the returned pointer would point to freed data
+    $asm([], i32, "local.get $l_0_s")
+}

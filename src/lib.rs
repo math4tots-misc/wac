@@ -4,11 +4,12 @@ mod ir;
 mod lexer;
 mod parsef;
 mod parser;
+mod prelude;
 mod rn;
 mod sink;
 mod start;
 mod tr;
-mod prelude;
+mod wfs;
 
 extern crate wasmer_runtime as wr;
 

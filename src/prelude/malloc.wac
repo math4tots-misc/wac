@@ -41,6 +41,41 @@ fn __WAC_alloc(len i32) i32 {
     ptr
 }
 
+fn __WAC_malloc_adjusted_len(len i32) i32 {
+    if len <= 16 {
+        16
+    } else if len <= 64 {
+        64
+    } else if len <= 256 {
+        256
+    } else if len <= 1024 {
+        1024
+    } else if len <= 4096 {
+        4096
+    } else if len <= 16384 {
+        16384
+    } else if len <= 65536 {
+        65536
+    } else if len <= 262144 {
+        262144
+    } else if len <= 1048576 {
+        1048576
+    } else if len <= 4194304 {
+        4194304
+    } else if len <= 16777216 {
+        16777216
+    } else if len <= 67108864 {
+        67108864
+    } else if len <= 268435456 {
+        268435456
+    } else if len <= 1073741824 {
+        1073741824
+    } else {
+        # TODO: set error
+        0
+    }
+}
+
 fn __malloc(len i32) i32 {
     if len <= 16 {
         __malloc_16()
@@ -73,6 +108,33 @@ fn __malloc(len i32) i32 {
     } else {
         # TODO: set error
         0
+    }
+}
+
+fn __realloc(old_len i32, new_len i32, ptr i32) i32 {
+    old_len = __WAC_malloc_adjusted_len(old_len)
+    new_len = __WAC_malloc_adjusted_len(new_len)
+    if old_len < new_len {
+        var new_buffer = __malloc(new_len)
+        __WAC_memcpy(ptr, new_buffer, old_len)
+        __free(old_len, ptr)
+        new_buffer
+    } else {
+        # If the already allocated buffer is big enough, just return
+        # same pointer unchanged
+        ptr
+    }
+}
+
+fn __WAC_memcpy(src i32, dst i32, len i32) {
+    # almost memcpy.
+    # assumes that it's ok to round up len to the nearest multiple of 4
+
+    var end = src + len
+    while src < end {
+        __write(dst, __read(src))
+        src = src + 4
+        dst = dst + 4
     }
 }
 

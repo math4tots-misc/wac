@@ -9,6 +9,7 @@ use crate::Source;
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::fmt;
 
 pub const PAGE_SIZE: usize = 65536;
 
@@ -22,6 +23,7 @@ pub fn translate(mut sources: Vec<(Rc<str>, Rc<str>)>) -> Result<String, Error> 
     let prelude = vec![
         ("[prelude:lang]".into(), crate::prelude::LANG.into()),
         ("[prelude:malloc]".into(), crate::prelude::MALLOC.into()),
+        ("[prelude:str]".into(), crate::prelude::STR.into()),
     ];
 
     sources.splice(0..0, prelude);
@@ -165,6 +167,10 @@ struct LocalScope<'a> {
     continue_labels: Vec<u32>,
     break_labels: Vec<u32>,
     decls: Vec<Rc<LocalVarInfo>>,
+
+    /// local variables not directly created by the end-user
+    /// but by the system as needed
+    helper_locals: HashMap<Rc<str>, Type>,
 }
 
 impl<'a> LocalScope<'a> {
@@ -176,7 +182,15 @@ impl<'a> LocalScope<'a> {
             continue_labels: vec![],
             break_labels: vec![],
             decls: vec![],
+            helper_locals: HashMap::new(),
         }
+    }
+    fn helper(&mut self, name: &str, type_: Type) {
+        assert!(name.starts_with("$rt_"));
+        if let Some(old_type) = self.helper_locals.get(name) {
+            assert_eq!(*old_type, type_);
+        }
+        self.helper_locals.insert(name.into(), type_);
     }
     fn push(&mut self) {
         self.locals.push(HashMap::new());
@@ -263,7 +277,11 @@ fn translate_func_type(ft: &FunctionType) -> String {
 }
 
 fn translate_type(t: Type) -> &'static str {
-    match t.wasm() {
+    translate_wasm_type(t.wasm())
+}
+
+fn translate_wasm_type(wt: WasmType) -> &'static str {
+    match wt {
         WasmType::I32 => "i32",
         WasmType::I64 => "i64",
         WasmType::F32 => "f32",
@@ -320,16 +338,37 @@ fn translate_func(out: &mut Out, gscope: &GlobalScope, func: Function) -> Result
     }
     // we won't know what locals we have until we finish translate_expr on the body
     let locals_sink = sink.spawn();
+    let locals_init = sink.spawn();
     translate_expr(out, &sink, &mut lscope, func.return_type, &func.body)?;
+    let epilogue = sink.spawn();
     sink.writeln(")");
 
+    // special local variables used by some operations
+    // temporary variable for duplicating values on TOS
+    let mut helper_locals: Vec<(_, _)> = lscope.helper_locals.into_iter().collect();
+    helper_locals.sort_by(|a, b| a.0.cmp(&b.0));
+    for (wasm_name, type_) in helper_locals {
+        locals_sink.writeln(format!("(local {} {})", wasm_name, translate_type(type_)));
+        release_var(&epilogue, Scope::Local, &wasm_name, type_);
+    }
+
     // declare all the local variables (skipping parameters)
-    for info in lscope.decls.into_iter().skip(func.parameters.len()) {
+    for info in lscope.decls.iter().skip(func.parameters.len()) {
         locals_sink.writeln(format!(
             " (local {} {})",
             info.wasm_name,
             translate_type(info.type_)
         ));
+        locals_init.writeln(format!(
+            "(local.set {} ({}.const 0))",
+            info.wasm_name,
+            translate_type(info.type_)
+        ));
+    }
+
+    // Make sure to release all local variables, even the parameters
+    for info in lscope.decls {
+        release_var(&epilogue, Scope::Local, &info.wasm_name, info.type_);
     }
     Ok(())
 }
@@ -405,6 +444,25 @@ fn translate_expr(
                 }
             }
         }
+        Expr::String(span, value) => {
+            match etype {
+                Some(Type::String) => {
+                    let ptr = out.intern_str(value);
+                    sink.writeln(format!("(i32.const {})", ptr));
+                    retain(lscope, sink, Type::String, DropPolicy::Keep);
+                }
+                Some(t) => {
+                    return Err(Error::Type {
+                        span: span.clone(),
+                        expected: format!("{:?}", t),
+                        got: "str".into(),
+                    })
+                }
+                None => {
+                    // no-op value is dropped
+                }
+            }
+        }
         Expr::Block(span, exprs) => {
             if let Some(last) = exprs.last() {
                 lscope.push();
@@ -435,6 +493,7 @@ fn translate_expr(
                     match etype {
                         Some(etype) if etype == info.type_ => {
                             sink.writeln(format!("local.get {}", info.wasm_name));
+                            retain(lscope, sink, info.type_, DropPolicy::Keep);
                         }
                         Some(etype) => {
                             return Err(Error::Type {
@@ -454,6 +513,7 @@ fn translate_expr(
                     match etype {
                         Some(etype) if etype == info.type_ => {
                             sink.writeln(format!("global.get {}", info.wasm_name));
+                            retain(lscope, sink, info.type_, DropPolicy::Keep);
                         }
                         Some(etype) => {
                             return Err(Error::Type {
@@ -490,7 +550,14 @@ fn translate_expr(
                         })
                     }
                     None => {
+                        // There's no need to retain here, because anything that's currently
+                        // on the stack already have a retain on them. By popping from the
+                        // stack, we're transferring the retain on the stack into the
+                        // variable itself.
+                        //
+                        // We do however have to release the old value.
                         translate_expr(out, sink, lscope, Some(info.type_), setexpr)?;
+                        release_var(sink, Scope::Local, &info.wasm_name, info.type_);
                         sink.writeln(format!("local.set {}", info.wasm_name));
                     }
                 },
@@ -503,7 +570,14 @@ fn translate_expr(
                         })
                     }
                     None => {
+                        // There's no need to retain here, because anything that's currently
+                        // on the stack already have a retain on them. By popping from the
+                        // stack, we're transferring the retain on the stack into the
+                        // variable itself.
+                        //
+                        // We do however have to release the old value.
                         translate_expr(out, sink, lscope, Some(info.type_), setexpr)?;
+                        release_var(sink, Scope::Global, &info.wasm_name, info.type_);
                         sink.writeln(format!("global.set {}", info.wasm_name));
                     }
                 },
@@ -522,6 +596,10 @@ fn translate_expr(
                     got: "Void (declvar)".into(),
                 });
             }
+            // There's no need to retain here, because anything that's currently
+            // on the stack already have a retain on them. By popping from the
+            // stack, we're transferring the retain on the stack into the
+            // variable itself.
             translate_expr(out, sink, lscope, Some(type_), setexpr)?;
             sink.writeln(format!("local.set {}", info.wasm_name));
         }
@@ -580,8 +658,17 @@ fn translate_expr(
                 let left_type = guess_type(lscope, left)?;
                 let right_type = guess_type(lscope, right)?;
                 let gtype = common_type(lscope, span, left_type, right_type)?;
+
+                // The 'eq' instruction will remove the values from the stack,
+                // but they may not actually release the values (if they are supposed
+                // to be smart pointers)
+                //
+                // to ensure it is done properly, we need to explicitly call
+                // release() before we actually run the instruction
                 translate_expr(out, sink, lscope, Some(gtype), left)?;
+                release(lscope, sink, gtype, DropPolicy::Keep);
                 translate_expr(out, sink, lscope, Some(gtype), right)?;
+                release(lscope, sink, gtype, DropPolicy::Keep);
                 sink.writeln(match gtype.wasm() {
                     WasmType::I32 => "i32.eq",
                     WasmType::I64 => "i64.eq",
@@ -594,8 +681,17 @@ fn translate_expr(
                 let left_type = guess_type(lscope, left)?;
                 let right_type = guess_type(lscope, right)?;
                 let gtype = common_type(lscope, span, left_type, right_type)?;
+
+                // The 'ne' instruction will remove the values from the stack,
+                // but they may not actually release the values (if they are supposed
+                // to be smart pointers)
+                //
+                // to ensure it is done properly, we need to explicitly call
+                // release() before we actually run the instruction
                 translate_expr(out, sink, lscope, Some(gtype), left)?;
+                release(lscope, sink, gtype, DropPolicy::Keep);
                 translate_expr(out, sink, lscope, Some(gtype), right)?;
+                release(lscope, sink, gtype, DropPolicy::Keep);
                 sink.writeln(match gtype.wasm() {
                     WasmType::I32 => "i32.ne",
                     WasmType::I64 => "i64.ne",
@@ -721,12 +817,85 @@ fn translate_expr(
 }
 
 /// drops the TOS given that TOS is the provided type
-fn drop(_lscope: &mut LocalScope, sink: &Rc<Sink>, type_: Type) {
+/// the drop parameter determines if the value will be consumed/dropped or not
+fn release(lscope: &mut LocalScope, sink: &Rc<Sink>, type_: Type, dp: DropPolicy) {
     match type_ {
         Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 => {
-            sink.writeln("drop");
+            match dp {
+                DropPolicy::Drop => sink.writeln("drop"),
+                DropPolicy::Keep => {}
+            }
+        }
+        Type::String => {
+            match dp {
+                DropPolicy::Drop => {},
+                DropPolicy::Keep => dup(lscope, sink, WasmType::I32),
+            }
+            sink.writeln("call $f___WAC_str_release");
         }
     }
+}
+
+/// releases a reference in a var
+/// overall, should leave the stack unchanged
+fn release_var(sink: &Rc<Sink>, scope: Scope, wasm_name: &Rc<str>, type_: Type) {
+    match type_ {
+        Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 => {}
+        Type::String => {
+            sink.writeln(format!("{}.get {}", scope, wasm_name));
+            sink.writeln("call $f___WAC_str_release");
+        }
+    }
+}
+
+enum DropPolicy {
+    Drop,
+    Keep,
+}
+
+enum Scope {
+    Local,
+    Global,
+}
+
+impl fmt::Display for Scope {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Scope::Local => write!(f, "local"),
+            Scope::Global => write!(f, "global"),
+        }
+    }
+}
+
+/// retains the TOS value given the provided type
+/// the drop parameter determines if the value will be consumed/dropped or not
+fn retain(lscope: &mut LocalScope, sink: &Rc<Sink>, type_: Type, dp: DropPolicy) {
+    match type_ {
+        Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 => {
+            match dp {
+                DropPolicy::Drop => sink.writeln("drop"),
+                DropPolicy::Keep => {}
+            }
+        }
+        Type::String => {
+            match dp {
+                DropPolicy::Drop => {},
+                DropPolicy::Keep => dup(lscope, sink, WasmType::I32),
+            }
+            sink.writeln("call $f___WAC_str_retain");
+        }
+    }
+}
+
+/// Duplicates TOS
+/// Requires a WasmType -- this function does not take into account
+/// any sort of reference counting
+fn dup(lscope: &mut LocalScope, sink: &Rc<Sink>, wasm_type: WasmType) {
+    let t = translate_wasm_type(wasm_type);
+    let tmpvar = format!("$rt_tmp_dup_{}", t);
+    lscope.helper(&tmpvar, wasm_type.wac());
+    sink.writeln(format!("local.tee {}", tmpvar));
+    sink.writeln(format!("local.get {}", tmpvar));
 }
 
 /// Return the most specific shared type between the two types
@@ -768,6 +937,7 @@ fn op_cmp(
         Type::F32 | Type::F64 => {
             sink.writeln(format!("{}.{}", translate_type(gtype), opname));
         }
+        Type::String => panic!("TODO: String comparisons not yet supported"),
     }
     auto_cast(sink, span, lscope, Some(Type::Bool), etype)?;
     Ok(())
@@ -842,7 +1012,7 @@ fn auto_cast(
             sink.writeln("f32.convert_i32_s");
         }
         (Some(src), None) => {
-            drop(lscope, sink, src);
+            release(lscope, sink, src, DropPolicy::Drop);
         }
         (Some(src), Some(dst)) => {
             return Err(Error::Type {
@@ -887,6 +1057,7 @@ fn guess_type(lscope: &mut LocalScope, expr: &Expr) -> Result<Type, Error> {
         Expr::Bool(..) => Ok(Type::Bool),
         Expr::Int(..) => Ok(Type::I32),
         Expr::Float(..) => Ok(Type::F32),
+        Expr::String(..) => Ok(Type::String),
         Expr::GetVar(span, name) => match lscope.get_or_err(span.clone(), name)? {
             ScopeEntry::Local(info) => Ok(info.type_),
             ScopeEntry::Global(info) => Ok(info.type_),
@@ -984,7 +1155,8 @@ struct Out {
     exports: Rc<Sink>,
 
     data_len: Cell<usize>,
-    intern_map: HashMap<Rc<str>, u32>,
+    intern_cstr_map: HashMap<Rc<str>, u32>,
+    intern_str_map: HashMap<Rc<str>, u32>,
 }
 
 impl Out {
@@ -995,6 +1167,7 @@ impl Out {
         let data = main.spawn();
         let gvars = main.spawn();
         let funcs = main.spawn();
+        main.write(crate::wfs::CODE);
         main.writeln("(func $__rt_start");
         let start = main.spawn();
         main.writeln(")");
@@ -1010,7 +1183,8 @@ impl Out {
             start,
             exports,
             data_len: Cell::new(RESERVED_BYTES),
-            intern_map: HashMap::new(),
+            intern_cstr_map: HashMap::new(),
+            intern_str_map: HashMap::new(),
         }
     }
 
@@ -1038,12 +1212,27 @@ impl Out {
     }
 
     fn intern_cstr(&mut self, s: &Rc<str>) -> u32 {
-        if !self.intern_map.contains_key(s) {
+        if !self.intern_cstr_map.contains_key(s) {
             let mut buffer = s.as_bytes().to_vec();
             buffer.push(0);
             let ptr = self.data(&buffer);
-            self.intern_map.insert(s.clone(), ptr);
+            self.intern_cstr_map.insert(s.clone(), ptr);
         }
-        *self.intern_map.get(s).unwrap()
+        *self.intern_cstr_map.get(s).unwrap()
+    }
+
+    fn intern_str(&mut self, s: &Rc<str>) -> u32 {
+        if !self.intern_str_map.contains_key(s) {
+            let mut buffer = Vec::<u8>::new();
+            // refcnt
+            buffer.extend(&1i32.to_le_bytes());
+            // len
+            buffer.extend(&(s.len() as i32).to_le_bytes());
+            // utf8
+            buffer.extend(s.as_bytes().to_vec());
+            let ptr = self.data(&buffer);
+            self.intern_str_map.insert(s.clone(), ptr);
+        }
+        *self.intern_str_map.get(s).unwrap()
     }
 }

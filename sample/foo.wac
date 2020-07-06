@@ -1,7 +1,31 @@
 var gvar = 20
 
-fn Main() {
+fn SomeFunc(s str) {
+    var ptr = __WAC_UNSAFE_strptr(s)
+    __print_str("Hello world!")
+    __hello($cstr("STRPTR inside"), ptr)
+    __hello($cstr("REFCNT inside"), __read(ptr))
+}
 
+fn SomeOtherFunc() i32 {
+    var s = "Hello world!"
+    __hello($cstr("STRPTR == split a =="), 0)
+    var ptr = __WAC_UNSAFE_strptr(s)
+    __hello($cstr("STRPTR before"), ptr)
+    __hello($cstr("REFCNT before"), __read(ptr))
+    __hello($cstr("STRPTR == split b =="), 0)
+    SomeFunc(s)
+    __hello($cstr("STRPTR after"), ptr)
+    __hello($cstr("REFCNT after"), __read(ptr))
+    ptr
+}
+
+fn Main() {
+    var ptr = SomeOtherFunc()
+    __hello($cstr("STRPTR outside"), ptr)
+    __hello($cstr("REFCNT outside"), __read(ptr))
+
+    $cstr(r###"
     # __print_i32(__WAC_page_count())
 
     __print_f32(1 / 2)
@@ -41,7 +65,7 @@ fn Main() {
 
     var x = 4
     __print_i32(x)
-    __hello()
+    # __hello()
 
     {
         var x = 942
@@ -93,6 +117,7 @@ fn Main() {
 
     __print_cstr($cstr("total: "))
     __print_i32(total)
+    "###)
 }
 
 fn add4(x i32) i32 {

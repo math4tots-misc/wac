@@ -1,8 +1,10 @@
 pub fn make_import_object() -> wr::ImportObject {
     wr::imports! {
         "lang" => {
-            "hello" => wr::func!(|_: &mut wr::Ctx| {
-                println!("hello");
+            "hello" => wr::func!(|ctx: &mut wr::Ctx, cstr: i32, i: i32| {
+                let memory = ctx.memory(0);
+                let cstr = read_cstr(memory, cstr);
+                println!("hello {}: {}", cstr, i);
             }),
             "print_i32" => wr::func!(|_: &mut wr::Ctx, i: i32| {
                 println!("{}", i);
@@ -18,7 +20,7 @@ pub fn make_import_object() -> wr::ImportObject {
                 let s = read_cstr(memory, ptr);
                 println!("{}", s);
             }),
-            "print_str" => wr::func!(|ctx: &mut wr::Ctx, len: i32, ptr: i32| {
+            "print_str_raw" => wr::func!(|ctx: &mut wr::Ctx, len: i32, ptr: i32| {
                 let memory = ctx.memory(0);
                 let s = read_str(memory, len, ptr);
                 println!("{}", s);
