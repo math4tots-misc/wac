@@ -1085,11 +1085,29 @@ fn auto_cast(
             sink.writeln("i32.reinterpret_f32");
             cast_to_id(sink, TAG_F32);
         }
+        (Some(Type::Bool), Some(Type::Id)) => {
+            cast_to_id(sink, TAG_BOOL);
+        }
         (Some(Type::String), Some(Type::Id)) => {
             cast_to_id(sink, TAG_STRING);
         }
         (Some(Type::List), Some(Type::Id)) => {
             cast_to_id(sink, TAG_LIST);
+        }
+        (Some(Type::Id), Some(Type::I32)) => {
+            sink.writeln("call $f___WAC_raw_id_to_i32");
+        }
+        (Some(Type::Id), Some(Type::F32)) => {
+            sink.writeln("call $f___WAC_raw_id_to_f32");
+        }
+        (Some(Type::Id), Some(Type::Bool)) => {
+            sink.writeln("call $f___WAC_raw_id_to_bool");
+        }
+        (Some(Type::Id), Some(Type::String)) => {
+            sink.writeln("call $f___WAC_raw_id_to_str");
+        }
+        (Some(Type::Id), Some(Type::List)) => {
+            sink.writeln("call $f___WAC_raw_id_to_list");
         }
         (Some(src), None) => {
             release(lscope, sink, src, DropPolicy::Drop);

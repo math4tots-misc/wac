@@ -26,9 +26,7 @@ fn StringStuff() {
     var x id = s
     var x_raw = $asm([], i64, "local.get $l_1_x")
     var s_raw = $asm([], i32, "local.get $l_0_s")
-    var tag = __WAC_id_tag(x_raw)
     var val = __WAC_id_value(x_raw)
-    __hello($cstr("x id tag"), tag)
     __hello($cstr("x id val"), val)
     __hello($cstr("s_raw"), s_raw)
 }

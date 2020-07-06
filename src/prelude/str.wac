@@ -1,4 +1,13 @@
 
+fn str(x id) str {
+    if TypeOf(x) is str {
+        x
+    } else {
+        panic("TODO")
+        ""
+    }
+}
+
 # str layout:
 #   [refcnt i32][len(bytes) i32][utf8...]
 #

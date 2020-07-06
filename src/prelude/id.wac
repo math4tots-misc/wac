@@ -5,13 +5,54 @@ fn __WAC_id_value(x i64) i32 {
     "#)
 }
 
-fn __WAC_id_tag(x i64) i32 {
-    $asm([], i32, r#"
-        local.get $l_0_x
-        i64.const 32
-        i64.shr_u
-        i32.wrap_i64
-    "#)
+fn __WAC_raw_id_to_i32(x i64) i32 {
+    var typ = __WAC_typeof_raw(x)
+    if typ is i32 {
+        __WAC_id_value(x)
+    } else {
+        panic("Expected i32")
+        0
+    }
+}
+
+fn __WAC_raw_id_to_f32(x i64) f32 {
+    var typ = __WAC_typeof_raw(x)
+    if typ is f32 {
+        __WAC_id_value(x)
+    } else {
+        panic("Expected f32")
+        0.0
+    }
+}
+
+fn __WAC_raw_id_to_bool(x i64) bool {
+    var typ = __WAC_typeof_raw(x)
+    if typ is bool {
+        __WAC_id_value(x)
+    } else {
+        panic("Expected bool")
+        false
+    }
+}
+
+fn __WAC_raw_id_to_str(x i64) i32 {
+    var typ = __WAC_typeof_raw(x)
+    if typ is str {
+        __WAC_id_value(x)
+    } else {
+        panic("Expected str")
+        0
+    }
+}
+
+fn __WAC_raw_id_to_list(x i64) i32 {
+    var typ = __WAC_typeof_raw(x)
+    if typ is list {
+        __WAC_id_value(x)
+    } else {
+        panic("Expected list")
+        0
+    }
 }
 
 fn __WAC_id_release(x i64) {
