@@ -4,6 +4,8 @@ use crate::ParseError;
 use crate::Parser;
 use crate::Pattern;
 use crate::Token;
+use std::collections::HashMap;
+use std::rc::Rc;
 
 const PREC_POSTFIX: u32 = 1000;
 const PREC_UNARY: u32 = 900;
@@ -41,11 +43,14 @@ pub fn parse_file(parser: &mut Parser) -> Result<File, ParseError> {
     }
     let mut globalvars = Vec::new();
     let mut functions = Vec::new();
+    let mut constants = Vec::new();
+    let mut constants_map = HashMap::new();
     consume_delim(parser);
     while !parser.at(Token::EOF) {
         match parser.peek() {
             Token::Name("fn") => functions.push(parse_func(parser)?),
             Token::Name("var") => globalvars.push(parse_globalvar(parser)?),
+            Token::Name("const") => constants.push(parse_constant(parser, &mut constants_map)?),
             _ => {
                 return Err(ParseError::InvalidToken {
                     span: parser.span(),
@@ -58,9 +63,50 @@ pub fn parse_file(parser: &mut Parser) -> Result<File, ParseError> {
     }
     Ok(File {
         imports,
+        constants,
         functions,
         globalvars,
     })
+}
+
+fn parse_constant(parser: &mut Parser, map: &mut HashMap<Rc<str>, ConstValue>) -> Result<Constant, ParseError> {
+    let span = parser.span();
+    parser.expect(Token::Name("const"))?;
+    let name = parser.expect_name()?;
+    parser.expect(Token::Eq)?;
+    let expr = parse_expr(parser, 0)?;
+    let value = eval_constexpr(&expr, map)?;
+    let span = span.upto(&parser.span());
+    Ok(Constant {
+        span,
+        name,
+        value,
+    })
+}
+
+fn eval_constexpr(expr: &Expr, map: &mut HashMap<Rc<str>, ConstValue>) -> Result<ConstValue, ParseError> {
+    match expr {
+        Expr::Int(_, value) => Ok(ConstValue::I32(*value as i32)),
+        Expr::GetVar(span, name) => {
+            match map.get(name) {
+                Some(value) => Ok(value.clone()),
+                None => {
+                    Err(ParseError::InvalidToken {
+                        span: span.clone(),
+                        expected: "named constant".into(),
+                        got: "NotFound".into(),
+                    })
+                }
+            }
+        }
+        _ => {
+            Err(ParseError::InvalidToken {
+                span: expr.span().clone(),
+                expected: "constexpr".into(),
+                got: "non-const expression".into(),
+            })
+        }
+    }
 }
 
 fn parse_func(parser: &mut Parser) -> Result<Function, ParseError> {
@@ -304,10 +350,20 @@ fn parse_if(parser: &mut Parser) -> Result<Expr, ParseError> {
     parser.expect(Token::Name("if"))?;
     let cond = parse_expr(parser, 0)?;
     let body = parse_block(parser)?;
-    let other = if parser.consume(Token::Name("else")) {
+    let mut pairs = vec![(cond, body)];
+    let mut other = Expr::Block(span.clone(), vec![]);
+
+    while parser.consume(Token::Name("else")) {
         match parser.peek() {
-            Token::Name("if") => parse_if(parser)?,
-            Token::LBrace => parse_block(parser)?,
+            Token::Name("if") => {
+                parser.gettok();
+                let cond = parse_expr(parser, 0)?;
+                let body = parse_block(parser)?;
+                pairs.push((cond, body));
+            }
+            Token::LBrace => {
+                other = parse_block(parser)?;
+            }
             _ => {
                 return Err(ParseError::InvalidToken {
                     span,
@@ -316,11 +372,9 @@ fn parse_if(parser: &mut Parser) -> Result<Expr, ParseError> {
                 })
             }
         }
-    } else {
-        Expr::Block(span.clone(), vec![])
-    };
+    }
     let span = span.upto(&parser.span());
-    Ok(Expr::If(span, cond.into(), body.into(), other.into()))
+    Ok(Expr::If(span, pairs, other.into()))
 }
 
 fn parse_while(parser: &mut Parser) -> Result<Expr, ParseError> {
@@ -453,8 +507,7 @@ fn parse_infix(parser: &mut Parser, mut lhs: Expr, prec: u32) -> Result<Expr, Pa
                 let span = span.join(&start).upto(&parser.span());
                 lhs = Expr::If(
                     span.clone(),
-                    lhs.into(),
-                    Expr::AssertType(span.clone(), Type::Bool, rhs.into()).into(),
+                    vec![(lhs, Expr::AssertType(span.clone(), Type::Bool, rhs.into()))],
                     Expr::Bool(span.clone(), false).into(),
                 )
             }
@@ -468,8 +521,7 @@ fn parse_infix(parser: &mut Parser, mut lhs: Expr, prec: u32) -> Result<Expr, Pa
                 let span = span.join(&start).upto(&parser.span());
                 lhs = Expr::If(
                     span.clone(),
-                    lhs.into(),
-                    Expr::Bool(span.clone(), true).into(),
+                    vec![(lhs, Expr::Bool(span.clone(), true))],
                     rhs.into(),
                 )
             }

@@ -46,6 +46,9 @@ pub fn translate(mut sources: Vec<(Rc<str>, Rc<str>)>) -> Result<String, Error> 
     let mut out = Out::new();
 
     // some universal constants
+    // we provide these both as 'const' and as wasm globals because
+    // from inside wac normally, constants may be preferrable,
+    // but from inside asm blocks, it's not possible to use const values
     out.gvars.writeln(format!("(global $rt_tag_i32  i32 (i32.const {}))", TAG_I32));
     out.gvars.writeln(format!("(global $rt_tag_i64  i32 (i32.const {}))", TAG_I64));
     out.gvars.writeln(format!("(global $rt_tag_f32  i32 (i32.const {}))", TAG_F32));
@@ -73,6 +76,30 @@ pub fn translate(mut sources: Vec<(Rc<str>, Rc<str>)>) -> Result<String, Error> 
     }
     let mut gscope = GlobalScope::new(functions);
 
+    // [just take the first span in prelude:lang imports, and use that
+    // for any builtin thing with no good corresponding location in wac source]
+    let void_span = files[0].1.imports[0].span().clone();
+
+    // prepare the special type constants
+    // these could be in the source directly, but it would make it harder to keep
+    // both the rust and wac code in sync.
+    gscope.decl_const(void_span.clone(), "i32".into(), ConstValue::Type(Type::I32))?;
+    gscope.decl_const(void_span.clone(), "i64".into(), ConstValue::Type(Type::I64))?;
+    gscope.decl_const(void_span.clone(), "f32".into(), ConstValue::Type(Type::F32))?;
+    gscope.decl_const(void_span.clone(), "f64".into(), ConstValue::Type(Type::F64))?;
+    gscope.decl_const(void_span.clone(), "bool".into(), ConstValue::Type(Type::Bool))?;
+    gscope.decl_const(void_span.clone(), "type".into(), ConstValue::Type(Type::Type))?;
+    gscope.decl_const(void_span.clone(), "str".into(), ConstValue::Type(Type::String))?;
+    gscope.decl_const(void_span.clone(), "list".into(), ConstValue::Type(Type::List))?;
+    gscope.decl_const(void_span.clone(), "id".into(), ConstValue::Type(Type::Id))?;
+
+    // prepare all constants
+    for (_filename, file) in &files {
+        for c in &file.constants {
+            gscope.decl_const(c.span.clone(), c.name.clone(), c.value.clone())?;
+        }
+    }
+
     // translate all global variables
     // NOTE: global variables that appear before cannot refer to
     // global variables that appear later
@@ -88,7 +115,7 @@ pub fn translate(mut sources: Vec<(Rc<str>, Rc<str>)>) -> Result<String, Error> 
             };
             let init_sink = out.start.spawn();
             translate_expr(&mut out, &init_sink, &mut lscope, Some(type_), &gvar.init)?;
-            let info = gscope.decl(gvar.span.clone(), gvar.name.clone(), type_)?;
+            let info = gscope.decl_gvar(gvar.span.clone(), gvar.name.clone(), type_)?;
             init_sink.writeln(format!("global.set {}", info.wasm_name));
             out.gvars.writeln(format!(
                 "(global {} (mut {}) ({}.const 0))",
@@ -113,7 +140,7 @@ pub fn translate(mut sources: Vec<(Rc<str>, Rc<str>)>) -> Result<String, Error> 
 
 struct GlobalScope {
     functions: HashMap<Rc<str>, FunctionType>,
-    varmap: HashMap<Rc<str>, Rc<GlobalVarInfo>>,
+    varmap: HashMap<Rc<str>, ScopeEntry>,
     decls: Vec<Rc<GlobalVarInfo>>,
 }
 
@@ -126,7 +153,29 @@ impl GlobalScope {
         }
     }
 
-    fn decl(
+    fn decl_const(
+        &mut self,
+        span: SSpan,
+        name: Rc<str>,
+        cval: ConstValue,
+    ) -> Result<Rc<ConstantInfo>, Error> {
+        if let Some(info) = self.varmap.get(&name) {
+            return Err(Error::ConflictingDefinitions {
+                span1: info.span().clone(),
+                span2: span,
+                name,
+            });
+        }
+        let info = Rc::new(ConstantInfo {
+            span,
+            name: name.clone(),
+            value: cval,
+        });
+        self.varmap.insert(name.clone(), ScopeEntry::Constant(info.clone()));
+        Ok(info)
+    }
+
+    fn decl_gvar(
         &mut self,
         span: SSpan,
         name: Rc<str>,
@@ -134,7 +183,7 @@ impl GlobalScope {
     ) -> Result<Rc<GlobalVarInfo>, Error> {
         if let Some(info) = self.varmap.get(&name) {
             return Err(Error::ConflictingDefinitions {
-                span1: info.span.clone(),
+                span1: info.span().clone(),
                 span2: span,
                 name,
             });
@@ -147,9 +196,16 @@ impl GlobalScope {
             wasm_name,
         });
         self.decls.push(info.clone());
-        self.varmap.insert(name.clone(), info.clone());
+        self.varmap.insert(name.clone(), ScopeEntry::Global(info.clone()));
         Ok(info)
     }
+}
+
+struct ConstantInfo {
+    span: SSpan,
+    #[allow(dead_code)]
+    name: Rc<str>,
+    value: ConstValue,
 }
 
 /// global variable declaration
@@ -237,7 +293,7 @@ impl<'a> LocalScope<'a> {
             }
         }
         match self.g.varmap.get(name) {
-            Some(t) => Some(ScopeEntry::Global(t.clone())),
+            Some(t) => Some(t.clone()),
             None => None,
         }
     }
@@ -271,9 +327,21 @@ impl<'a> LocalScope<'a> {
     }
 }
 
+#[derive(Clone)]
 enum ScopeEntry {
     Local(Rc<LocalVarInfo>),
     Global(Rc<GlobalVarInfo>),
+    Constant(Rc<ConstantInfo>),
+}
+
+impl ScopeEntry {
+    fn span(&self) -> &SSpan {
+        match self {
+            ScopeEntry::Local(info) => &info.span,
+            ScopeEntry::Global(info) => &info.span,
+            ScopeEntry::Constant(info) => &info.span,
+        }
+    }
 }
 
 fn translate_func_type(ft: &FunctionType) -> String {
@@ -548,6 +616,16 @@ fn translate_expr(
                         }
                     }
                 }
+                ScopeEntry::Constant(info) => {
+                    match &info.value {
+                        ConstValue::I32(x) => {
+                            sink.writeln(format!("i32.const {}", x));
+                        }
+                        ConstValue::Type(t) => {
+                            sink.writeln(format!("i32.const {}", t.tag()));
+                        }
+                    }
+                }
             }
         }
         Expr::SetVar(span, name, setexpr) => {
@@ -600,6 +678,13 @@ fn translate_expr(
                         sink.writeln(format!("global.set {}", info.wasm_name));
                     }
                 },
+                ScopeEntry::Constant(_) => {
+                    return Err(Error::Type {
+                        span: span.clone(),
+                        expected: "variable".into(),
+                        got: "constant".into(),
+                    })
+                }
             }
         }
         Expr::DeclVar(span, name, type_, setexpr) => {
@@ -637,16 +722,22 @@ fn translate_expr(
             sink.writeln(format!("call $f_{}", fname));
             auto_cast(sink, span, lscope, ftype.return_type, etype)?;
         }
-        Expr::If(_span, cond, body, other) => {
-            translate_expr(out, sink, lscope, Some(Type::Bool), cond)?;
-            sink.writeln("if");
-            if let Some(etype) = etype {
-                sink.writeln(format!(" (result {})", translate_type(etype)));
+        Expr::If(_span, pairs, other) => {
+            for (cond, body) in pairs {
+                translate_expr(out, sink, lscope, Some(Type::Bool), cond)?;
+                sink.writeln("if");
+                if let Some(etype) = etype {
+                    sink.writeln(format!(" (result {})", translate_type(etype)));
+                }
+                translate_expr(out, sink, lscope, etype, body)?;
+                sink.writeln("else");
             }
-            translate_expr(out, sink, lscope, etype, body)?;
-            sink.writeln("else");
+
             translate_expr(out, sink, lscope, etype, other)?;
-            sink.writeln("end");
+
+            for _ in pairs {
+                sink.writeln("end");
+            }
         }
         Expr::While(_span, cond, body) => {
             let break_label = lscope.new_label_id();
@@ -1160,6 +1251,7 @@ fn guess_type(lscope: &mut LocalScope, expr: &Expr) -> Result<Type, Error> {
         Expr::GetVar(span, name) => match lscope.get_or_err(span.clone(), name)? {
             ScopeEntry::Local(info) => Ok(info.type_),
             ScopeEntry::Global(info) => Ok(info.type_),
+            ScopeEntry::Constant(info) => Ok(info.value.type_()),
         },
         Expr::SetVar(span, ..) => Err(Error::Type {
             span: span.clone(),
@@ -1193,7 +1285,7 @@ fn guess_type(lscope: &mut LocalScope, expr: &Expr) -> Result<Type, Error> {
                 }
             }
         }
-        Expr::If(_, _, body, _) => guess_type(lscope, body),
+        Expr::If(_, pairs, other) => guess_type(lscope, pairs.get(0).map(|p| &p.1).unwrap_or(other)),
         Expr::While(span, ..) => Err(Error::Type {
             span: span.clone(),
             expected: "any-value".into(),

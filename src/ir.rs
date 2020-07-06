@@ -3,6 +3,7 @@ use std::rc::Rc;
 
 pub struct File {
     pub imports: Vec<Import>,
+    pub constants: Vec<Constant>,
     pub functions: Vec<Function>,
     pub globalvars: Vec<GlobalVariable>,
 }
@@ -13,6 +14,27 @@ pub struct FunctionImport {
     pub function_name: Rc<str>,
     pub alias: Rc<str>,
     pub type_: FunctionType,
+}
+
+pub struct Constant {
+    pub span: SSpan,
+    pub name: Rc<str>,
+    pub value: ConstValue,
+}
+
+#[derive(Debug, Clone)]
+pub enum ConstValue {
+    I32(i32),
+    Type(Type),
+}
+
+impl ConstValue {
+    pub fn type_(&self) -> Type {
+        match self {
+            ConstValue::I32(_) => Type::I32,
+            ConstValue::Type(_) => Type::Type,
+        }
+    }
 }
 
 pub enum Visibility {
@@ -58,7 +80,7 @@ pub enum Expr {
     DeclVar(SSpan, Rc<str>, Option<Type>, Box<Expr>),
     Block(SSpan, Vec<Expr>),
     FunctionCall(SSpan, Rc<str>, Vec<Expr>),
-    If(SSpan, Box<Expr>, Box<Expr>, Box<Expr>),
+    If(SSpan, Vec<(Expr, Expr)>, Box<Expr>),
     While(SSpan, Box<Expr>, Box<Expr>),
 
     // builtin operators
@@ -69,6 +91,30 @@ pub enum Expr {
     // intrinsics
     CString(SSpan, Rc<str>),
     Asm(SSpan, Vec<Expr>, Option<Type>, Rc<str>),
+}
+
+impl Expr {
+    pub fn span(&self) -> &SSpan {
+        match self {
+            Expr::Bool(span, ..) => span,
+            Expr::Int(span, ..) => span,
+            Expr::Float(span, ..) => span,
+            Expr::String(span, ..) => span,
+            Expr::List(span, ..) => span,
+            Expr::GetVar(span, ..) => span,
+            Expr::SetVar(span, ..) => span,
+            Expr::DeclVar(span, ..) => span,
+            Expr::Block(span, ..) => span,
+            Expr::FunctionCall(span, ..) => span,
+            Expr::If(span, ..) => span,
+            Expr::While(span, ..) => span,
+            Expr::Binop(span, ..) => span,
+            Expr::Unop(span, ..) => span,
+            Expr::AssertType(span, ..) => span,
+            Expr::CString(span, ..) => span,
+            Expr::Asm(span, ..) => span,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -105,6 +151,14 @@ pub enum Unop {
 
 pub enum Import {
     Function(FunctionImport),
+}
+
+impl Import {
+    pub fn span(&self) -> &SSpan {
+        match self {
+            Import::Function(i) => &i.span,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -165,6 +219,9 @@ pub enum Type {
 }
 
 impl Type {
+    pub fn tag(self) -> i32 {
+        self as i32
+    }
     pub fn primitive(self) -> bool {
         match self {
             Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Bool | Type::Type => true,
