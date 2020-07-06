@@ -2,7 +2,7 @@ var gvar = 20
 
 fn Main() {
 
-    __print_i32(__WAC_page_count())
+    # __print_i32(__WAC_page_count())
 
     __print_f32(1 / 2)
 

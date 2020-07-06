@@ -1,0 +1,321 @@
+# __malloc/__free
+
+# Number of bytes in a page
+var __WAC_PAGE_SIZE = 65536
+
+var __WAC_heap_start = $asm([], i32, "global.get $rt_heap_start")
+var __WAC_heap_end = __WAC_heap_start
+
+var __WAC_freelist_16 = 0
+var __WAC_freelist_64 = 0
+var __WAC_freelist_256 = 0
+var __WAC_freelist_1024 = 0
+var __WAC_freelist_4096 = 0
+var __WAC_freelist_16384 = 0
+var __WAC_freelist_65536 = 0
+var __WAC_freelist_262144 = 0
+var __WAC_freelist_1048576 = 0
+var __WAC_freelist_4194304 = 0
+var __WAC_freelist_16777216 = 0
+var __WAC_freelist_67108864 = 0
+var __WAC_freelist_268435456 = 0
+var __WAC_freelist_1073741824 = 0
+
+fn __WAC_alloc(len i32) i32 {
+    # TODO: just assert len % 16 == 0
+    # align to 16-bytes
+    len = (len + (16 - 1)) // 16
+
+    var ptr = __WAC_heap_end
+
+    var required_page_count = (ptr + __WAC_PAGE_SIZE - 1) // __WAC_PAGE_SIZE
+    var current_page_count = $asm([], i32, "memory.size")
+
+    if current_page_count < required_page_count {
+        if $asm([required_page_count - current_page_count], i32, "memory.grow") is -1 {
+            # TODO: out of memory, alert in some way
+        }
+    }
+
+    __WAC_heap_end = __WAC_heap_end + len
+    ptr
+}
+
+fn __malloc(len i32) i32 {
+    if len <= 16 {
+        __malloc_16()
+    } else if len <= 64 {
+        __malloc_64()
+    } else if len <= 256 {
+        __malloc_256()
+    } else if len <= 1024 {
+        __malloc_1024()
+    } else if len <= 4096 {
+        __malloc_4096()
+    } else if len <= 16384 {
+        __malloc_16384()
+    } else if len <= 65536 {
+        __malloc_65536()
+    } else if len <= 262144 {
+        __malloc_262144()
+    } else if len <= 1048576 {
+        __malloc_1048576()
+    } else if len <= 4194304 {
+        __malloc_4194304()
+    } else if len <= 16777216 {
+        __malloc_16777216()
+    } else if len <= 67108864 {
+        __malloc_67108864()
+    } else if len <= 268435456 {
+        __malloc_268435456()
+    } else if len <= 1073741824 {
+        __malloc_1073741824()
+    } else {
+        # TODO: set error
+        0
+    }
+}
+
+fn __free(len i32, ptr i32) {
+    if len <= 16 {
+        __free_16(ptr)
+    } else if len <= 64 {
+        __free_64(ptr)
+    } else if len <= 256 {
+        __free_256(ptr)
+    } else if len <= 1024 {
+        __free_1024(ptr)
+    } else if len <= 4096 {
+        __free_4096(ptr)
+    } else if len <= 16384 {
+        __free_16384(ptr)
+    } else if len <= 65536 {
+        __free_65536(ptr)
+    } else if len <= 262144 {
+        __free_262144(ptr)
+    } else if len <= 1048576 {
+        __free_1048576(ptr)
+    } else if len <= 4194304 {
+        __free_4194304(ptr)
+    } else if len <= 16777216 {
+        __free_16777216(ptr)
+    } else if len <= 67108864 {
+        __free_67108864(ptr)
+    } else if len <= 268435456 {
+        __free_268435456(ptr)
+    } else if len <= 1073741824 {
+        __free_1073741824(ptr)
+    } else {
+        # TODO: set error
+    }
+}
+
+fn __malloc_16() i32 {
+    if __WAC_freelist_16 is 0 {
+        __WAC_alloc(16)
+    } else {
+        var ret = __WAC_freelist_16
+        __WAC_freelist_16 = __read(ret)
+        ret
+    }
+}
+
+fn __free_16(ptr i32) {
+    __write(ptr, __WAC_freelist_16)
+    __WAC_freelist_16 = ptr
+}
+
+fn __malloc_64() i32 {
+    if __WAC_freelist_64 is 0 {
+        __WAC_alloc(64)
+    } else {
+        var ret = __WAC_freelist_64
+        __WAC_freelist_64 = __read(ret)
+        ret
+    }
+}
+
+fn __free_64(ptr i32) {
+    __write(ptr, __WAC_freelist_64)
+    __WAC_freelist_64 = ptr
+}
+
+fn __malloc_256() i32 {
+    if __WAC_freelist_256 is 0 {
+        __WAC_alloc(256)
+    } else {
+        var ret = __WAC_freelist_256
+        __WAC_freelist_256 = __read(ret)
+        ret
+    }
+}
+
+fn __free_256(ptr i32) {
+    __write(ptr, __WAC_freelist_256)
+    __WAC_freelist_256 = ptr
+}
+
+fn __malloc_1024() i32 {
+    if __WAC_freelist_1024 is 0 {
+        __WAC_alloc(1024)
+    } else {
+        var ret = __WAC_freelist_1024
+        __WAC_freelist_1024 = __read(ret)
+        ret
+    }
+}
+
+fn __free_1024(ptr i32) {
+    __write(ptr, __WAC_freelist_1024)
+    __WAC_freelist_1024 = ptr
+}
+
+fn __malloc_4096() i32 {
+    if __WAC_freelist_4096 is 0 {
+        __WAC_alloc(4096)
+    } else {
+        var ret = __WAC_freelist_4096
+        __WAC_freelist_4096 = __read(ret)
+        ret
+    }
+}
+
+fn __free_4096(ptr i32) {
+    __write(ptr, __WAC_freelist_4096)
+    __WAC_freelist_4096 = ptr
+}
+
+fn __malloc_16384() i32 {
+    if __WAC_freelist_16384 is 0 {
+        __WAC_alloc(16384)
+    } else {
+        var ret = __WAC_freelist_16384
+        __WAC_freelist_16384 = __read(ret)
+        ret
+    }
+}
+
+fn __free_16384(ptr i32) {
+    __write(ptr, __WAC_freelist_16384)
+    __WAC_freelist_16384 = ptr
+}
+
+fn __malloc_65536() i32 {
+    if __WAC_freelist_65536 is 0 {
+        __WAC_alloc(65536)
+    } else {
+        var ret = __WAC_freelist_65536
+        __WAC_freelist_65536 = __read(ret)
+        ret
+    }
+}
+
+fn __free_65536(ptr i32) {
+    __write(ptr, __WAC_freelist_65536)
+    __WAC_freelist_65536 = ptr
+}
+
+fn __malloc_262144() i32 {
+    if __WAC_freelist_262144 is 0 {
+        __WAC_alloc(262144)
+    } else {
+        var ret = __WAC_freelist_262144
+        __WAC_freelist_262144 = __read(ret)
+        ret
+    }
+}
+
+fn __free_262144(ptr i32) {
+    __write(ptr, __WAC_freelist_262144)
+    __WAC_freelist_262144 = ptr
+}
+
+fn __malloc_1048576() i32 {
+    if __WAC_freelist_1048576 is 0 {
+        __WAC_alloc(1048576)
+    } else {
+        var ret = __WAC_freelist_1048576
+        __WAC_freelist_1048576 = __read(ret)
+        ret
+    }
+}
+
+fn __free_1048576(ptr i32) {
+    __write(ptr, __WAC_freelist_1048576)
+    __WAC_freelist_1048576 = ptr
+}
+
+fn __malloc_4194304() i32 {
+    if __WAC_freelist_4194304 is 0 {
+        __WAC_alloc(4194304)
+    } else {
+        var ret = __WAC_freelist_4194304
+        __WAC_freelist_4194304 = __read(ret)
+        ret
+    }
+}
+
+fn __free_4194304(ptr i32) {
+    __write(ptr, __WAC_freelist_4194304)
+    __WAC_freelist_4194304 = ptr
+}
+
+fn __malloc_16777216() i32 {
+    if __WAC_freelist_16777216 is 0 {
+        __WAC_alloc(16777216)
+    } else {
+        var ret = __WAC_freelist_16777216
+        __WAC_freelist_16777216 = __read(ret)
+        ret
+    }
+}
+
+fn __free_16777216(ptr i32) {
+    __write(ptr, __WAC_freelist_16777216)
+    __WAC_freelist_16777216 = ptr
+}
+
+fn __malloc_67108864() i32 {
+    if __WAC_freelist_67108864 is 0 {
+        __WAC_alloc(67108864)
+    } else {
+        var ret = __WAC_freelist_67108864
+        __WAC_freelist_67108864 = __read(ret)
+        ret
+    }
+}
+
+fn __free_67108864(ptr i32) {
+    __write(ptr, __WAC_freelist_67108864)
+    __WAC_freelist_67108864 = ptr
+}
+
+fn __malloc_268435456() i32 {
+    if __WAC_freelist_268435456 is 0 {
+        __WAC_alloc(268435456)
+    } else {
+        var ret = __WAC_freelist_268435456
+        __WAC_freelist_268435456 = __read(ret)
+        ret
+    }
+}
+
+fn __free_268435456(ptr i32) {
+    __write(ptr, __WAC_freelist_268435456)
+    __WAC_freelist_268435456 = ptr
+}
+
+fn __malloc_1073741824() i32 {
+    if __WAC_freelist_1073741824 is 0 {
+        __WAC_alloc(1073741824)
+    } else {
+        var ret = __WAC_freelist_1073741824
+        __WAC_freelist_1073741824 = __read(ret)
+        ret
+    }
+}
+
+fn __free_1073741824(ptr i32) {
+    __write(ptr, __WAC_freelist_1073741824)
+    __WAC_freelist_1073741824 = ptr
+}

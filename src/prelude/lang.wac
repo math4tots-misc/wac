@@ -1,0 +1,21 @@
+# Some basic language imports
+
+import fn "lang" "hello" __hello()
+import fn "lang" "print_i32" __print_i32(i32)
+import fn "lang" "print_f32" __print_f32(f32)
+import fn "lang" "print_cstr" __print_cstr(i32)
+import fn "lang" "cstrlen" __cstrlen(i32) i32
+
+# We define the entrypoint to be __start so that main can be private
+fn[pub] __start() i32 {
+    Main()
+    0
+}
+
+fn __read(ptr i32) i32 {
+    $asm([ptr], i32, "i32.load")
+}
+
+fn __write(ptr i32, value i32) {
+    $asm([ptr, value], void, "i32.store")
+}

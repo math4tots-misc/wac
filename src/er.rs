@@ -40,7 +40,7 @@ impl SSpan {
     }
     pub fn format(&self) -> String {
         let i = self.span.main;
-        let lineno = self.source.data[..i].matches('\n').count();
+        let lineno = self.source.data[..i].matches('\n').count() + 1;
         let lstart = self.source.data[..i]
             .rfind('\n')
             .map(|j| j + 1)

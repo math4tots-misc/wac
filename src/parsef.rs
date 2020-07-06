@@ -20,6 +20,7 @@ const PREC_ASSIGN: u32 = 100;
 
 pub fn parse_file(parser: &mut Parser) -> Result<File, ParseError> {
     let mut imports = Vec::new();
+    consume_delim(parser);
     while parser.at_name("import") {
         let span = parser.span();
         parser.gettok();

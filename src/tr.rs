@@ -19,9 +19,12 @@ pub const RESERVED_BYTES: usize = 2048;
 /// translates a list of (filename, wac-code) pairs into
 /// a wat webassembly module
 pub fn translate(mut sources: Vec<(Rc<str>, Rc<str>)>) -> Result<String, Error> {
-    let prelude_name: Rc<str> = "[prelude]".into();
-    let prelude_str: Rc<str> = include_str!("prelude.wac").into();
-    sources.insert(0, (prelude_name, prelude_str));
+    let prelude = vec![
+        ("[prelude:lang]".into(), crate::prelude::LANG.into()),
+        ("[prelude:malloc]".into(), crate::prelude::MALLOC.into()),
+    ];
+
+    sources.splice(0..0, prelude);
     let mut files = Vec::new();
     for (filename, data) in sources {
         let source = Rc::new(Source {
