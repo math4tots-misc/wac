@@ -1,14 +1,16 @@
 # TODO
 
+* reference counted mstr type (or maybe call it 'buffer'?)
+    A mutable buffer storing UCS4 data.
+    Maybe also for storing a simple array of i32 values?
+    This way indexing, changing a char at location, etc
+    is easy and fast
+* stack trace
 * peek and poke
 * control flow (return)
 * control flow (break, continue)
-* global variables
-* reference counted string type
-* refrence counted list type
 * refrence counted map type
 * refrence counted set type
-* global constants
 * some sort of switch or match (may depend on first
     having some sort of global constants mechanism
     to be useful)
@@ -48,3 +50,7 @@
 
 * local variable declarations
     instead of requiring them upfront
+* reference counted string type
+* refrence counted list type
+* global variables
+* global constants

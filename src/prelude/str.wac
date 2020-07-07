@@ -4,8 +4,16 @@ fn str(x id) str {
     if type(x) is str {
         x
     } else {
-        panic("TODO str")
+        Panic("TODO str")
     }
+}
+
+fn Print(x id) {
+    __print_str(str(x))
+}
+
+fn PrintErr(x id) {
+    __eprint_str(str(x))
 }
 
 # str layout:
@@ -27,14 +35,48 @@ fn __WAC_str_retain(ptr i32) {
     # __hello($cstr("STRING (RETAIN)"), __read(ptr))
 }
 
+fn __WAC_str_alloc(strlen i32) str {
+    # Allocates space for string of a given length
+    var ptr = __malloc(8 + strlen)
+    __write(ptr, 1)           # refcnt
+    __write(ptr + 4, strlen)  # strlen in bytes
+    $asm([ptr], str, "")
+}
+
+fn __WAC_str_buffer(s str) i32 {
+    # Returns the pointer to the string's buffer
+    $asm([], i32, r###"
+        local.get $l_0_s
+        i32.const 8
+        i32.add
+    "###)
+}
+
+# concatenates two strings
+fn __str_cat(a str, b str) str {
+    var alen = __strlen(a)
+    var blen = __strlen(b)
+    var strlen = alen + blen
+    var ret = __WAC_str_alloc(strlen)
+
+    var abuf = __WAC_str_buffer(a)
+    var bbuf = __WAC_str_buffer(b)
+    var rbuf = __WAC_str_buffer(ret)
+
+    __WAC_memcpy(rbuf,        abuf, alen)
+    __WAC_memcpy(rbuf + alen, bbuf, blen)
+
+    ret
+}
+
 fn __print_str(s str) {
     var ptr = __WAC_UNSAFE_strptr(s)
     __print_str_raw(__read(ptr + 4), ptr + 8)
 }
 
-fn panic(s str) noreturn {
+fn __eprint_str(s str) {
     var ptr = __WAC_UNSAFE_strptr(s)
-    __panic_raw(__read(ptr + 4), ptr + 8)
+    __eprint_str_raw(__read(ptr + 4), ptr + 8)
 }
 
 fn __strlen(s str) i32 {

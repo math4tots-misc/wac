@@ -10,7 +10,7 @@ fn __WAC_raw_id_to_i32(x i64) i32 {
     if typ is i32 {
         __WAC_id_value(x)
     } else {
-        panic("Expected i32")
+        Panic("Expected i32")
     }
 }
 
@@ -19,7 +19,7 @@ fn __WAC_raw_id_to_f32(x i64) f32 {
     if typ is f32 {
         __WAC_id_value(x)
     } else {
-        panic("Expected f32")
+        Panic("Expected f32")
     }
 }
 
@@ -28,7 +28,7 @@ fn __WAC_raw_id_to_bool(x i64) i32 {
     if typ is bool {
         __WAC_id_value(x)
     } else {
-        panic("Expected bool")
+        Panic("Expected bool")
     }
 }
 
@@ -37,7 +37,7 @@ fn __WAC_raw_id_to_str(x i64) i32 {
     if typ is str {
         __WAC_id_value(x)
     } else {
-        panic("Expected str")
+        Panic("Expected str")
     }
 }
 
@@ -46,7 +46,7 @@ fn __WAC_raw_id_to_list(x i64) i32 {
     if typ is list {
         __WAC_id_value(x)
     } else {
-        panic("Expected list")
+        Panic("Expected list")
     }
 }
 
@@ -64,7 +64,7 @@ fn __WAC_id_release(x i64) {
     } else if tag is str {
         __WAC_str_release(val)
     } else {
-        panic("id_release: unrecognized tag")
+        Panic("id_release: unrecognized tag")
     }
 }
 
@@ -83,6 +83,6 @@ fn __WAC_id_retain(x i64) {
     } else if tag is str {
         __WAC_str_retain(val)
     } else {
-        panic("id_retain: unrecognized tag")
+        Panic("id_retain: unrecognized tag")
     }
 }

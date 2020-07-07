@@ -25,6 +25,11 @@ pub fn make_import_object() -> wr::ImportObject {
                 let s = read_str(memory, len, ptr);
                 println!("{}", s);
             }),
+            "eprint_str_raw" => wr::func!(|ctx: &mut wr::Ctx, len: i32, ptr: i32| {
+                let memory = ctx.memory(0);
+                let s = read_str(memory, len, ptr);
+                eprintln!("{}", s);
+            }),
             "panic_raw" => wr::func!(|ctx: &mut wr::Ctx, len: i32, ptr: i32| {
                 let memory = ctx.memory(0);
                 let s = read_str(memory, len, ptr);

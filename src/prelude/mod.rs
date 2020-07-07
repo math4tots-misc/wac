@@ -4,3 +4,4 @@ pub const STR: &'static str = include_str!("str.wac");
 pub const ID: &'static str = include_str!("id.wac");
 pub const LIST: &'static str = include_str!("list.wac");
 pub const TYPE: &'static str = include_str!("type.wac");
+pub const ASSERT: &'static str = include_str!("assert.wac");

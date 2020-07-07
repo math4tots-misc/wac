@@ -1,0 +1,5 @@
+# The most basic lang tests
+
+fn __test_sanity() {
+    Assert(true)
+}

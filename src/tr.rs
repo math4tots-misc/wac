@@ -18,9 +18,12 @@ pub const PAGE_SIZE: usize = 65536;
 /// Compile-time constants stored in memory start from this location
 pub const RESERVED_BYTES: usize = 2048;
 
-/// translates a list of (filename, wac-code) pairs into
-/// a wat webassembly module
-pub fn translate(mut sources: Vec<(Rc<str>, Rc<str>)>) -> Result<String, Error> {
+pub fn translate(sources: Vec<(Rc<str>, Rc<str>)>) -> Result<String, Error> {
+    let files = parse_files(sources)?;
+    translate_files(files)
+}
+
+pub fn parse_files(mut sources: Vec<(Rc<str>, Rc<str>)>) -> Result<Vec<(Rc<str>, File)>, Error> {
     let prelude = vec![
         ("[prelude:lang]".into(), crate::prelude::LANG.into()),
         ("[prelude:malloc]".into(), crate::prelude::MALLOC.into()),
@@ -28,6 +31,7 @@ pub fn translate(mut sources: Vec<(Rc<str>, Rc<str>)>) -> Result<String, Error> 
         ("[prelude:id]".into(), crate::prelude::ID.into()),
         ("[prelude:list]".into(), crate::prelude::LIST.into()),
         ("[prelude:type]".into(), crate::prelude::TYPE.into()),
+        ("[prelude:assert]".into(), crate::prelude::ASSERT.into()),
     ];
 
     sources.splice(0..0, prelude);
@@ -44,6 +48,13 @@ pub fn translate(mut sources: Vec<(Rc<str>, Rc<str>)>) -> Result<String, Error> 
         let file = parse_file(&mut parser)?;
         files.push((filename, file));
     }
+
+    Ok(files)
+}
+
+/// translates a list of (filename, wac-code) pairs into
+/// a wat webassembly module
+pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
     let mut out = Out::new();
 
     // some universal constants
@@ -621,13 +632,7 @@ fn translate_expr(
             let ptr = out.intern_str(value);
             sink.writeln(format!("(i32.const {})", ptr));
             retain(lscope, sink, Type::String, DropPolicy::Keep);
-            auto_cast(
-                sink,
-                span,
-                lscope,
-                ReturnType::Value(Type::String),
-                etype,
-            )?;
+            auto_cast(sink, span, lscope, ReturnType::Value(Type::String), etype)?;
         }
         Expr::List(span, exprs) => {
             sink.writeln("call $f___new_list");
