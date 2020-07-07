@@ -305,3 +305,9 @@ pub struct FunctionType {
     pub parameter_types: Vec<Type>,
     pub return_type: ReturnType,
 }
+
+impl From<Type> for ReturnType {
+    fn from(t: Type) -> Self {
+        Self::Value(t)
+    }
+}

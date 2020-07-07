@@ -40,6 +40,8 @@ fn Main() {
     var ptr = SomeOtherFunc()
     __hello($cstr("STRPTR outside"), ptr)
     __hello($cstr("REFCNT outside"), __read(ptr))
+
+    # OldMain()
 }
 
 fn OldMain() {

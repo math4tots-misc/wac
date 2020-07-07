@@ -8,11 +8,9 @@ use crate::Sink;
 use crate::Source;
 use std::cell::Cell;
 use std::collections::HashMap;
-use std::collections::HashSet;
+// use std::collections::HashSet;
 use std::fmt;
 use std::rc::Rc;
-
-mod ops;
 
 pub const PAGE_SIZE: usize = 65536;
 
@@ -620,30 +618,16 @@ fn translate_expr(
             }
         }
         Expr::String(span, value) => {
-            match etype {
-                ReturnType::Value(t) => {
-                    let ptr = out.intern_str(value);
-                    sink.writeln(format!("(i32.const {})", ptr));
-                    retain(lscope, sink, Type::String, DropPolicy::Keep);
-                    auto_cast(
-                        sink,
-                        span,
-                        lscope,
-                        ReturnType::Value(Type::String),
-                        ReturnType::Value(t),
-                    )?;
-                }
-                ReturnType::Void => {
-                    // no-op value is dropped
-                }
-                ReturnType::NoReturn => {
-                    return Err(Error::Type {
-                        span: span.clone(),
-                        expected: "noreturn".into(),
-                        got: "str".into(),
-                    })
-                }
-            }
+            let ptr = out.intern_str(value);
+            sink.writeln(format!("(i32.const {})", ptr));
+            retain(lscope, sink, Type::String, DropPolicy::Keep);
+            auto_cast(
+                sink,
+                span,
+                lscope,
+                ReturnType::Value(Type::String),
+                etype,
+            )?;
         }
         Expr::List(span, exprs) => {
             sink.writeln("call $f___new_list");
@@ -665,23 +649,7 @@ fn translate_expr(
 
                 lscope.pop();
             } else {
-                match etype {
-                    ReturnType::Void => {}
-                    ReturnType::Value(t) => {
-                        return Err(Error::Type {
-                            span: span.clone(),
-                            expected: format!("{:?}", t),
-                            got: "Void (empty-block)".into(),
-                        })
-                    }
-                    ReturnType::NoReturn => {
-                        return Err(Error::Type {
-                            span: span.clone(),
-                            expected: "noreturn".into(),
-                            got: "void (empty-block)".into(),
-                        })
-                    }
-                }
+                auto_cast(sink, span, lscope, ReturnType::Void, etype)?;
             }
         }
         Expr::GetVar(span, name) => {
@@ -786,7 +754,7 @@ fn translate_expr(
                 sink.writeln("end");
             }
         }
-        Expr::While(_span, cond, body) => {
+        Expr::While(span, cond, body) => {
             let break_label = lscope.new_label_id();
             let continue_label = lscope.new_label_id();
             lscope.break_labels.push(break_label);
@@ -805,145 +773,235 @@ fn translate_expr(
 
             lscope.break_labels.pop();
             lscope.continue_labels.pop();
+
+            auto_cast(sink, span, lscope, ReturnType::Void, etype)?;
         }
-        Expr::Binop(span, op, left, right) => match op {
-            Binop::Less => op_cmp(out, sink, lscope, etype, span, "lt", left, right)?,
-            Binop::LessOrEqual => op_cmp(out, sink, lscope, etype, span, "le", left, right)?,
-            Binop::Greater => op_cmp(out, sink, lscope, etype, span, "gt", left, right)?,
-            Binop::GreaterOrEqual => op_cmp(out, sink, lscope, etype, span, "ge", left, right)?,
-            Binop::Is => {
-                let left_type = guess_type(lscope, left)?;
-                let right_type = guess_type(lscope, right)?;
-                let gtype = common_type(lscope, span, left_type, right_type)?;
+        Expr::Binop(span, op, left, right) => {
+            // == binops ==
+            // equality ops
+            //   is, is not, ==, !=
+            //     * always returns bool
+            //     * arguments same type
+            //     * applies to (almost?) any type
+            // comparison ops
+            //   <, >, <=, >=
+            //     * always returns bool
+            //     * arguments same type
+            //     * applies to numeric types, list and str
+            // arithmetic ops
+            //   +, -, *, %
+            //     * either (i32, i32) or mixed i32, f32.
+            //     * always returns same as argument type (f32 if mixed)
+            //     * arguments always same type
+            //         ints may be converted to floats
+            //     * applies to numeric types
+            // division ops
+            //   /, //
+            //     * / always returns f32, // always returns i32
+            //     * arguments may be i32 or f32
+            // bitwise
+            //   &, ^, |, <<, >>
+            //     * only accepts i32
+            //     * always returns i32
+            match op {
+                Binop::Is | Binop::IsNot | Binop::Equal | Binop::NotEqual => {
+                    let ltype = guess_type(lscope, left)?;
+                    let rtype = guess_type(lscope, right)?;
+                    let union_type = best_union_type(ltype, rtype);
+                    translate_expr(out, sink, lscope, ReturnType::Value(union_type), left)?;
+                    translate_expr(out, sink, lscope, ReturnType::Value(union_type), right)?;
+                    // for float types and 64-bit types, we need to use specific opcodes,
+                    // but for all other values, they should be just i32
+                    let code = match (op, union_type) {
+                        (Binop::Is, Type::Id) => "i64.eq",
+                        (Binop::Is, Type::I64) => "i64.eq",
+                        (Binop::Is, Type::F64) => "f64.eq",
+                        (Binop::Is, Type::F32) => "f32.eq",
+                        (Binop::Is, _) => "i32.eq",
 
-                // The 'eq' instruction will remove the values from the stack,
-                // but they may not actually release the values (if they are supposed
-                // to be smart pointers)
-                //
-                // to ensure it is done properly, we need to explicitly call
-                // release() before we actually run the instruction
-                translate_expr(out, sink, lscope, ReturnType::Value(gtype), left)?;
-                release(lscope, sink, gtype, DropPolicy::Keep);
-                translate_expr(out, sink, lscope, ReturnType::Value(gtype), right)?;
-                release(lscope, sink, gtype, DropPolicy::Keep);
-                sink.writeln(match gtype.wasm() {
-                    WasmType::I32 => "i32.eq",
-                    WasmType::I64 => "i64.eq",
-                    WasmType::F32 => "f32.eq",
-                    WasmType::F64 => "f64.eq",
-                });
-                auto_cast(sink, span, lscope, ReturnType::Value(Type::Bool), etype)?;
-            }
-            Binop::IsNot => {
-                let left_type = guess_type(lscope, left)?;
-                let right_type = guess_type(lscope, right)?;
-                let gtype = common_type(lscope, span, left_type, right_type)?;
+                        (Binop::IsNot, Type::Id) => "i64.eq",
+                        (Binop::IsNot, Type::I64) => "i64.eq",
+                        (Binop::IsNot, Type::F64) => "f64.eq",
+                        (Binop::IsNot, Type::F32) => "f32.eq",
+                        (Binop::IsNot, _) => "i32.eq",
 
-                // The 'ne' instruction will remove the values from the stack,
-                // but they may not actually release the values (if they are supposed
-                // to be smart pointers)
-                //
-                // to ensure it is done properly, we need to explicitly call
-                // release() before we actually run the instruction
-                translate_expr(out, sink, lscope, ReturnType::Value(gtype), left)?;
-                release(lscope, sink, gtype, DropPolicy::Keep);
-                translate_expr(out, sink, lscope, ReturnType::Value(gtype), right)?;
-                release(lscope, sink, gtype, DropPolicy::Keep);
-                sink.writeln(match gtype.wasm() {
-                    WasmType::I32 => "i32.ne",
-                    WasmType::I64 => "i64.ne",
-                    WasmType::F32 => "f32.ne",
-                    WasmType::F64 => "f64.ne",
-                });
-                auto_cast(sink, span, lscope, ReturnType::Value(Type::Bool), etype)?;
-            }
-            Binop::Add | Binop::Subtract | Binop::Multiply | Binop::Divide | Binop::TruncDivide => handle_binop(
-                *op,
-                out,
-                sink,
-                lscope,
-                etype,
-                span,
-                left,
-                right,
-            )?,
-            Binop::BitwiseAnd => {
-                op_bitwise_binop(out, sink, lscope, etype, span, "and", left, right)?
-            }
-            Binop::BitwiseOr => {
-                op_bitwise_binop(out, sink, lscope, etype, span, "or", left, right)?
-            }
-            Binop::BitwiseXor => {
-                op_bitwise_binop(out, sink, lscope, etype, span, "xor", left, right)?
-            }
-            Binop::ShiftLeft => {
-                op_bitwise_binop(out, sink, lscope, etype, span, "shl", left, right)?
-            }
-            Binop::ShiftRight => {
-                op_bitwise_binop(out, sink, lscope, etype, span, "shr_u", left, right)?
-            }
-            _ => panic!("TODO: translate_expr binop {:?}", op),
-        },
-        Expr::Unop(span, op, expr) => match op {
-            Unop::Plus | Unop::Minus => {
-                let gtype = guess_type(lscope, expr)?;
-                match gtype {
-                    Type::F32 | Type::F64 | Type::I32 | Type::I64 => {
-                        translate_expr(out, sink, lscope, ReturnType::Value(gtype), expr)?;
-                        match op {
-                            Unop::Plus => {}
-                            Unop::Minus => match gtype {
-                                Type::F32 | Type::F64 => {
-                                    sink.writeln(format!("({}.neg ", translate_type(gtype)));
-                                }
-                                Type::I32 | Type::I64 => {
-                                    sink.writeln(format!("{}.const -1", translate_type(gtype)));
-                                    sink.writeln(format!("{}.mul", translate_type(gtype)));
-                                }
-                                _ => panic!("Unop gtype {:?}", gtype),
-                            },
-                            _ => panic!("Unop {:?}", op),
-                        }
-                    }
-                    _ => {
-                        return Err(Error::Type {
-                            span: span.clone(),
-                            expected: "numeric".into(),
-                            got: format!("{:?}", gtype),
-                        })
-                    }
+                        (Binop::Equal, _) => panic!("TODO translate_expr =="),
+                        (Binop::NotEqual, _) => panic!("TODO translate_expr !="),
+
+                        _ => panic!("impossible eq op {:?}", op),
+                    };
+                    sink.writeln(code);
+                    auto_cast(sink, span, lscope, ReturnType::Value(Type::Bool), etype)?;
                 }
-                auto_cast(sink, span, lscope, ReturnType::Value(gtype), etype)?
+                Binop::Less | Binop::LessOrEqual | Binop::Greater | Binop::GreaterOrEqual => {
+                    let ltype = guess_type(lscope, left)?;
+                    let rtype = guess_type(lscope, right)?;
+                    let union_type = match best_union_type(ltype, rtype) {
+                        Type::I32 => Type::I32,
+                        _ => Type::F32,
+                    };
+                    translate_expr(out, sink, lscope, ReturnType::Value(union_type), left)?;
+                    translate_expr(out, sink, lscope, ReturnType::Value(union_type), right)?;
+                    let code = match (op, union_type) {
+                        (Binop::Less, Type::I32) => "i32.lt_s",
+                        (Binop::Less, Type::F32) => "f32.lt",
+
+                        (Binop::LessOrEqual, Type::I32) => "i32.le_s",
+                        (Binop::LessOrEqual, Type::F32) => "f32.le",
+
+                        (Binop::Greater, Type::I32) => "i32.gt_s",
+                        (Binop::Greater, Type::F32) => "f32.gt",
+
+                        (Binop::GreaterOrEqual, Type::I32) => "i32.ge_s",
+                        (Binop::GreaterOrEqual, Type::F32) => "f32.ge",
+
+                        (Binop::Less, _)
+                        | (Binop::LessOrEqual, _)
+                        | (Binop::Greater, _)
+                        | (Binop::GreaterOrEqual, _) => Err(Error::Type {
+                            span: span.clone(),
+                            expected: "comparable values".into(),
+                            got: format!("{:?}, {:?}", ltype, rtype),
+                        })?,
+
+                        _ => panic!("impossible cmp op {:?}", op),
+                    };
+                    sink.writeln(code);
+                    auto_cast(sink, span, lscope, ReturnType::Value(Type::Bool), etype)?;
+                }
+                Binop::Add | Binop::Subtract | Binop::Multiply | Binop::Remainder => {
+                    let ltype = guess_type(lscope, left)?;
+                    let rtype = guess_type(lscope, right)?;
+                    let union_type = match best_union_type(ltype, rtype) {
+                        Type::I32 => Type::I32,
+                        _ => Type::F32,
+                    };
+                    translate_expr(out, sink, lscope, ReturnType::Value(union_type), left)?;
+                    translate_expr(out, sink, lscope, ReturnType::Value(union_type), right)?;
+                    let code = match (op, union_type) {
+                        (Binop::Add, Type::I32) => "i32.add",
+                        (Binop::Add, Type::F32) => "f32.add",
+
+                        (Binop::Subtract, Type::I32) => "i32.sub",
+                        (Binop::Subtract, Type::F32) => "f32.sub",
+
+                        (Binop::Multiply, Type::I32) => "i32.mul",
+                        (Binop::Multiply, Type::F32) => "f32.mul",
+
+                        (Binop::Remainder, Type::I32) => "i32.rem_s",
+                        (Binop::Remainder, Type::F32) => panic!("f32 % not yet implemented"),
+
+                        (Binop::Add, _)
+                        | (Binop::Subtract, _)
+                        | (Binop::Multiply, _)
+                        | (Binop::Remainder, _) => Err(Error::Type {
+                            span: span.clone(),
+                            expected: "numeric values".into(),
+                            got: format!("{:?}, {:?}", ltype, rtype),
+                        })?,
+
+                        _ => panic!("impossible arithmetic op {:?}", op),
+                    };
+                    sink.writeln(code);
+                    auto_cast(sink, span, lscope, ReturnType::Value(union_type), etype)?;
+                }
+                Binop::Divide => {
+                    let ltype = guess_type(lscope, left)?;
+                    let rtype = guess_type(lscope, right)?;
+                    let union_type = best_union_type(ltype, rtype);
+                    translate_expr(out, sink, lscope, ReturnType::Value(union_type), left)?;
+                    explicit_cast(
+                        sink,
+                        span,
+                        lscope,
+                        ReturnType::Value(union_type),
+                        ReturnType::Value(Type::F32),
+                    )?;
+                    translate_expr(out, sink, lscope, ReturnType::Value(union_type), right)?;
+                    explicit_cast(
+                        sink,
+                        span,
+                        lscope,
+                        ReturnType::Value(union_type),
+                        ReturnType::Value(Type::F32),
+                    )?;
+                    sink.writeln("f32.div");
+                    auto_cast(sink, span, lscope, ReturnType::Value(Type::F32), etype)?;
+                }
+                Binop::TruncDivide => {
+                    let ltype = guess_type(lscope, left)?;
+                    let rtype = guess_type(lscope, right)?;
+                    let union_type = best_union_type(ltype, rtype);
+                    match union_type {
+                        Type::I32 => {
+                            translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), left)?;
+                            translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), right)?;
+                            sink.writeln("i32.div_s");
+                        }
+                        Type::F32 | Type::Id => {
+                            translate_expr(out, sink, lscope, ReturnType::Value(Type::F32), left)?;
+                            translate_expr(out, sink, lscope, ReturnType::Value(Type::F32), right)?;
+                            sink.writeln("f32.div\ni32.trunc_f32_s");
+                        }
+                        _ => Err(Error::Type {
+                            span: span.clone(),
+                            expected: "trunc-divisible values".into(),
+                            got: format!("{:?}, {:?}", ltype, rtype),
+                        })?,
+                    }
+                    auto_cast(sink, span, lscope, ReturnType::Value(Type::I32), etype)?;
+                }
+                Binop::BitwiseAnd
+                | Binop::BitwiseOr
+                | Binop::BitwiseXor
+                | Binop::ShiftLeft
+                | Binop::ShiftRight => {
+                    translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), left)?;
+                    translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), right)?;
+                    let code = match op {
+                        Binop::BitwiseAnd => "i32.and",
+                        Binop::BitwiseOr => "i32.or",
+                        Binop::BitwiseXor => "i32.xor",
+                        Binop::ShiftLeft => "i32.shl",
+                        Binop::ShiftRight => "i32.shr_u",
+                        _ => panic!("impossible bitwise op {:?}", op),
+                    };
+                    sink.writeln(code);
+                    auto_cast(sink, span, lscope, ReturnType::Value(Type::I32), etype)?;
+                }
+            }
+        }
+        Expr::Unop(span, op, expr) => match op {
+            // == unops ==
+            // sign ops
+            //   +, -
+            //     * returns i32 or f32 to match arg type
+            // logical
+            //   !
+            //     * always returns bool
+            Unop::Plus | Unop::Minus => {
+                let guessed_type = match guess_type(lscope, expr)? {
+                    Type::I32 => Type::I32,
+                    _ => Type::F32,
+                };
+                translate_expr(out, sink, lscope, ReturnType::Value(guessed_type), expr)?;
+                auto_cast(sink, span, lscope, ReturnType::Value(guessed_type), etype)?
             }
             Unop::Not => {
                 translate_expr(out, sink, lscope, ReturnType::Value(Type::Bool), expr)?;
                 sink.writeln("i32.eqz");
+                auto_cast(sink, span, lscope, ReturnType::Value(Type::Bool), etype)?
             }
         },
-        Expr::AssertType(_span, type_, expr) => {
+        Expr::AssertType(span, type_, expr) => {
             translate_expr(out, sink, lscope, ReturnType::Value(*type_), expr)?;
+            auto_cast(sink, span, lscope, ReturnType::Value(*type_), etype)?
         }
-        Expr::CString(span, value) => match etype {
-            ReturnType::Value(Type::I32) => {
-                let ptr = out.intern_cstr(value);
-                sink.writeln(format!("i32.const {}", ptr));
-            }
-            ReturnType::Value(etype) => {
-                return Err(Error::Type {
-                    span: span.clone(),
-                    expected: format!("{:?}", etype),
-                    got: "i32 (cstr)".into(),
-                })
-            }
-            ReturnType::Void => {}
-            ReturnType::NoReturn => {
-                return Err(Error::Type {
-                    span: span.clone(),
-                    expected: "noreturn".into(),
-                    got: "i32 (cstr)".into(),
-                })
-            }
-        },
+        Expr::CString(span, value) => {
+            let ptr = out.intern_cstr(value);
+            sink.writeln(format!("i32.const {}", ptr));
+            auto_cast(sink, span, lscope, ReturnType::Value(Type::I32), etype)?
+        }
         Expr::Asm(span, args, type_, asm_code) => {
             for arg in args {
                 let argtype = guess_type(lscope, arg)?;
@@ -1070,124 +1128,124 @@ fn raw_dup(lscope: &mut LocalScope, sink: &Rc<Sink>, wasm_type: WasmType) {
     sink.writeln(format!("local.get {}", tmpvar));
 }
 
-/// Return the most specific shared type between the two types
-/// Returns an error if no such type exists
-fn common_type(_lscope: &mut LocalScope, span: &SSpan, a: Type, b: Type) -> Result<Type, Error> {
-    match (a, b) {
-        _ if a == b => Ok(a),
-        (Type::I32, Type::F32) | (Type::F32, Type::I32) => Ok(Type::F32),
-        _ => Err(Error::Type {
-            span: span.clone(),
-            expected: format!("{:?}", a),
-            got: format!("{:?}", b),
-        }),
-    }
-}
+// /// Return the most specific shared type between the two types
+// /// Returns an error if no such type exists
+// fn common_type(_lscope: &mut LocalScope, span: &SSpan, a: Type, b: Type) -> Result<Type, Error> {
+//     match (a, b) {
+//         _ if a == b => Ok(a),
+//         (Type::I32, Type::F32) | (Type::F32, Type::I32) => Ok(Type::F32),
+//         _ => Err(Error::Type {
+//             span: span.clone(),
+//             expected: format!("{:?}", a),
+//             got: format!("{:?}", b),
+//         }),
+//     }
+// }
 
-/// util for comparison operators (e.g. LessThan, GreaterThan, etc)
-///   * both arguments are always same type
-///   * guesses types based on first arg
-///   * always returns bool (i32)
-///   * signed and unsigend versions for ints (with *_s/_u suffix)
-fn op_cmp(
-    out: &mut Out,
-    sink: &Rc<Sink>,
-    lscope: &mut LocalScope,
-    etype: ReturnType,
-    span: &SSpan,
-    opname: &str,
-    left: &Expr,
-    right: &Expr,
-) -> Result<(), Error> {
-    let gtype = guess_type(lscope, left)?;
-    translate_expr(out, sink, lscope, ReturnType::Value(gtype), left)?;
-    translate_expr(out, sink, lscope, ReturnType::Value(gtype), right)?;
-    match gtype {
-        Type::Bool | Type::I32 | Type::I64 => {
-            sink.writeln(format!("{}.{}_s", translate_type(gtype), opname));
-        }
-        Type::F32 | Type::F64 => {
-            sink.writeln(format!("{}.{}", translate_type(gtype), opname));
-        }
-        Type::Type => panic!("TODO: Type comparisons not yet supported"),
-        Type::String => panic!("TODO: String comparisons not yet supported"),
-        Type::List => panic!("TODO: List comparisons not yet supported"),
-        Type::Id => panic!("TODO: Id comparisons not yet supported"),
-    }
-    auto_cast(sink, span, lscope, ReturnType::Value(Type::Bool), etype)?;
-    Ok(())
-}
+// /// util for comparison operators (e.g. LessThan, GreaterThan, etc)
+// ///   * both arguments are always same type
+// ///   * guesses types based on first arg
+// ///   * always returns bool (i32)
+// ///   * signed and unsigend versions for ints (with *_s/_u suffix)
+// fn op_cmp(
+//     out: &mut Out,
+//     sink: &Rc<Sink>,
+//     lscope: &mut LocalScope,
+//     etype: ReturnType,
+//     span: &SSpan,
+//     opname: &str,
+//     left: &Expr,
+//     right: &Expr,
+// ) -> Result<(), Error> {
+//     let gtype = guess_type(lscope, left)?;
+//     translate_expr(out, sink, lscope, ReturnType::Value(gtype), left)?;
+//     translate_expr(out, sink, lscope, ReturnType::Value(gtype), right)?;
+//     match gtype {
+//         Type::Bool | Type::I32 | Type::I64 => {
+//             sink.writeln(format!("{}.{}_s", translate_type(gtype), opname));
+//         }
+//         Type::F32 | Type::F64 => {
+//             sink.writeln(format!("{}.{}", translate_type(gtype), opname));
+//         }
+//         Type::Type => panic!("TODO: Type comparisons not yet supported"),
+//         Type::String => panic!("TODO: String comparisons not yet supported"),
+//         Type::List => panic!("TODO: List comparisons not yet supported"),
+//         Type::Id => panic!("TODO: Id comparisons not yet supported"),
+//     }
+//     auto_cast(sink, span, lscope, ReturnType::Value(Type::Bool), etype)?;
+//     Ok(())
+// }
 
-fn handle_binop(
-    op: Binop,
-    out: &mut Out,
-    sink: &Rc<Sink>,
-    lscope: &mut LocalScope,
-    etype: ReturnType,
-    span: &SSpan,
-    left: &Expr,
-    right: &Expr,
-) -> Result<(), Error> {
-    let cases = ops::cases_for_binop(op);
-    let ltype = guess_type(lscope, left)?;
-    let rtype = guess_type(lscope, right)?;
-    for cs in cases {
-        if ltype == cs.lhs && rtype == cs.rhs {
-            return (cs.handler)(out, sink, lscope, etype, span, left, right);
-        }
-    }
-    Err(Error::Type {
-        span: span.clone(),
-        expected: format!("{:?} arguments", op),
-        got: "no matching implementation for given types".into(),
-    })
-}
+// fn handle_binop(
+//     op: Binop,
+//     out: &mut Out,
+//     sink: &Rc<Sink>,
+//     lscope: &mut LocalScope,
+//     etype: ReturnType,
+//     span: &SSpan,
+//     left: &Expr,
+//     right: &Expr,
+// ) -> Result<(), Error> {
+//     let cases = ops::cases_for_binop(op);
+//     let ltype = guess_type(lscope, left)?;
+//     let rtype = guess_type(lscope, right)?;
+//     for cs in cases {
+//         if ltype == cs.lhs && rtype == cs.rhs {
+//             return (cs.handler)(out, sink, lscope, etype, span, left, right);
+//         }
+//     }
+//     Err(Error::Type {
+//         span: span.clone(),
+//         expected: format!("{:?} arguments", op),
+//         got: "no matching implementation for given types".into(),
+//     })
+// }
 
-fn guess_binop_type(
-    op: Binop,
-    lscope: &mut LocalScope,
-    span: &SSpan,
-    left: &Expr,
-    right: &Expr,
-) -> Result<Type, Error> {
-    let cases = ops::cases_for_binop(op);
-    let type_set: HashSet<_> = cases.iter().map(|c| c.type_).collect();
-    if type_set.len() == 1 {
-        return Ok(cases[0].type_);
-    }
-    let ltype = guess_type(lscope, left)?;
-    let rtype = guess_type(lscope, right)?;
-    for cs in cases {
-        if ltype == cs.lhs && rtype == cs.rhs {
-            return Ok(cs.type_);
-        }
-    }
-    Err(Error::Type {
-        span: span.clone(),
-        expected: format!("{:?} arguments", op),
-        got: "no matching implementation for given types".into(),
-    })
-}
+// fn guess_binop_type(
+//     op: Binop,
+//     lscope: &mut LocalScope,
+//     span: &SSpan,
+//     left: &Expr,
+//     right: &Expr,
+// ) -> Result<Type, Error> {
+//     let cases = ops::cases_for_binop(op);
+//     let type_set: HashSet<_> = cases.iter().map(|c| c.type_).collect();
+//     if type_set.len() == 1 {
+//         return Ok(cases[0].type_);
+//     }
+//     let ltype = guess_type(lscope, left)?;
+//     let rtype = guess_type(lscope, right)?;
+//     for cs in cases {
+//         if ltype == cs.lhs && rtype == cs.rhs {
+//             return Ok(cs.type_);
+//         }
+//     }
+//     Err(Error::Type {
+//         span: span.clone(),
+//         expected: format!("{:?} arguments", op),
+//         got: "no matching implementation for given types".into(),
+//     })
+// }
 
-/// util for binary bitwise operators
-///   * both arguments are always i32
-///   * always returns i32
-fn op_bitwise_binop(
-    out: &mut Out,
-    sink: &Rc<Sink>,
-    lscope: &mut LocalScope,
-    etype: ReturnType,
-    span: &SSpan,
-    opname: &str,
-    left: &Expr,
-    right: &Expr,
-) -> Result<(), Error> {
-    translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), left)?;
-    translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), right)?;
-    sink.writeln(format!("i32.{}", opname));
-    auto_cast(sink, span, lscope, ReturnType::Value(Type::I32), etype)?;
-    Ok(())
-}
+// /// util for binary bitwise operators
+// ///   * both arguments are always i32
+// ///   * always returns i32
+// fn op_bitwise_binop(
+//     out: &mut Out,
+//     sink: &Rc<Sink>,
+//     lscope: &mut LocalScope,
+//     etype: ReturnType,
+//     span: &SSpan,
+//     opname: &str,
+//     left: &Expr,
+//     right: &Expr,
+// ) -> Result<(), Error> {
+//     translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), left)?;
+//     translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), right)?;
+//     sink.writeln(format!("i32.{}", opname));
+//     auto_cast(sink, span, lscope, ReturnType::Value(Type::I32), etype)?;
+//     Ok(())
+// }
 
 /// adds opcodes to convert an i32 type to an 'id'
 fn cast_to_id(sink: &Rc<Sink>, tag: i32) {
@@ -1334,16 +1392,20 @@ fn best_union_return_type(a: ReturnType, b: ReturnType) -> ReturnType {
         (ReturnType::NoReturn, _) => b,
         (_, ReturnType::NoReturn) => a,
 
-        (ReturnType::Value(a), ReturnType::Value(b)) => ReturnType::Value(match (a, b) {
-            _ if a == b => a,
+        (ReturnType::Value(a), ReturnType::Value(b)) => ReturnType::Value(best_union_type(a, b)),
+    }
+}
 
-            // special case for int/floats -- ints can be used as floats
-            // if needed
-            (Type::I32, Type::F32) | (Type::F32, Type::I32) => Type::F32,
+fn best_union_type(a: Type, b: Type) -> Type {
+    match (a, b) {
+        _ if a == b => a,
 
-            // in all other cases, just use the id type
-            _ => Type::Id,
-        }),
+        // special case for int/floats -- ints can be used as floats
+        // if needed
+        (Type::I32, Type::F32) | (Type::F32, Type::I32) => Type::F32,
+
+        // in all other cases, just use the id type
+        _ => Type::Id,
     }
 }
 
@@ -1382,35 +1444,73 @@ fn guess_return_type(lscope: &mut LocalScope, expr: &Expr) -> Result<ReturnType,
             Ok(ret)
         }
         Expr::While(..) => Ok(ReturnType::Void),
-        Expr::Binop(span, op, left, right) => match op {
-            Binop::Add => {
-                Ok(ReturnType::Value(guess_binop_type(*op, lscope, span, left, right)?))
+        Expr::Binop(_span, op, left, right) => Ok(ReturnType::Value(match op {
+            // == binops ==
+            // equality ops
+            //   is, is not, ==, !=
+            //     * always returns bool
+            //     * arguments same type
+            //     * applies to (almost?) any type
+            // comparison ops
+            //   <, >, <=, >=
+            //     * always returns bool
+            //     * arguments same type
+            //     * applies to numeric types, list and str
+            // arithmetic ops
+            //   +, -, *, %
+            //     * either (i32, i32) or mixed i32, f32.
+            //     * always returns same as argument type (f32 if mixed)
+            //     * arguments always same type
+            //         ints may be converted to floats
+            //     * applies to numeric types
+            // division ops
+            //   /, //
+            //     * / always returns f32, // always returns i32
+            //     * arguments may be i32 or f32
+            // bitwise
+            //   &, ^, |, <<, >>
+            //     * only accepts i32
+            //     * always returns i32
+
+            // equality ops
+            Binop::Is | Binop::IsNot | Binop::Equal | Binop::NotEqual => Type::Bool,
+
+            // comparison ops
+            Binop::Less | Binop::LessOrEqual | Binop::Greater | Binop::GreaterOrEqual => Type::Bool,
+
+            // arithmetic ops
+            Binop::Add | Binop::Subtract | Binop::Multiply | Binop::Remainder => {
+                match (guess_type(lscope, left)?, guess_type(lscope, right)?) {
+                    (Type::I32, Type::I32) => Type::I32,
+                    _ => Type::F32,
+                }
             }
-            Binop::Subtract | Binop::Multiply => {
-                let a = guess_type(lscope, left)?;
-                let b = guess_type(lscope, right)?;
-                Ok(ReturnType::Value(common_type(lscope, span, a, b)?))
-            }
-            Binop::Divide => Ok(ReturnType::Value(Type::F32)),
-            Binop::TruncDivide | Binop::Remainder => Ok(ReturnType::Value(Type::I32)),
+
+            // division ops
+            Binop::Divide => Type::F32,
+            Binop::TruncDivide => Type::I32,
+
+            // bitwise
             Binop::BitwiseAnd
             | Binop::BitwiseOr
             | Binop::BitwiseXor
             | Binop::ShiftLeft
-            | Binop::ShiftRight => Ok(ReturnType::Value(Type::I32)),
-            Binop::Less
-            | Binop::LessOrEqual
-            | Binop::Greater
-            | Binop::GreaterOrEqual
-            | Binop::Equal
-            | Binop::NotEqual
-            | Binop::Is
-            | Binop::IsNot => Ok(ReturnType::Value(Type::Bool)),
-        },
-        Expr::Unop(_span, op, expr) => match op {
-            Unop::Minus | Unop::Plus => Ok(ReturnType::Value(guess_type(lscope, expr)?)),
-            Unop::Not => Ok(ReturnType::Value(Type::Bool)),
-        },
+            | Binop::ShiftRight => Type::I32,
+        })),
+        Expr::Unop(_span, op, expr) => Ok(ReturnType::Value(match op {
+            // == unops ==
+            // sign ops
+            //   +, -
+            //     * returns i32 or f32 to match arg type
+            // logical
+            //   !
+            //     * always returns bool
+            Unop::Minus | Unop::Plus => match guess_type(lscope, expr)? {
+                Type::I32 => Type::I32,
+                _ => Type::F32,
+            },
+            Unop::Not => Type::Bool,
+        })),
         Expr::AssertType(_, type_, _) => Ok(ReturnType::Value(*type_)),
         Expr::CString(..) => {
             // Should return a pointer
