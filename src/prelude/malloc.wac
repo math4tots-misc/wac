@@ -74,7 +74,6 @@ fn __WAC_malloc_adjusted_len(len i32) i32 {
         1073741824
     } else {
         panic("out of memory")
-        0
     }
 }
 
@@ -112,7 +111,6 @@ fn __malloc(len i32) i32 {
         __malloc_1073741824()
     } else {
         panic("out of memory")
-        0
     }
 }
 

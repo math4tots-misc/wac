@@ -147,9 +147,9 @@ fn parse_func(parser: &mut Parser) -> Result<Function, ParseError> {
         }
     }
     let return_type = if parser.at(Pattern::Name) {
-        Some(parse_type(parser)?)
+        parse_return_type(parser)?
     } else {
-        None
+        ReturnType::Void
     };
     let body = parse_block(parser)?;
     let span = span.upto(&parser.span());
@@ -304,7 +304,7 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
                         }
                     }
                     parser.expect(Token::Comma)?;
-                    let type_ = parse_voidable_type(parser)?;
+                    let type_ = parse_return_type(parser)?;
                     parser.expect(Token::Comma)?;
                     let asm_code = parser.expect_string()?;
                     parser.consume(Token::Comma);
@@ -606,9 +606,9 @@ fn parse_function_type(parser: &mut Parser) -> Result<FunctionType, ParseError> 
         }
     }
     let return_type = if parser.at(Pattern::Name) {
-        Some(parse_type(parser)?)
+        parse_return_type(parser)?
     } else {
-        None
+        ReturnType::Void
     };
     Ok(FunctionType {
         parameter_types,
@@ -616,13 +616,17 @@ fn parse_function_type(parser: &mut Parser) -> Result<FunctionType, ParseError> 
     })
 }
 
-fn parse_voidable_type(parser: &mut Parser) -> Result<Option<Type>, ParseError> {
+fn parse_return_type(parser: &mut Parser) -> Result<ReturnType, ParseError> {
     match parser.peek() {
         Token::Name("void") => {
             parser.gettok();
-            Ok(None)
+            Ok(ReturnType::Void)
         }
-        _ => Ok(Some(parse_type(parser)?)),
+        Token::Name("noreturn") => {
+            parser.gettok();
+            Ok(ReturnType::NoReturn)
+        }
+        _ => Ok(ReturnType::Value(parse_type(parser)?)),
     }
 }
 

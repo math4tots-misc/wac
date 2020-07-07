@@ -114,7 +114,7 @@ pub fn translate(mut sources: Vec<(Rc<str>, Rc<str>)>) -> Result<String, Error> 
                 guess_type(&mut lscope, &gvar.init)?
             };
             let init_sink = out.start.spawn();
-            translate_expr(&mut out, &init_sink, &mut lscope, Some(type_), &gvar.init)?;
+            translate_expr(&mut out, &init_sink, &mut lscope, ReturnType::Value(type_), &gvar.init)?;
             let info = gscope.decl_gvar(gvar.span.clone(), gvar.name.clone(), type_)?;
             init_sink.writeln(format!("global.set {}", info.wasm_name));
             out.gvars.writeln(format!(
@@ -342,6 +342,14 @@ impl ScopeEntry {
             ScopeEntry::Constant(info) => &info.span,
         }
     }
+
+    fn type_(&self) -> Type {
+        match self {
+            ScopeEntry::Local(info) => info.type_,
+            ScopeEntry::Global(info) => info.type_,
+            ScopeEntry::Constant(info) => info.value.type_(),
+        }
+    }
 }
 
 fn translate_func_type(ft: &FunctionType) -> String {
@@ -353,8 +361,11 @@ fn translate_func_type(ft: &FunctionType) -> String {
     for pt in parameter_types {
         ret.push_str(&format!(" (param {})", translate_type(*pt)));
     }
-    if let Some(rt) = return_type {
-        ret.push_str(&format!(" (result {})", translate_type(*rt)));
+    match return_type {
+        ReturnType::Value(rt) => {
+            ret.push_str(&format!(" (result {})", translate_type(*rt)));
+        }
+        ReturnType::Void | ReturnType::NoReturn => {}
     }
     ret
 }
@@ -416,8 +427,11 @@ fn translate_func(out: &mut Out, gscope: &GlobalScope, func: Function) -> Result
             translate_type(info.type_)
         ));
     }
-    if let Some(return_type) = func.return_type {
-        sink.writeln(format!(" (result {})", translate_type(return_type)));
+    match func.return_type {
+        ReturnType::Value(return_type) => {
+            sink.writeln(format!(" (result {})", translate_type(return_type)));
+        }
+        ReturnType::NoReturn | ReturnType::Void => {}
     }
     // we won't know what locals we have until we finish translate_expr on the body
     let locals_sink = sink.spawn();
@@ -460,96 +474,124 @@ fn translate_expr(
     out: &mut Out,
     sink: &Rc<Sink>,
     lscope: &mut LocalScope,
-    etype: Option<Type>,
+    etype: ReturnType,
     expr: &Expr,
 ) -> Result<(), Error> {
     match expr {
         Expr::Bool(span, x) => {
             match etype {
-                Some(Type::Bool) => {
+                ReturnType::Value(Type::Bool) => {
                     sink.writeln(format!("(i32.const {})", if *x { 1 } else { 0 }));
                 }
-                Some(Type::Id) => {
+                ReturnType::Value(Type::Id) => {
                     sink.writeln(format!("(i32.const {})", if *x { 1 } else { 0 }));
                     cast_to_id(sink, TAG_BOOL);
                 }
-                Some(t) => {
+                ReturnType::Value(t) => {
                     return Err(Error::Type {
                         span: span.clone(),
                         expected: format!("{:?}", t),
-                        got: "Bool".into(),
+                        got: "bool".into(),
                     })
                 }
-                None => {
+                ReturnType::Void => {
                     // no-op value is dropped
+                }
+                ReturnType::NoReturn => {
+                    return Err(Error::Type {
+                        span: span.clone(),
+                        expected: "noreturn".into(),
+                        got: "bool".into(),
+                    })
                 }
             }
         }
         Expr::Int(span, x) => {
             match etype {
-                Some(Type::I32) => {
+                ReturnType::Value(Type::I32) => {
                     sink.writeln(format!("(i32.const {})", x));
                 }
-                Some(Type::I64) => {
+                ReturnType::Value(Type::I64) => {
                     sink.writeln(format!("(i64.const {})", x));
                 }
-                Some(Type::F32) => {
+                ReturnType::Value(Type::F32) => {
                     sink.writeln(format!("(f32.const {})", x));
                 }
-                Some(Type::F64) => {
+                ReturnType::Value(Type::F64) => {
                     sink.writeln(format!("(f64.const {})", x));
                 }
-                Some(Type::Id) => {
+                ReturnType::Value(Type::Id) => {
                     sink.writeln(format!("(i32.const {})", x));
                     cast_to_id(sink, TAG_I32);
                 }
-                Some(t) => {
+                ReturnType::Value(t) => {
                     return Err(Error::Type {
                         span: span.clone(),
                         expected: format!("{:?}", t),
-                        got: "Int".into(),
+                        got: "int".into(),
                     })
                 }
-                None => {
+                ReturnType::Void => {
                     // no-op value is dropped
+                }
+                ReturnType::NoReturn => {
+                    return Err(Error::Type {
+                        span: span.clone(),
+                        expected: "noreturn".into(),
+                        got: "int".into(),
+                    })
                 }
             }
         }
         Expr::Float(span, x) => {
             match etype {
-                Some(Type::F32) => {
+                ReturnType::Value(Type::F32) => {
                     sink.writeln(format!("(f32.const {})", x));
                 }
-                Some(Type::F64) => {
+                ReturnType::Value(Type::F64) => {
                     sink.writeln(format!("(f64.const {})", x));
                 }
-                Some(Type::Id) => {
+                ReturnType::Value(Type::Id) => {
                     sink.writeln(format!("(f32.const {})", x));
                     sink.writeln("i32.reinterpret_f32");
                     cast_to_id(sink, TAG_F32);
                 }
-                Some(t) => {
+                ReturnType::Value(t) => {
                     return Err(Error::Type {
                         span: span.clone(),
                         expected: format!("{:?}", t),
                         got: "Float".into(),
                     })
                 }
-                None => {
+                ReturnType::Void => {
                     // no-op value is dropped
+                }
+                ReturnType::NoReturn => {
+                    return Err(Error::Type {
+                        span: span.clone(),
+                        expected: "noreturn".into(),
+                        got: "float".into(),
+                    })
                 }
             }
         }
         Expr::String(span, value) => {
             match etype {
-                Some(t) => {
+                ReturnType::Value(t) => {
                     let ptr = out.intern_str(value);
                     sink.writeln(format!("(i32.const {})", ptr));
                     retain(lscope, sink, Type::String, DropPolicy::Keep);
-                    auto_cast(sink, span, lscope, Some(Type::String), Some(t))?;
+                    auto_cast(sink, span, lscope, ReturnType::Value(Type::String), ReturnType::Value(t))?;
                 }
-                None => {
+                ReturnType::Void => {
                     // no-op value is dropped
+                }
+                ReturnType::NoReturn => {
+                    return Err(Error::Type {
+                        span: span.clone(),
+                        expected: "noreturn".into(),
+                        got: "str".into(),
+                    })
                 }
             }
         }
@@ -557,29 +599,36 @@ fn translate_expr(
             sink.writeln("call $f___new_list");
             for expr in exprs {
                 raw_dup(lscope, sink, WasmType::I32);
-                translate_expr(out, sink, lscope, Some(Type::Id), expr)?;
+                translate_expr(out, sink, lscope, ReturnType::Value(Type::Id), expr)?;
                 sink.writeln("call $f___list_push_raw_no_retain");
             }
-            auto_cast(sink, span, lscope, Some(Type::List), etype)?;
+            auto_cast(sink, span, lscope, ReturnType::Value(Type::List), etype)?;
         }
         Expr::Block(span, exprs) => {
             if let Some(last) = exprs.last() {
                 lscope.push();
 
                 for expr in &exprs[..exprs.len() - 1] {
-                    translate_expr(out, sink, lscope, None, expr)?;
+                    translate_expr(out, sink, lscope, ReturnType::Void, expr)?;
                 }
                 translate_expr(out, sink, lscope, etype, last)?;
 
                 lscope.pop();
             } else {
                 match etype {
-                    None => {}
-                    Some(t) => {
+                    ReturnType::Void => {}
+                    ReturnType::Value(t) => {
                         return Err(Error::Type {
                             span: span.clone(),
                             expected: format!("{:?}", t),
                             got: "Void (empty-block)".into(),
+                        })
+                    }
+                    ReturnType::NoReturn => {
+                        return Err(Error::Type {
+                            span: span.clone(),
+                            expected: "noreturn".into(),
+                            got: "void (empty-block)".into(),
                         })
                     }
                 }
@@ -587,34 +636,15 @@ fn translate_expr(
         }
         Expr::GetVar(span, name) => {
             let entry = lscope.get_or_err(span.clone(), name)?;
+            let gtype = entry.type_();
             match entry {
                 ScopeEntry::Local(info) => {
-                    match etype {
-                        Some(etype) => {
-                            sink.writeln(format!("local.get {}", info.wasm_name));
-                            retain(lscope, sink, info.type_, DropPolicy::Keep);
-                            auto_cast(sink, span, lscope, Some(info.type_), Some(etype))?;
-                        }
-                        None => {
-                            // we already checked this variable exists,
-                            // if we don't use the return value,
-                            // there's nothing we need to do here
-                        }
-                    }
+                    sink.writeln(format!("local.get {}", info.wasm_name));
+                    retain(lscope, sink, info.type_, DropPolicy::Keep);
                 }
                 ScopeEntry::Global(info) => {
-                    match etype {
-                        Some(etype) => {
-                            sink.writeln(format!("global.get {}", info.wasm_name));
-                            retain(lscope, sink, info.type_, DropPolicy::Keep);
-                            auto_cast(sink, span, lscope, Some(info.type_), Some(etype))?;
-                        }
-                        None => {
-                            // we already checked this variable exists,
-                            // if we don't use the return value,
-                            // there's nothing we need to do here
-                        }
-                    }
+                    sink.writeln(format!("global.get {}", info.wasm_name));
+                    retain(lscope, sink, info.type_, DropPolicy::Keep);
                 }
                 ScopeEntry::Constant(info) => {
                     match &info.value {
@@ -627,65 +657,37 @@ fn translate_expr(
                     }
                 }
             }
+            auto_cast(sink, span, lscope, ReturnType::Value(gtype), etype)?;
         }
         Expr::SetVar(span, name, setexpr) => {
             let entry = lscope.get_or_err(span.clone(), name)?;
-            if let Some(etype) = etype {
-                return Err(Error::Type {
-                    span: span.clone(),
-                    expected: format!("{:?}", etype),
-                    got: "Void (setvar)".into(),
-                });
-            }
+
+            // There's no need to retain here, because anything that's currently
+            // on the stack already has a retain on it. By popping from the
+            // stack, we're transferring the retain on the stack into the
+            // variable itself.
+            //
+            // We do however have to release the old value.
             match entry {
-                ScopeEntry::Local(info) => match etype {
-                    Some(etype) => {
-                        return Err(Error::Type {
-                            span: span.clone(),
-                            expected: format!("{:?}", etype),
-                            got: "Void (local.setvar)".into(),
-                        })
-                    }
-                    None => {
-                        // There's no need to retain here, because anything that's currently
-                        // on the stack already has a retain on it. By popping from the
-                        // stack, we're transferring the retain on the stack into the
-                        // variable itself.
-                        //
-                        // We do however have to release the old value.
-                        translate_expr(out, sink, lscope, Some(info.type_), setexpr)?;
-                        release_var(sink, Scope::Local, &info.wasm_name, info.type_);
-                        sink.writeln(format!("local.set {}", info.wasm_name));
-                    }
-                },
-                ScopeEntry::Global(info) => match etype {
-                    Some(etype) => {
-                        return Err(Error::Type {
-                            span: span.clone(),
-                            expected: format!("{:?}", etype),
-                            got: "Void (global.setvar)".into(),
-                        })
-                    }
-                    None => {
-                        // There's no need to retain here, because anything that's currently
-                        // on the stack already has a retain on it. By popping from the
-                        // stack, we're transferring the retain on the stack into the
-                        // variable itself.
-                        //
-                        // We do however have to release the old value.
-                        translate_expr(out, sink, lscope, Some(info.type_), setexpr)?;
-                        release_var(sink, Scope::Global, &info.wasm_name, info.type_);
-                        sink.writeln(format!("global.set {}", info.wasm_name));
-                    }
-                },
+                ScopeEntry::Local(info) => {
+                    translate_expr(out, sink, lscope, ReturnType::Value(info.type_), setexpr)?;
+                    release_var(sink, Scope::Local, &info.wasm_name, info.type_);
+                    sink.writeln(format!("local.set {}", info.wasm_name));
+                }
+                ScopeEntry::Global(info) => {
+                    translate_expr(out, sink, lscope, ReturnType::Value(info.type_), setexpr)?;
+                    release_var(sink, Scope::Global, &info.wasm_name, info.type_);
+                    sink.writeln(format!("global.set {}", info.wasm_name));
+                }
                 ScopeEntry::Constant(_) => {
                     return Err(Error::Type {
                         span: span.clone(),
-                        expected: "variable".into(),
+                        expected: "variable (for setvar)".into(),
                         got: "constant".into(),
                     })
                 }
             }
+            auto_cast(sink, span, lscope, ReturnType::Void, etype)?;
         }
         Expr::DeclVar(span, name, type_, setexpr) => {
             let type_ = match type_ {
@@ -693,19 +695,13 @@ fn translate_expr(
                 None => guess_type(lscope, setexpr)?,
             };
             let info = lscope.decl(span.clone(), name.clone(), type_);
-            if let Some(etype) = etype {
-                return Err(Error::Type {
-                    span: span.clone(),
-                    expected: format!("{:?}", etype),
-                    got: "Void (declvar)".into(),
-                });
-            }
             // There's no need to retain here, because anything that's currently
             // on the stack already have a retain on them. By popping from the
             // stack, we're transferring the retain on the stack into the
             // variable itself.
-            translate_expr(out, sink, lscope, Some(type_), setexpr)?;
+            translate_expr(out, sink, lscope, ReturnType::Value(type_), setexpr)?;
             sink.writeln(format!("local.set {}", info.wasm_name));
+            auto_cast(sink, span, lscope, ReturnType::Void, etype)?;
         }
         Expr::FunctionCall(span, fname, argexprs) => {
             let ftype = lscope.getf_or_err(span.clone(), fname)?;
@@ -717,17 +713,20 @@ fn translate_expr(
                 });
             }
             for (argexpr, ptype) in argexprs.iter().zip(ftype.parameter_types) {
-                translate_expr(out, sink, lscope, Some(ptype), argexpr)?;
+                translate_expr(out, sink, lscope, ReturnType::Value(ptype), argexpr)?;
             }
             sink.writeln(format!("call $f_{}", fname));
             auto_cast(sink, span, lscope, ftype.return_type, etype)?;
         }
         Expr::If(_span, pairs, other) => {
             for (cond, body) in pairs {
-                translate_expr(out, sink, lscope, Some(Type::Bool), cond)?;
+                translate_expr(out, sink, lscope, ReturnType::Value(Type::Bool), cond)?;
                 sink.writeln("if");
-                if let Some(etype) = etype {
-                    sink.writeln(format!(" (result {})", translate_type(etype)));
+                match etype {
+                    ReturnType::Value(etype) => {
+                        sink.writeln(format!(" (result {})", translate_type(etype)));
+                    }
+                    ReturnType::NoReturn | ReturnType::Void => {}
                 }
                 translate_expr(out, sink, lscope, etype, body)?;
                 sink.writeln("else");
@@ -749,10 +748,10 @@ fn translate_expr(
                 "(block $lbl_{} (loop $lbl_{}",
                 break_label, continue_label
             ));
-            translate_expr(out, sink, lscope, Some(Type::Bool), cond)?;
+            translate_expr(out, sink, lscope, ReturnType::Value(Type::Bool), cond)?;
             sink.writeln("i32.eqz");
             sink.writeln(format!("br_if $lbl_{}", break_label));
-            translate_expr(out, sink, lscope, None, body)?;
+            translate_expr(out, sink, lscope, ReturnType::Void, body)?;
             sink.writeln(format!("br $lbl_{}", continue_label));
             sink.writeln("))");
 
@@ -775,9 +774,9 @@ fn translate_expr(
                 //
                 // to ensure it is done properly, we need to explicitly call
                 // release() before we actually run the instruction
-                translate_expr(out, sink, lscope, Some(gtype), left)?;
+                translate_expr(out, sink, lscope, ReturnType::Value(gtype), left)?;
                 release(lscope, sink, gtype, DropPolicy::Keep);
-                translate_expr(out, sink, lscope, Some(gtype), right)?;
+                translate_expr(out, sink, lscope, ReturnType::Value(gtype), right)?;
                 release(lscope, sink, gtype, DropPolicy::Keep);
                 sink.writeln(match gtype.wasm() {
                     WasmType::I32 => "i32.eq",
@@ -785,7 +784,7 @@ fn translate_expr(
                     WasmType::F32 => "f32.eq",
                     WasmType::F64 => "f64.eq",
                 });
-                auto_cast(sink, span, lscope, Some(Type::Bool), etype)?;
+                auto_cast(sink, span, lscope, ReturnType::Value(Type::Bool), etype)?;
             }
             Binop::IsNot => {
                 let left_type = guess_type(lscope, left)?;
@@ -798,9 +797,9 @@ fn translate_expr(
                 //
                 // to ensure it is done properly, we need to explicitly call
                 // release() before we actually run the instruction
-                translate_expr(out, sink, lscope, Some(gtype), left)?;
+                translate_expr(out, sink, lscope, ReturnType::Value(gtype), left)?;
                 release(lscope, sink, gtype, DropPolicy::Keep);
-                translate_expr(out, sink, lscope, Some(gtype), right)?;
+                translate_expr(out, sink, lscope, ReturnType::Value(gtype), right)?;
                 release(lscope, sink, gtype, DropPolicy::Keep);
                 sink.writeln(match gtype.wasm() {
                     WasmType::I32 => "i32.ne",
@@ -808,41 +807,41 @@ fn translate_expr(
                     WasmType::F32 => "f32.ne",
                     WasmType::F64 => "f64.ne",
                 });
-                auto_cast(sink, span, lscope, Some(Type::Bool), etype)?;
+                auto_cast(sink, span, lscope, ReturnType::Value(Type::Bool), etype)?;
             }
             Binop::Add => op_arith_binop(out, sink, lscope, etype, span, "add", left, right)?,
             Binop::Subtract => op_arith_binop(out, sink, lscope, etype, span, "sub", left, right)?,
             Binop::Multiply => op_arith_binop(out, sink, lscope, etype, span, "mul", left, right)?,
             Binop::Divide => {
-                translate_expr(out, sink, lscope, Some(Type::F32), left)?;
-                translate_expr(out, sink, lscope, Some(Type::F32), right)?;
+                translate_expr(out, sink, lscope, ReturnType::Value(Type::F32), left)?;
+                translate_expr(out, sink, lscope, ReturnType::Value(Type::F32), right)?;
                 sink.writeln("f32.div");
-                auto_cast(sink, span, lscope, Some(Type::F32), etype)?;
+                auto_cast(sink, span, lscope, ReturnType::Value(Type::F32), etype)?;
             }
             Binop::TruncDivide => {
                 let gltype = guess_type(lscope, left)?;
                 let grtype = guess_type(lscope, right)?;
                 match (gltype, grtype) {
                     (Type::I32, Type::I32) => {
-                        translate_expr(out, sink, lscope, Some(gltype), left)?;
-                        translate_expr(out, sink, lscope, Some(grtype), right)?;
+                        translate_expr(out, sink, lscope, ReturnType::Value(gltype), left)?;
+                        translate_expr(out, sink, lscope, ReturnType::Value(grtype), right)?;
                         sink.writeln("i32.div_s");
                     }
                     (Type::F32, Type::I32) | (Type::I32, Type::F32) | (Type::F32, Type::F32) => {
-                        translate_expr(out, sink, lscope, Some(Type::F32), left)?;
-                        translate_expr(out, sink, lscope, Some(Type::F32), right)?;
+                        translate_expr(out, sink, lscope, ReturnType::Value(Type::F32), left)?;
+                        translate_expr(out, sink, lscope, ReturnType::Value(Type::F32), right)?;
                         sink.writeln("f32.div");
-                        explicit_cast(sink, span, lscope, Some(Type::F32), Some(Type::I32))?;
+                        explicit_cast(sink, span, lscope, ReturnType::Value(Type::F32), ReturnType::Value(Type::I32))?;
                     }
                     _ => {
                         return Err(Error::Type {
                             span: span.clone(),
-                            expected: format!("{:?}", etype),
-                            got: "Int".into(),
+                            expected: "i32 or f32 args".into(),
+                            got: format!("{:?}, {:?}", gltype, grtype),
                         })
                     }
                 }
-                auto_cast(sink, span, lscope, Some(Type::I32), etype)?;
+                auto_cast(sink, span, lscope, ReturnType::Value(Type::I32), etype)?;
             }
             Binop::BitwiseAnd => {
                 op_bitwise_binop(out, sink, lscope, etype, span, "and", left, right)?
@@ -866,7 +865,7 @@ fn translate_expr(
                 let gtype = guess_type(lscope, expr)?;
                 match gtype {
                     Type::F32 | Type::F64 | Type::I32 | Type::I64 => {
-                        translate_expr(out, sink, lscope, Some(gtype), expr)?;
+                        translate_expr(out, sink, lscope, ReturnType::Value(gtype), expr)?;
                         match op {
                             Unop::Plus => {}
                             Unop::Minus => match gtype {
@@ -890,34 +889,41 @@ fn translate_expr(
                         })
                     }
                 }
-                auto_cast(sink, span, lscope, Some(gtype), etype)?
+                auto_cast(sink, span, lscope, ReturnType::Value(gtype), etype)?
             }
             Unop::Not => {
-                translate_expr(out, sink, lscope, Some(Type::Bool), expr)?;
+                translate_expr(out, sink, lscope, ReturnType::Value(Type::Bool), expr)?;
                 sink.writeln("i32.eqz");
             }
         },
         Expr::AssertType(_span, type_, expr) => {
-            translate_expr(out, sink, lscope, Some(*type_), expr)?;
+            translate_expr(out, sink, lscope, ReturnType::Value(*type_), expr)?;
         }
         Expr::CString(span, value) => match etype {
-            Some(Type::I32) => {
+            ReturnType::Value(Type::I32) => {
                 let ptr = out.intern_cstr(value);
                 sink.writeln(format!("i32.const {}", ptr));
             }
-            Some(etype) => {
+            ReturnType::Value(etype) => {
                 return Err(Error::Type {
                     span: span.clone(),
                     expected: format!("{:?}", etype),
                     got: "i32 (cstr)".into(),
                 })
             }
-            None => {}
+            ReturnType::Void => {}
+            ReturnType::NoReturn => {
+                return Err(Error::Type {
+                    span: span.clone(),
+                    expected: "noreturn".into(),
+                    got: "i32 (cstr)".into(),
+                })
+            }
         },
         Expr::Asm(span, args, type_, asm_code) => {
             for arg in args {
                 let argtype = guess_type(lscope, arg)?;
-                translate_expr(out, sink, lscope, Some(argtype), arg)?;
+                translate_expr(out, sink, lscope, ReturnType::Value(argtype), arg)?;
             }
             sink.writeln(asm_code);
             auto_cast(sink, span, lscope, *type_, etype)?;
@@ -1067,15 +1073,15 @@ fn op_cmp(
     out: &mut Out,
     sink: &Rc<Sink>,
     lscope: &mut LocalScope,
-    etype: Option<Type>,
+    etype: ReturnType,
     span: &SSpan,
     opname: &str,
     left: &Expr,
     right: &Expr,
 ) -> Result<(), Error> {
     let gtype = guess_type(lscope, left)?;
-    translate_expr(out, sink, lscope, Some(gtype), left)?;
-    translate_expr(out, sink, lscope, Some(gtype), right)?;
+    translate_expr(out, sink, lscope, ReturnType::Value(gtype), left)?;
+    translate_expr(out, sink, lscope, ReturnType::Value(gtype), right)?;
     match gtype {
         Type::Bool | Type::I32 | Type::I64 => {
             sink.writeln(format!("{}.{}_s", translate_type(gtype), opname));
@@ -1088,7 +1094,7 @@ fn op_cmp(
         Type::List => panic!("TODO: List comparisons not yet supported"),
         Type::Id => panic!("TODO: Id comparisons not yet supported"),
     }
-    auto_cast(sink, span, lscope, Some(Type::Bool), etype)?;
+    auto_cast(sink, span, lscope, ReturnType::Value(Type::Bool), etype)?;
     Ok(())
 }
 
@@ -1101,15 +1107,15 @@ fn op_arith_binop(
     out: &mut Out,
     sink: &Rc<Sink>,
     lscope: &mut LocalScope,
-    etype: Option<Type>,
+    etype: ReturnType,
     span: &SSpan,
     opname: &str,
     left: &Expr,
     right: &Expr,
 ) -> Result<(), Error> {
     let gtype = guess_type(lscope, left)?;
-    translate_expr(out, sink, lscope, Some(gtype), left)?;
-    translate_expr(out, sink, lscope, Some(gtype), right)?;
+    translate_expr(out, sink, lscope, ReturnType::Value(gtype), left)?;
+    translate_expr(out, sink, lscope, ReturnType::Value(gtype), right)?;
     match gtype {
         Type::I32 | Type::I64 | Type::F32 | Type::F64 => {
             sink.writeln(format!("{}.{}", translate_type(gtype), opname));
@@ -1122,7 +1128,7 @@ fn op_arith_binop(
             });
         }
     }
-    auto_cast(sink, span, lscope, Some(gtype), etype)?;
+    auto_cast(sink, span, lscope, ReturnType::Value(gtype), etype)?;
     Ok(())
 }
 
@@ -1133,16 +1139,16 @@ fn op_bitwise_binop(
     out: &mut Out,
     sink: &Rc<Sink>,
     lscope: &mut LocalScope,
-    etype: Option<Type>,
+    etype: ReturnType,
     span: &SSpan,
     opname: &str,
     left: &Expr,
     right: &Expr,
 ) -> Result<(), Error> {
-    translate_expr(out, sink, lscope, Some(Type::I32), left)?;
-    translate_expr(out, sink, lscope, Some(Type::I32), right)?;
+    translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), left)?;
+    translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), right)?;
     sink.writeln(format!("i32.{}", opname));
-    auto_cast(sink, span, lscope, Some(Type::I32), etype)?;
+    auto_cast(sink, span, lscope, ReturnType::Value(Type::I32), etype)?;
     Ok(())
 }
 
@@ -1160,61 +1166,81 @@ fn auto_cast(
     sink: &Rc<Sink>,
     span: &SSpan,
     lscope: &mut LocalScope,
-    src: Option<Type>,
-    dst: Option<Type>,
+    src: ReturnType,
+    dst: ReturnType,
 ) -> Result<(), Error> {
     match (src, dst) {
-        (Some(src), Some(dst)) if src == dst => {}
-        (None, None) => {}
-        (Some(Type::I32), Some(Type::F32)) => {
+        (ReturnType::Value(src), ReturnType::Value(dst)) if src == dst => {}
+        (ReturnType::Void, ReturnType::Void) => {}
+        (ReturnType::NoReturn, ReturnType::NoReturn) => {}
+        (ReturnType::NoReturn, _) => {
+            // if we're ever provided with a noreturn,
+            // there's nothing really to do except let wasm know
+            sink.writeln("unreachable");
+        }
+        (ReturnType::Value(Type::I32), ReturnType::Value(Type::F32)) => {
             sink.writeln("f32.convert_i32_s");
         }
-        (Some(Type::I32), Some(Type::Id)) => {
+        (ReturnType::Value(Type::I32), ReturnType::Value(Type::Id)) => {
             cast_to_id(sink, TAG_I32);
         }
-        (Some(Type::F32), Some(Type::Id)) => {
+        (ReturnType::Value(Type::F32), ReturnType::Value(Type::Id)) => {
             sink.writeln("i32.reinterpret_f32");
             cast_to_id(sink, TAG_F32);
         }
-        (Some(Type::Bool), Some(Type::Id)) => {
+        (ReturnType::Value(Type::Bool), ReturnType::Value(Type::Id)) => {
             cast_to_id(sink, TAG_BOOL);
         }
-        (Some(Type::String), Some(Type::Id)) => {
+        (ReturnType::Value(Type::String), ReturnType::Value(Type::Id)) => {
             cast_to_id(sink, TAG_STRING);
         }
-        (Some(Type::List), Some(Type::Id)) => {
+        (ReturnType::Value(Type::List), ReturnType::Value(Type::Id)) => {
             cast_to_id(sink, TAG_LIST);
         }
-        (Some(Type::Id), Some(Type::I32)) => {
+        (ReturnType::Value(Type::Id), ReturnType::Value(Type::I32)) => {
             sink.writeln("call $f___WAC_raw_id_to_i32");
         }
-        (Some(Type::Id), Some(Type::F32)) => {
+        (ReturnType::Value(Type::Id), ReturnType::Value(Type::F32)) => {
             sink.writeln("call $f___WAC_raw_id_to_f32");
         }
-        (Some(Type::Id), Some(Type::Bool)) => {
+        (ReturnType::Value(Type::Id), ReturnType::Value(Type::Bool)) => {
             sink.writeln("call $f___WAC_raw_id_to_bool");
         }
-        (Some(Type::Id), Some(Type::String)) => {
+        (ReturnType::Value(Type::Id), ReturnType::Value(Type::String)) => {
             sink.writeln("call $f___WAC_raw_id_to_str");
         }
-        (Some(Type::Id), Some(Type::List)) => {
+        (ReturnType::Value(Type::Id), ReturnType::Value(Type::List)) => {
             sink.writeln("call $f___WAC_raw_id_to_list");
         }
-        (Some(src), None) => {
+        (ReturnType::Value(src), ReturnType::Void) => {
             release(lscope, sink, src, DropPolicy::Drop);
         }
-        (Some(src), Some(dst)) => {
+        (ReturnType::Value(src), ReturnType::Value(dst)) => {
             return Err(Error::Type {
                 span: span.clone(),
                 expected: format!("{:?}", dst),
                 got: format!("{:?}", src),
             });
         }
-        (None, Some(dst)) => {
+        (ReturnType::Value(src), ReturnType::NoReturn) => {
+            return Err(Error::Type {
+                span: span.clone(),
+                expected: "noreturn".into(),
+                got: format!("{:?}", src),
+            });
+        }
+        (ReturnType::Void, ReturnType::NoReturn) => {
+            return Err(Error::Type {
+                span: span.clone(),
+                expected: "noreturn".into(),
+                got: "void".into(),
+            });
+        }
+        (ReturnType::Void, ReturnType::Value(dst)) => {
             return Err(Error::Type {
                 span: span.clone(),
                 expected: format!("{:?}", dst),
-                got: "Void".into(),
+                got: "void".into(),
             });
         }
     }
@@ -1227,11 +1253,11 @@ fn explicit_cast(
     sink: &Rc<Sink>,
     span: &SSpan,
     lscope: &mut LocalScope,
-    src: Option<Type>,
-    dst: Option<Type>,
+    src: ReturnType,
+    dst: ReturnType,
 ) -> Result<(), Error> {
     match (src, dst) {
-        (Some(Type::F32), Some(Type::I32)) => {
+        (ReturnType::Value(Type::F32), ReturnType::Value(Type::I32)) => {
             sink.writeln("i32.trunc_f32_s");
         }
         _ => auto_cast(sink, span, lscope, src, dst)?,
@@ -1242,68 +1268,97 @@ fn explicit_cast(
 /// tries to guess the type of an expression that must return some value
 /// returning void will cause an error to be returned
 fn guess_type(lscope: &mut LocalScope, expr: &Expr) -> Result<Type, Error> {
-    match expr {
-        Expr::Bool(..) => Ok(Type::Bool),
-        Expr::Int(..) => Ok(Type::I32),
-        Expr::Float(..) => Ok(Type::F32),
-        Expr::String(..) => Ok(Type::String),
-        Expr::List(..) => Ok(Type::List),
-        Expr::GetVar(span, name) => match lscope.get_or_err(span.clone(), name)? {
-            ScopeEntry::Local(info) => Ok(info.type_),
-            ScopeEntry::Global(info) => Ok(info.type_),
-            ScopeEntry::Constant(info) => Ok(info.value.type_()),
-        },
-        Expr::SetVar(span, ..) => Err(Error::Type {
-            span: span.clone(),
-            expected: "any-value".into(),
-            got: "Void (setvar)".into(),
-        }),
-        Expr::DeclVar(span, ..) => Err(Error::Type {
-            span: span.clone(),
-            expected: "any-value".into(),
-            got: "Void (declvar)".into(),
-        }),
-        Expr::Block(span, exprs) => match exprs.last() {
-            Some(last) => guess_type(lscope, last),
-            None => {
-                return Err(Error::Type {
-                    span: span.clone(),
-                    expected: "any-value".into(),
-                    got: "Void (empty-block)".into(),
-                })
-            }
-        },
-        Expr::FunctionCall(span, name, _) => {
-            match lscope.getf_or_err(span.clone(), name)?.return_type {
-                Some(t) => Ok(t),
-                None => {
-                    return Err(Error::Type {
-                        span: span.clone(),
-                        expected: "any-value".into(),
-                        got: "Void (void-returning-function)".into(),
-                    })
-                }
-            }
+    match guess_return_type(lscope, expr)? {
+        ReturnType::Value(t) => Ok(t),
+        ReturnType::Void => {
+            Err(Error::Type {
+                span: expr.span().clone(),
+                expected: "assignable type".into(),
+                got: "void (variables cannot be void)".into(),
+            })
         }
-        Expr::If(_, pairs, other) => guess_type(lscope, pairs.get(0).map(|p| &p.1).unwrap_or(other)),
-        Expr::While(span, ..) => Err(Error::Type {
-            span: span.clone(),
-            expected: "any-value".into(),
-            got: "Void (while)".into(),
-        }),
+        ReturnType::NoReturn => {
+            // I'm not sure if returning an error is actually the correct thing
+            // to do here
+            Err(Error::Type {
+                span: expr.span().clone(),
+                expected: "assignable type".into(),
+                got: "noreturn (variables cannot be noreturn)".into(),
+            })
+        }
+    }
+}
+
+// return the best fitting type that fits the union of the two return types
+fn best_union_return_type(a: ReturnType, b: ReturnType) -> ReturnType {
+    match (a, b) {
+        // If we see Void anywhere, the overall return must be void
+        (ReturnType::Void, _) | (_, ReturnType::Void) => ReturnType::Void,
+
+        // NoReturn is a recessive, if we see one, always return the other type
+        (ReturnType::NoReturn, _) => b,
+        (_, ReturnType::NoReturn) => a,
+
+        (ReturnType::Value(a), ReturnType::Value(b)) => ReturnType::Value(match (a, b) {
+            _ if a == b => a,
+
+            // special case for int/floats -- ints can be used as floats
+            // if needed
+            (Type::I32, Type::F32) | (Type::F32, Type::I32) => Type::F32,
+
+            // in all other cases, just use the id type
+            _ => Type::Id,
+        })
+    }
+}
+
+/// tries to guess the type of an expression that must return some value
+/// returning void will cause an error to be returned
+fn guess_return_type(lscope: &mut LocalScope, expr: &Expr) -> Result<ReturnType, Error> {
+    match expr {
+        Expr::Bool(..) => Ok(ReturnType::Value(Type::Bool)),
+        Expr::Int(..) => Ok(ReturnType::Value(Type::I32)),
+        Expr::Float(..) => Ok(ReturnType::Value(Type::F32)),
+        Expr::String(..) => Ok(ReturnType::Value(Type::String)),
+        Expr::List(..) => Ok(ReturnType::Value(Type::List)),
+        Expr::GetVar(span, name) => match lscope.get_or_err(span.clone(), name)? {
+            ScopeEntry::Local(info) => Ok(ReturnType::Value(info.type_)),
+            ScopeEntry::Global(info) => Ok(ReturnType::Value(info.type_)),
+            ScopeEntry::Constant(info) => Ok(ReturnType::Value(info.value.type_())),
+        },
+        Expr::SetVar(..) => Ok(ReturnType::Void),
+        Expr::DeclVar(..) => Ok(ReturnType::Void),
+        Expr::Block(_, exprs) => match exprs.last() {
+            Some(last) => {
+                // TODO: check the body for the noreturn type
+                guess_return_type(lscope, last)
+            }
+            None => Ok(ReturnType::Void),
+        },
+        Expr::FunctionCall(span, name, _) =>
+            Ok(lscope.getf_or_err(span.clone(), name)?.return_type),
+        Expr::If(_, pairs, other) => {
+            let mut ret = ReturnType::NoReturn;
+            for (_, body) in pairs {
+                ret = best_union_return_type(ret, guess_return_type(lscope, body)?);
+            }
+            ret = best_union_return_type(ret, guess_return_type(lscope, other)?);
+            Ok(ret)
+        }
+        Expr::While(..) => Ok(ReturnType::Void),
         Expr::Binop(span, op, left, right) => match op {
             Binop::Add | Binop::Subtract | Binop::Multiply => {
                 let a = guess_type(lscope, left)?;
                 let b = guess_type(lscope, right)?;
-                common_type(lscope, span, a, b)
+                Ok(ReturnType::Value(common_type(lscope, span, a, b)?))
             }
-            Binop::Divide => Ok(Type::F32),
-            Binop::TruncDivide | Binop::Remainder => Ok(Type::I32),
+            Binop::Divide => Ok(ReturnType::Value(Type::F32)),
+            Binop::TruncDivide | Binop::Remainder => Ok(ReturnType::Value(Type::I32)),
             Binop::BitwiseAnd
             | Binop::BitwiseOr
             | Binop::BitwiseXor
             | Binop::ShiftLeft
-            | Binop::ShiftRight => Ok(Type::I32),
+            | Binop::ShiftRight => Ok(ReturnType::Value(Type::I32)),
             Binop::Less
             | Binop::LessOrEqual
             | Binop::Greater
@@ -1311,27 +1366,18 @@ fn guess_type(lscope: &mut LocalScope, expr: &Expr) -> Result<Type, Error> {
             | Binop::Equal
             | Binop::NotEqual
             | Binop::Is
-            | Binop::IsNot => Ok(Type::Bool),
+            | Binop::IsNot => Ok(ReturnType::Value(Type::Bool)),
         },
         Expr::Unop(_span, op, expr) => match op {
-            Unop::Minus | Unop::Plus => guess_type(lscope, expr),
-            Unop::Not => Ok(Type::Bool),
+            Unop::Minus | Unop::Plus => Ok(ReturnType::Value(guess_type(lscope, expr)?)),
+            Unop::Not => Ok(ReturnType::Value(Type::Bool)),
         },
-        Expr::AssertType(_, type_, _) => Ok(*type_),
+        Expr::AssertType(_, type_, _) => Ok(ReturnType::Value(*type_)),
         Expr::CString(..) => {
             // Should return a pointer
-            Ok(Type::I32)
+            Ok(ReturnType::Value(Type::I32))
         }
-        Expr::Asm(span, _, type_, _) => match type_ {
-            Some(t) => Ok(*t),
-            None => {
-                return Err(Error::Type {
-                    span: span.clone(),
-                    expected: "any-value".into(),
-                    got: "Void (void-asm-expr)".into(),
-                })
-            }
-        },
+        Expr::Asm(_, _, type_, _) => Ok(type_.clone()),
     }
 }
 

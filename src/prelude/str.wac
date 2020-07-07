@@ -3,8 +3,7 @@ fn str(x id) str {
     if TypeOf(x) is str {
         x
     } else {
-        panic("TODO")
-        ""
+        panic("TODO str")
     }
 }
 
@@ -32,7 +31,7 @@ fn __print_str(s str) {
     __print_str_raw(__read(ptr + 4), ptr + 8)
 }
 
-fn panic(s str) {
+fn panic(s str) noreturn {
     var ptr = __WAC_UNSAFE_strptr(s)
     __panic_raw(__read(ptr + 4), ptr + 8)
 }

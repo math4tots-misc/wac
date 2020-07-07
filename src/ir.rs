@@ -1,5 +1,6 @@
 use crate::SSpan;
 use std::rc::Rc;
+use std::fmt;
 
 pub struct File {
     pub imports: Vec<Import>,
@@ -47,7 +48,7 @@ pub struct Function {
     pub visibility: Visibility,
     pub name: Rc<str>,
     pub parameters: Vec<(Rc<str>, Type)>,
-    pub return_type: Option<Type>,
+    pub return_type: ReturnType,
     pub body: Expr,
 }
 
@@ -90,7 +91,7 @@ pub enum Expr {
 
     // intrinsics
     CString(SSpan, Rc<str>),
-    Asm(SSpan, Vec<Expr>, Option<Type>, Rc<str>),
+    Asm(SSpan, Vec<Expr>, ReturnType, Rc<str>),
 }
 
 impl Expr {
@@ -191,7 +192,7 @@ pub const TAG_LIST: i32 = 8;
 pub const TAG_ID: i32 = 9;
 
 #[repr(i32)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Type {
     I32 = TAG_I32,
     I64 = TAG_I64,
@@ -222,6 +223,19 @@ impl Type {
     pub fn tag(self) -> i32 {
         self as i32
     }
+    pub fn name(&self) -> &'static str {
+        match self {
+            Type::I32 => "i32",
+            Type::I64 => "i64",
+            Type::F32 => "f32",
+            Type::F64 => "f64",
+            Type::Bool => "bool",
+            Type::Type => "type",
+            Type::String => "str",
+            Type::List => "list",
+            Type::Id => "id",
+        }
+    }
     pub fn primitive(self) -> bool {
         match self {
             Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Bool | Type::Type => true,
@@ -243,8 +257,51 @@ impl Type {
     }
 }
 
+impl fmt::Display for Type {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.name())
+    }
+}
+
+impl fmt::Debug for Type {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.name())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ReturnType {
+    // This branch is the most 'typical' case
+    // where the function or expression returns a
+    // real normal value
+    Value(Type),
+
+    // "Universal receiver" type
+    //
+    // Any expression may be used when a void type is
+    // expected.
+    // However, void value cannot be used in place of any other type
+    //
+    // void means that the function returns no value when
+    // it returns
+    // like 'void' in C
+    Void,
+
+    // "Universal donor" type
+    //
+    // An expression of type noreturn may be used
+    // no matter what type is required.
+    // However, when a NoReturn is expected, no other type may be
+    // accepted
+    //
+    // NoReturn means that the function never actually
+    // returns
+    // like '!' in Rust
+    NoReturn,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FunctionType {
     pub parameter_types: Vec<Type>,
-    pub return_type: Option<Type>,
+    pub return_type: ReturnType,
 }
