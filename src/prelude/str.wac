@@ -1,5 +1,6 @@
 
 fn str(x id) str {
+    # TODO: once traits are implemented, make this a trait fn
     if type(x) is str {
         x
     } else {
