@@ -1,6 +1,6 @@
 
 fn str(x id) str {
-    if TypeOf(x) is str {
+    if type(x) is str {
         x
     } else {
         panic("TODO str")

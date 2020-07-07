@@ -1,4 +1,4 @@
-fn TypeOf(x id) type {
+fn type(x id) type {
     $asm([], type, r#"
         local.get $l_0_x
         i64.const 32
