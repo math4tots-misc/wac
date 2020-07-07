@@ -8,8 +8,11 @@ use crate::Sink;
 use crate::Source;
 use std::cell::Cell;
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::collections::HashSet;
 use std::fmt;
+use std::rc::Rc;
+
+mod ops;
 
 pub const PAGE_SIZE: usize = 65536;
 
@@ -49,15 +52,32 @@ pub fn translate(mut sources: Vec<(Rc<str>, Rc<str>)>) -> Result<String, Error> 
     // we provide these both as 'const' and as wasm globals because
     // from inside wac normally, constants may be preferrable,
     // but from inside asm blocks, it's not possible to use const values
-    out.gvars.writeln(format!("(global $rt_tag_i32  i32 (i32.const {}))", TAG_I32));
-    out.gvars.writeln(format!("(global $rt_tag_i64  i32 (i32.const {}))", TAG_I64));
-    out.gvars.writeln(format!("(global $rt_tag_f32  i32 (i32.const {}))", TAG_F32));
-    out.gvars.writeln(format!("(global $rt_tag_f64  i32 (i32.const {}))", TAG_F64));
-    out.gvars.writeln(format!("(global $rt_tag_bool i32 (i32.const {}))", TAG_BOOL));
-    out.gvars.writeln(format!("(global $rt_tag_type i32 (i32.const {}))", TAG_TYPE));
-    out.gvars.writeln(format!("(global $rt_tag_str  i32 (i32.const {}))", TAG_STRING));
-    out.gvars.writeln(format!("(global $rt_tag_list i32 (i32.const {}))", TAG_LIST));
-    out.gvars.writeln(format!("(global $rt_tag_id   i32 (i32.const {}))", TAG_ID));
+    out.gvars
+        .writeln(format!("(global $rt_tag_i32  i32 (i32.const {}))", TAG_I32));
+    out.gvars
+        .writeln(format!("(global $rt_tag_i64  i32 (i32.const {}))", TAG_I64));
+    out.gvars
+        .writeln(format!("(global $rt_tag_f32  i32 (i32.const {}))", TAG_F32));
+    out.gvars
+        .writeln(format!("(global $rt_tag_f64  i32 (i32.const {}))", TAG_F64));
+    out.gvars.writeln(format!(
+        "(global $rt_tag_bool i32 (i32.const {}))",
+        TAG_BOOL
+    ));
+    out.gvars.writeln(format!(
+        "(global $rt_tag_type i32 (i32.const {}))",
+        TAG_TYPE
+    ));
+    out.gvars.writeln(format!(
+        "(global $rt_tag_str  i32 (i32.const {}))",
+        TAG_STRING
+    ));
+    out.gvars.writeln(format!(
+        "(global $rt_tag_list i32 (i32.const {}))",
+        TAG_LIST
+    ));
+    out.gvars
+        .writeln(format!("(global $rt_tag_id   i32 (i32.const {}))", TAG_ID));
 
     let mut functions = HashMap::new();
 
@@ -87,10 +107,26 @@ pub fn translate(mut sources: Vec<(Rc<str>, Rc<str>)>) -> Result<String, Error> 
     gscope.decl_const(void_span.clone(), "i64".into(), ConstValue::Type(Type::I64))?;
     gscope.decl_const(void_span.clone(), "f32".into(), ConstValue::Type(Type::F32))?;
     gscope.decl_const(void_span.clone(), "f64".into(), ConstValue::Type(Type::F64))?;
-    gscope.decl_const(void_span.clone(), "bool".into(), ConstValue::Type(Type::Bool))?;
-    gscope.decl_const(void_span.clone(), "type".into(), ConstValue::Type(Type::Type))?;
-    gscope.decl_const(void_span.clone(), "str".into(), ConstValue::Type(Type::String))?;
-    gscope.decl_const(void_span.clone(), "list".into(), ConstValue::Type(Type::List))?;
+    gscope.decl_const(
+        void_span.clone(),
+        "bool".into(),
+        ConstValue::Type(Type::Bool),
+    )?;
+    gscope.decl_const(
+        void_span.clone(),
+        "type".into(),
+        ConstValue::Type(Type::Type),
+    )?;
+    gscope.decl_const(
+        void_span.clone(),
+        "str".into(),
+        ConstValue::Type(Type::String),
+    )?;
+    gscope.decl_const(
+        void_span.clone(),
+        "list".into(),
+        ConstValue::Type(Type::List),
+    )?;
     gscope.decl_const(void_span.clone(), "id".into(), ConstValue::Type(Type::Id))?;
 
     // prepare all constants
@@ -114,7 +150,13 @@ pub fn translate(mut sources: Vec<(Rc<str>, Rc<str>)>) -> Result<String, Error> 
                 guess_type(&mut lscope, &gvar.init)?
             };
             let init_sink = out.start.spawn();
-            translate_expr(&mut out, &init_sink, &mut lscope, ReturnType::Value(type_), &gvar.init)?;
+            translate_expr(
+                &mut out,
+                &init_sink,
+                &mut lscope,
+                ReturnType::Value(type_),
+                &gvar.init,
+            )?;
             let info = gscope.decl_gvar(gvar.span.clone(), gvar.name.clone(), type_)?;
             init_sink.writeln(format!("global.set {}", info.wasm_name));
             out.gvars.writeln(format!(
@@ -171,7 +213,8 @@ impl GlobalScope {
             name: name.clone(),
             value: cval,
         });
-        self.varmap.insert(name.clone(), ScopeEntry::Constant(info.clone()));
+        self.varmap
+            .insert(name.clone(), ScopeEntry::Constant(info.clone()));
         Ok(info)
     }
 
@@ -196,7 +239,8 @@ impl GlobalScope {
             wasm_name,
         });
         self.decls.push(info.clone());
-        self.varmap.insert(name.clone(), ScopeEntry::Global(info.clone()));
+        self.varmap
+            .insert(name.clone(), ScopeEntry::Global(info.clone()));
         Ok(info)
     }
 }
@@ -581,7 +625,13 @@ fn translate_expr(
                     let ptr = out.intern_str(value);
                     sink.writeln(format!("(i32.const {})", ptr));
                     retain(lscope, sink, Type::String, DropPolicy::Keep);
-                    auto_cast(sink, span, lscope, ReturnType::Value(Type::String), ReturnType::Value(t))?;
+                    auto_cast(
+                        sink,
+                        span,
+                        lscope,
+                        ReturnType::Value(Type::String),
+                        ReturnType::Value(t),
+                    )?;
                 }
                 ReturnType::Void => {
                     // no-op value is dropped
@@ -646,16 +696,14 @@ fn translate_expr(
                     sink.writeln(format!("global.get {}", info.wasm_name));
                     retain(lscope, sink, info.type_, DropPolicy::Keep);
                 }
-                ScopeEntry::Constant(info) => {
-                    match &info.value {
-                        ConstValue::I32(x) => {
-                            sink.writeln(format!("i32.const {}", x));
-                        }
-                        ConstValue::Type(t) => {
-                            sink.writeln(format!("i32.const {}", t.tag()));
-                        }
+                ScopeEntry::Constant(info) => match &info.value {
+                    ConstValue::I32(x) => {
+                        sink.writeln(format!("i32.const {}", x));
                     }
-                }
+                    ConstValue::Type(t) => {
+                        sink.writeln(format!("i32.const {}", t.tag()));
+                    }
+                },
             }
             auto_cast(sink, span, lscope, ReturnType::Value(gtype), etype)?;
         }
@@ -809,40 +857,16 @@ fn translate_expr(
                 });
                 auto_cast(sink, span, lscope, ReturnType::Value(Type::Bool), etype)?;
             }
-            Binop::Add => op_arith_binop(out, sink, lscope, etype, span, "add", left, right)?,
-            Binop::Subtract => op_arith_binop(out, sink, lscope, etype, span, "sub", left, right)?,
-            Binop::Multiply => op_arith_binop(out, sink, lscope, etype, span, "mul", left, right)?,
-            Binop::Divide => {
-                translate_expr(out, sink, lscope, ReturnType::Value(Type::F32), left)?;
-                translate_expr(out, sink, lscope, ReturnType::Value(Type::F32), right)?;
-                sink.writeln("f32.div");
-                auto_cast(sink, span, lscope, ReturnType::Value(Type::F32), etype)?;
-            }
-            Binop::TruncDivide => {
-                let gltype = guess_type(lscope, left)?;
-                let grtype = guess_type(lscope, right)?;
-                match (gltype, grtype) {
-                    (Type::I32, Type::I32) => {
-                        translate_expr(out, sink, lscope, ReturnType::Value(gltype), left)?;
-                        translate_expr(out, sink, lscope, ReturnType::Value(grtype), right)?;
-                        sink.writeln("i32.div_s");
-                    }
-                    (Type::F32, Type::I32) | (Type::I32, Type::F32) | (Type::F32, Type::F32) => {
-                        translate_expr(out, sink, lscope, ReturnType::Value(Type::F32), left)?;
-                        translate_expr(out, sink, lscope, ReturnType::Value(Type::F32), right)?;
-                        sink.writeln("f32.div");
-                        explicit_cast(sink, span, lscope, ReturnType::Value(Type::F32), ReturnType::Value(Type::I32))?;
-                    }
-                    _ => {
-                        return Err(Error::Type {
-                            span: span.clone(),
-                            expected: "i32 or f32 args".into(),
-                            got: format!("{:?}, {:?}", gltype, grtype),
-                        })
-                    }
-                }
-                auto_cast(sink, span, lscope, ReturnType::Value(Type::I32), etype)?;
-            }
+            Binop::Add | Binop::Subtract | Binop::Multiply | Binop::Divide | Binop::TruncDivide => handle_binop(
+                *op,
+                out,
+                sink,
+                lscope,
+                etype,
+                span,
+                left,
+                right,
+            )?,
             Binop::BitwiseAnd => {
                 op_bitwise_binop(out, sink, lscope, etype, span, "and", left, right)?
             }
@@ -936,29 +960,27 @@ fn translate_expr(
 /// the drop parameter determines if the value will be consumed/dropped or not
 fn release(lscope: &mut LocalScope, sink: &Rc<Sink>, type_: Type, dp: DropPolicy) {
     match type_ {
-        Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Type => {
-            match dp {
-                DropPolicy::Drop => sink.writeln("drop"),
-                DropPolicy::Keep => {}
-            }
-        }
+        Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Type => match dp {
+            DropPolicy::Drop => sink.writeln("drop"),
+            DropPolicy::Keep => {}
+        },
         Type::String => {
             match dp {
-                DropPolicy::Drop => {},
+                DropPolicy::Drop => {}
                 DropPolicy::Keep => raw_dup(lscope, sink, WasmType::I32),
             }
             sink.writeln("call $f___WAC_str_release");
         }
         Type::List => {
             match dp {
-                DropPolicy::Drop => {},
+                DropPolicy::Drop => {}
                 DropPolicy::Keep => raw_dup(lscope, sink, WasmType::I32),
             }
             sink.writeln("call $f___WAC_list_release");
         }
         Type::Id => {
             match dp {
-                DropPolicy::Drop => {},
+                DropPolicy::Drop => {}
                 DropPolicy::Keep => raw_dup(lscope, sink, WasmType::I64),
             }
             sink.writeln("call $f___WAC_id_release");
@@ -1009,29 +1031,27 @@ impl fmt::Display for Scope {
 /// the drop parameter determines if the value will be consumed/dropped or not
 fn retain(lscope: &mut LocalScope, sink: &Rc<Sink>, type_: Type, dp: DropPolicy) {
     match type_ {
-        Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Type => {
-            match dp {
-                DropPolicy::Drop => sink.writeln("drop"),
-                DropPolicy::Keep => {}
-            }
-        }
+        Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Type => match dp {
+            DropPolicy::Drop => sink.writeln("drop"),
+            DropPolicy::Keep => {}
+        },
         Type::String => {
             match dp {
-                DropPolicy::Drop => {},
+                DropPolicy::Drop => {}
                 DropPolicy::Keep => raw_dup(lscope, sink, WasmType::I32),
             }
             sink.writeln("call $f___WAC_str_retain");
         }
         Type::List => {
             match dp {
-                DropPolicy::Drop => {},
+                DropPolicy::Drop => {}
                 DropPolicy::Keep => raw_dup(lscope, sink, WasmType::I32),
             }
             sink.writeln("call $f___WAC_list_retain");
         }
         Type::Id => {
             match dp {
-                DropPolicy::Drop => {},
+                DropPolicy::Drop => {}
                 DropPolicy::Keep => raw_dup(lscope, sink, WasmType::I64),
             }
             sink.writeln("call $f___WAC_id_retain");
@@ -1098,38 +1118,55 @@ fn op_cmp(
     Ok(())
 }
 
-/// util for binary arithmetic operators (e.g. Add, Subtract, etc)
-///   * both arguments are always same type
-///   * guesses types based on first arg
-///   * always returns argument type
-///   * not split by sign
-fn op_arith_binop(
+fn handle_binop(
+    op: Binop,
     out: &mut Out,
     sink: &Rc<Sink>,
     lscope: &mut LocalScope,
     etype: ReturnType,
     span: &SSpan,
-    opname: &str,
     left: &Expr,
     right: &Expr,
 ) -> Result<(), Error> {
-    let gtype = guess_type(lscope, left)?;
-    translate_expr(out, sink, lscope, ReturnType::Value(gtype), left)?;
-    translate_expr(out, sink, lscope, ReturnType::Value(gtype), right)?;
-    match gtype {
-        Type::I32 | Type::I64 | Type::F32 | Type::F64 => {
-            sink.writeln(format!("{}.{}", translate_type(gtype), opname));
-        }
-        _ => {
-            return Err(Error::Type {
-                span: span.clone(),
-                expected: "numeric value".into(),
-                got: format!("{:?}", gtype),
-            });
+    let cases = ops::cases_for_binop(op);
+    let ltype = guess_type(lscope, left)?;
+    let rtype = guess_type(lscope, right)?;
+    for cs in cases {
+        if ltype == cs.lhs && rtype == cs.rhs {
+            return (cs.handler)(out, sink, lscope, etype, span, left, right);
         }
     }
-    auto_cast(sink, span, lscope, ReturnType::Value(gtype), etype)?;
-    Ok(())
+    Err(Error::Type {
+        span: span.clone(),
+        expected: format!("{:?} arguments", op),
+        got: "no matching implementation for given types".into(),
+    })
+}
+
+fn guess_binop_type(
+    op: Binop,
+    lscope: &mut LocalScope,
+    span: &SSpan,
+    left: &Expr,
+    right: &Expr,
+) -> Result<Type, Error> {
+    let cases = ops::cases_for_binop(op);
+    let type_set: HashSet<_> = cases.iter().map(|c| c.type_).collect();
+    if type_set.len() == 1 {
+        return Ok(cases[0].type_);
+    }
+    let ltype = guess_type(lscope, left)?;
+    let rtype = guess_type(lscope, right)?;
+    for cs in cases {
+        if ltype == cs.lhs && rtype == cs.rhs {
+            return Ok(cs.type_);
+        }
+    }
+    Err(Error::Type {
+        span: span.clone(),
+        expected: format!("{:?} arguments", op),
+        got: "no matching implementation for given types".into(),
+    })
 }
 
 /// util for binary bitwise operators
@@ -1270,13 +1307,11 @@ fn explicit_cast(
 fn guess_type(lscope: &mut LocalScope, expr: &Expr) -> Result<Type, Error> {
     match guess_return_type(lscope, expr)? {
         ReturnType::Value(t) => Ok(t),
-        ReturnType::Void => {
-            Err(Error::Type {
-                span: expr.span().clone(),
-                expected: "assignable type".into(),
-                got: "void (variables cannot be void)".into(),
-            })
-        }
+        ReturnType::Void => Err(Error::Type {
+            span: expr.span().clone(),
+            expected: "assignable type".into(),
+            got: "void (variables cannot be void)".into(),
+        }),
         ReturnType::NoReturn => {
             // I'm not sure if returning an error is actually the correct thing
             // to do here
@@ -1308,7 +1343,7 @@ fn best_union_return_type(a: ReturnType, b: ReturnType) -> ReturnType {
 
             // in all other cases, just use the id type
             _ => Type::Id,
-        })
+        }),
     }
 }
 
@@ -1335,8 +1370,9 @@ fn guess_return_type(lscope: &mut LocalScope, expr: &Expr) -> Result<ReturnType,
             }
             None => Ok(ReturnType::Void),
         },
-        Expr::FunctionCall(span, name, _) =>
-            Ok(lscope.getf_or_err(span.clone(), name)?.return_type),
+        Expr::FunctionCall(span, name, _) => {
+            Ok(lscope.getf_or_err(span.clone(), name)?.return_type)
+        }
         Expr::If(_, pairs, other) => {
             let mut ret = ReturnType::NoReturn;
             for (_, body) in pairs {
@@ -1347,7 +1383,10 @@ fn guess_return_type(lscope: &mut LocalScope, expr: &Expr) -> Result<ReturnType,
         }
         Expr::While(..) => Ok(ReturnType::Void),
         Expr::Binop(span, op, left, right) => match op {
-            Binop::Add | Binop::Subtract | Binop::Multiply => {
+            Binop::Add => {
+                Ok(ReturnType::Value(guess_binop_type(*op, lscope, span, left, right)?))
+            }
+            Binop::Subtract | Binop::Multiply => {
                 let a = guess_type(lscope, left)?;
                 let b = guess_type(lscope, right)?;
                 Ok(ReturnType::Value(common_type(lscope, span, a, b)?))

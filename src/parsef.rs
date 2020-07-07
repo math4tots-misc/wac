@@ -69,7 +69,10 @@ pub fn parse_file(parser: &mut Parser) -> Result<File, ParseError> {
     })
 }
 
-fn parse_constant(parser: &mut Parser, map: &mut HashMap<Rc<str>, ConstValue>) -> Result<Constant, ParseError> {
+fn parse_constant(
+    parser: &mut Parser,
+    map: &mut HashMap<Rc<str>, ConstValue>,
+) -> Result<Constant, ParseError> {
     let span = parser.span();
     parser.expect(Token::Name("const"))?;
     let name = parser.expect_name()?;
@@ -77,35 +80,28 @@ fn parse_constant(parser: &mut Parser, map: &mut HashMap<Rc<str>, ConstValue>) -
     let expr = parse_expr(parser, 0)?;
     let value = eval_constexpr(&expr, map)?;
     let span = span.upto(&parser.span());
-    Ok(Constant {
-        span,
-        name,
-        value,
-    })
+    Ok(Constant { span, name, value })
 }
 
-fn eval_constexpr(expr: &Expr, map: &mut HashMap<Rc<str>, ConstValue>) -> Result<ConstValue, ParseError> {
+fn eval_constexpr(
+    expr: &Expr,
+    map: &mut HashMap<Rc<str>, ConstValue>,
+) -> Result<ConstValue, ParseError> {
     match expr {
         Expr::Int(_, value) => Ok(ConstValue::I32(*value as i32)),
-        Expr::GetVar(span, name) => {
-            match map.get(name) {
-                Some(value) => Ok(value.clone()),
-                None => {
-                    Err(ParseError::InvalidToken {
-                        span: span.clone(),
-                        expected: "named constant".into(),
-                        got: "NotFound".into(),
-                    })
-                }
-            }
-        }
-        _ => {
-            Err(ParseError::InvalidToken {
-                span: expr.span().clone(),
-                expected: "constexpr".into(),
-                got: "non-const expression".into(),
-            })
-        }
+        Expr::GetVar(span, name) => match map.get(name) {
+            Some(value) => Ok(value.clone()),
+            None => Err(ParseError::InvalidToken {
+                span: span.clone(),
+                expected: "named constant".into(),
+                got: "NotFound".into(),
+            }),
+        },
+        _ => Err(ParseError::InvalidToken {
+            span: expr.span().clone(),
+            expected: "constexpr".into(),
+            got: "non-const expression".into(),
+        }),
     }
 }
 

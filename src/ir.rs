@@ -1,6 +1,6 @@
 use crate::SSpan;
-use std::rc::Rc;
 use std::fmt;
+use std::rc::Rc;
 
 pub struct File {
     pub imports: Vec<Import>,
