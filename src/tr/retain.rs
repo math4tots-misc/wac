@@ -34,6 +34,14 @@ pub(super) fn retain(lscope: &mut LocalScope, sink: &Rc<Sink>, type_: Type, dp: 
             }
             sink.writeln("call $f___WAC_id_retain");
         }
+        Type::UserDefined(_) => {
+            if type_.is_enum() {
+                // nothing to do, enums don't allocate memory
+            } else {
+                assert!(type_.is_record());
+                panic!("TODO: retain record")
+            }
+        }
     }
 }
 
@@ -66,6 +74,14 @@ pub(super) fn release(lscope: &mut LocalScope, sink: &Rc<Sink>, type_: Type, dp:
             }
             sink.writeln("call $f___WAC_id_release");
         }
+        Type::UserDefined(_) => {
+            if type_.is_enum() {
+                // nothing to do, enums don't allocate memory
+            } else {
+                assert!(type_.is_record());
+                panic!("TODO: release record")
+            }
+        }
     }
 }
 
@@ -85,6 +101,14 @@ pub(super) fn release_var(sink: &Rc<Sink>, scope: Scope, wasm_name: &Rc<str>, ty
         Type::Id => {
             sink.writeln(format!("{}.get {}", scope, wasm_name));
             sink.writeln("call $f___WAC_id_release");
+        }
+        Type::UserDefined(_) => {
+            if type_.is_enum() {
+                // nothing to do, enums don't allocate memory
+            } else {
+                assert!(type_.is_record());
+                panic!("TODO: release_var record")
+            }
         }
     }
 }
