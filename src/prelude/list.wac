@@ -7,13 +7,21 @@
 fn __WAC_list_release[notrace](ptr i32) {
     var refcnt = __read(ptr) - 1
     if refcnt > 0 {
-        # __hello($cstr("LIST (RELEASE)"), refcnt)
         __write(ptr, refcnt)
     } else {
-        # __hello($cstr("LIST IS BEING FREED!!"), ptr)
+
+        var len = __read(ptr + 4)
+        var buf = __read(ptr + 12)
+
+        # release each of the entries in this list
+        var i = 0
+        while i < len {
+            __WAC_id_release(__read_i64(buf + 8 * i))
+            i = i + 1
+        }
 
         # free the buffer
-        __free(__read(ptr + 8), __read(ptr + 12))
+        __free(__read(ptr + 8), buf)
 
         # free the info
         __free(16, ptr)
@@ -26,7 +34,7 @@ fn __WAC_list_retain[notrace](ptr i32) {
 }
 
 fn __listlen[notrace](s list) i32 {
-    # Gets the length of the given string
+    # Gets the length of the given list
     var ptr = $asm([], i32, "local.get $l_0_s")
     __read(ptr + 4)
 }
