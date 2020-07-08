@@ -43,7 +43,7 @@ pub(super) fn translate_impl(
     //       the user, we want it to look like it has already been cast to the
     //       receiver type.
     //       So rename the first parameter to __WAC_self, then assign self to it
-    let fname: Rc<str> = format!("__WAC_{}_{}", imp.receiver_type.tag(), &trait_info.name).into();
+    let fname: Rc<str> = format!("__WAC_{}#{}", imp.receiver_type, &trait_info.name).into();
     let mut ftype = imp.type_.clone();
     assert_eq!(ftype.parameters[0].0.as_ref(), "self");
     assert_eq!(ftype.parameters[0].1, Type::Id);
