@@ -155,11 +155,7 @@ fn parse_trait(parser: &mut Parser) -> Result<Trait, ParseError> {
     let name = parser.expect_name()?;
     let type_ = parse_function_type(parser, true)?;
     let span = span.upto(&parser.span());
-    Ok(Trait {
-        span,
-        name,
-        type_,
-    })
+    Ok(Trait { span, name, type_ })
 }
 
 fn parse_impl(parser: &mut Parser) -> Result<Impl, ParseError> {

@@ -37,7 +37,6 @@ pub(super) fn retain(lscope: &mut LocalScope, sink: &Rc<Sink>, type_: Type, dp: 
     }
 }
 
-
 /// drops the TOS given that TOS is the provided type
 /// the drop parameter determines if the value will be consumed/dropped or not
 pub(super) fn release(lscope: &mut LocalScope, sink: &Rc<Sink>, type_: Type, dp: DropPolicy) {

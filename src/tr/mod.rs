@@ -13,21 +13,23 @@ use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
 
-mod guess;
-mod typ;
 mod expr;
+mod fcall;
+mod func;
+mod guess;
+mod out;
 mod retain;
 mod scope;
-mod out;
-mod func;
+mod typ;
 
-use guess::*;
 use expr::*;
-use typ::*;
+use fcall::*;
+use func::*;
+use guess::*;
+use out::*;
 use retain::*;
 use scope::*;
-use out::*;
-use func::*;
+use typ::*;
 
 pub const PAGE_SIZE: usize = 65536;
 

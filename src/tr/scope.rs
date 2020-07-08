@@ -149,7 +149,12 @@ impl<'a> LocalScope<'a> {
     pub(super) fn pop(&mut self) {
         self.locals.pop().unwrap();
     }
-    pub(super) fn decl(&mut self, span: SSpan, original_name: Rc<str>, type_: Type) -> Rc<LocalVarInfo> {
+    pub(super) fn decl(
+        &mut self,
+        span: SSpan,
+        original_name: Rc<str>,
+        type_: Type,
+    ) -> Rc<LocalVarInfo> {
         let id = self.decls.len();
         let wasm_name = format!("$l_{}_{}", id, original_name).into();
         let info = Rc::new(LocalVarInfo {

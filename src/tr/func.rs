@@ -20,7 +20,11 @@ pub(super) fn translate_import(out: &Out, imp: Import) {
     }
 }
 
-pub(super) fn translate_func(out: &mut Out, gscope: &GlobalScope, func: Function) -> Result<(), Error> {
+pub(super) fn translate_func(
+    out: &mut Out,
+    gscope: &GlobalScope,
+    func: Function,
+) -> Result<(), Error> {
     let mut lscope = LocalScope::new(gscope, func.type_.trace);
 
     match func.visibility {
