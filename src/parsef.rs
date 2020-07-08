@@ -632,10 +632,10 @@ fn parse_function_type(parser: &mut Parser, dynamic: bool) -> Result<FunctionTyp
     let mut parameters = Vec::new();
     parser.expect(Token::LParen)?;
     let parse_remaining_params = if dynamic {
-        // There's no extra information being added, but just to be
-        // extra clear that there's an extra parameter here, require this
-        // in the syntax
+        // The first parameter is always a fixed 'self' parameter
+        // (with implied id type) for dynamic functions
         parser.expect(Token::Name("self"))?;
+        parameters.push(("self".into(), Type::Id));
 
         // in order for there to be more parameters,
         // 'self' has to be followed by a comma
