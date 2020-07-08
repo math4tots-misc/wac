@@ -1,56 +1,56 @@
-fn __WAC_id_value(x i64) i32 {
+fn __WAC_id_value[notrace](x i64) i32 {
     $asm([], i32, r#"
         local.get $l_0_x
         i32.wrap_i64
     "#)
 }
 
-fn __WAC_raw_id_to_i32(x i64) i32 {
+fn __WAC_raw_id_to_i32[notrace](x i64) i32 {
     var typ = __WAC_typeof_raw(x)
     if typ is i32 {
         __WAC_id_value(x)
     } else {
-        Panic("Expected i32")
+        NoTracePanic("Expected i32")
     }
 }
 
-fn __WAC_raw_id_to_f32(x i64) f32 {
+fn __WAC_raw_id_to_f32[notrace](x i64) f32 {
     var typ = __WAC_typeof_raw(x)
     if typ is f32 {
         __WAC_id_value(x)
     } else {
-        Panic("Expected f32")
+        NoTracePanic("Expected f32")
     }
 }
 
-fn __WAC_raw_id_to_bool(x i64) i32 {
+fn __WAC_raw_id_to_bool[notrace](x i64) i32 {
     var typ = __WAC_typeof_raw(x)
     if typ is bool {
         __WAC_id_value(x)
     } else {
-        Panic("Expected bool")
+        NoTracePanic("Expected bool")
     }
 }
 
-fn __WAC_raw_id_to_str(x i64) i32 {
+fn __WAC_raw_id_to_str[notrace](x i64) i32 {
     var typ = __WAC_typeof_raw(x)
     if typ is str {
         __WAC_id_value(x)
     } else {
-        Panic("Expected str")
+        NoTracePanic("Expected str")
     }
 }
 
-fn __WAC_raw_id_to_list(x i64) i32 {
+fn __WAC_raw_id_to_list[notrace](x i64) i32 {
     var typ = __WAC_typeof_raw(x)
     if typ is list {
         __WAC_id_value(x)
     } else {
-        Panic("Expected list")
+        NoTracePanic("Expected list")
     }
 }
 
-fn __WAC_id_release(x i64) {
+fn __WAC_id_release[notrace](x i64) {
     var tag = __WAC_typeof_raw(x)
     var val = __WAC_id_value(x)
     if (
@@ -64,11 +64,11 @@ fn __WAC_id_release(x i64) {
     } else if tag is str {
         __WAC_str_release(val)
     } else {
-        Panic("id_release: unrecognized tag")
+        NoTracePanic("id_release: unrecognized tag")
     }
 }
 
-fn __WAC_id_retain(x i64) {
+fn __WAC_id_retain[notrace](x i64) {
     var tag = __WAC_typeof_raw(x)
     var val = __WAC_id_value(x)
 
@@ -83,6 +83,6 @@ fn __WAC_id_retain(x i64) {
     } else if tag is str {
         __WAC_str_retain(val)
     } else {
-        Panic("id_retain: unrecognized tag")
+        NoTracePanic("id_retain: unrecognized tag")
     }
 }

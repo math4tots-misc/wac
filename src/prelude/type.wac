@@ -1,4 +1,4 @@
-fn type(x id) type {
+fn type[notrace](x id) type {
     $asm([], type, r#"
         local.get $l_0_x
         i64.const 32
@@ -7,7 +7,7 @@ fn type(x id) type {
     "#)
 }
 
-fn __WAC_typeof_raw(x i64) type {
+fn __WAC_typeof_raw[notrace](x i64) type {
     $asm([], type, r#"
         local.get $l_0_x
         i64.const 32

@@ -4,7 +4,7 @@
 #
 # The actual buffer is an array of i64 'id' objects
 #
-fn __WAC_list_release(ptr i32) {
+fn __WAC_list_release[notrace](ptr i32) {
     var refcnt = __read(ptr) - 1
     if refcnt > 0 {
         # __hello($cstr("LIST (RELEASE)"), refcnt)
@@ -20,18 +20,18 @@ fn __WAC_list_release(ptr i32) {
     }
 }
 
-fn __WAC_list_retain(ptr i32) {
+fn __WAC_list_retain[notrace](ptr i32) {
     __write(ptr, __read(ptr) + 1)
     # __hello($cstr("LIST (RETAIN)"), __read(ptr))
 }
 
-fn __listlen(s list) i32 {
+fn __listlen[notrace](s list) i32 {
     # Gets the length of the given string
     var ptr = $asm([], i32, "local.get $l_0_s")
     __read(ptr + 4)
 }
 
-fn __WAC_UNSAFE_listptr(s list) i32 {
+fn __WAC_UNSAFE_listptr[notrace](s list) i32 {
     # Returns the given list as an i32
     # This is unsafe since if the last reference was given,
     # the returned pointer would point to freed data
@@ -61,7 +61,7 @@ fn __list_push_raw(list i32, item i64) {
     __list_push_raw_no_retain(list, item)
 }
 
-fn __list_push_raw_no_retain(list i32, item i64) {
+fn __list_push_raw_no_retain[notrace](list i32, item i64) {
 
     var len = __read(list + 4)
     var capacity = __read(list + 8)

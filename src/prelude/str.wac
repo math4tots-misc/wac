@@ -4,7 +4,7 @@ fn str(x id) str {
     if type(x) is str {
         x
     } else {
-        Panic("TODO str")
+        NoTracePanic("TODO str")
     }
 }
 
@@ -19,7 +19,7 @@ fn PrintErr(x id) {
 # str layout:
 #   [refcnt i32][len(bytes) i32][utf8...]
 #
-fn __WAC_str_release(ptr i32) {
+fn __WAC_str_release[notrace](ptr i32) {
     var refcnt = __read(ptr) - 1
     if refcnt > 0 {
         # __hello($cstr("STRING (RELEASE)"), refcnt)
@@ -30,7 +30,7 @@ fn __WAC_str_release(ptr i32) {
     }
 }
 
-fn __WAC_str_retain(ptr i32) {
+fn __WAC_str_retain[notrace](ptr i32) {
     __write(ptr, __read(ptr) + 1)
     # __hello($cstr("STRING (RETAIN)"), __read(ptr))
 }
@@ -43,7 +43,7 @@ fn __WAC_str_alloc(strlen i32) str {
     $asm([ptr], str, "")
 }
 
-fn __WAC_str_buffer(s str) i32 {
+fn __WAC_str_buffer[notrace](s str) i32 {
     # Returns the pointer to the string's buffer
     $asm([], i32, r###"
         local.get $l_0_s

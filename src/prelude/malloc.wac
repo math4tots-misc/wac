@@ -21,7 +21,7 @@ var __WAC_freelist_67108864 = 0
 var __WAC_freelist_268435456 = 0
 var __WAC_freelist_1073741824 = 0
 
-fn __WAC_alloc(len i32) i32 {
+fn __WAC_alloc[notrace](len i32) i32 {
     # TODO: just assert len % 16 == 0
     # align to 16-bytes
     len = (len + (16 - 1)) // 16 * 16
@@ -33,7 +33,7 @@ fn __WAC_alloc(len i32) i32 {
 
     if current_page_count < required_page_count {
         if $asm([required_page_count - current_page_count], i32, "memory.grow") is -1 {
-            Panic("out of memory")
+            NoTracePanic("out of memory")
         }
     }
 
@@ -41,7 +41,7 @@ fn __WAC_alloc(len i32) i32 {
     ptr
 }
 
-fn __WAC_malloc_adjusted_len(len i32) i32 {
+fn __WAC_malloc_adjusted_len[notrace](len i32) i32 {
     if len is 0 {
         0
     } else if len <= 16 {
@@ -73,11 +73,11 @@ fn __WAC_malloc_adjusted_len(len i32) i32 {
     } else if len <= 1073741824 {
         1073741824
     } else {
-        Panic("out of memory")
+        NoTracePanic("Exceeded malloc limit (limit is 1073741824")
     }
 }
 
-fn __malloc(len i32) i32 {
+fn __malloc[notrace](len i32) i32 {
     if len is 0 {
         # special case -- no need to even dealloc anything
         0
@@ -110,11 +110,11 @@ fn __malloc(len i32) i32 {
     } else if len <= 1073741824 {
         __malloc_1073741824()
     } else {
-        Panic("out of memory")
+        NoTracePanic("Exceeded malloc limit (limit is 1073741824)")
     }
 }
 
-fn __realloc(old_len i32, new_len i32, ptr i32) i32 {
+fn __realloc[notrace](old_len i32, new_len i32, ptr i32) i32 {
     old_len = __WAC_malloc_adjusted_len(old_len)
     new_len = __WAC_malloc_adjusted_len(new_len)
     if old_len < new_len {
@@ -129,7 +129,7 @@ fn __realloc(old_len i32, new_len i32, ptr i32) i32 {
     }
 }
 
-fn __WAC_memcpy(dst i32, src i32, len i32) {
+fn __WAC_memcpy[notrace](dst i32, src i32, len i32) {
     # almost memcpy.
     # assumes that it's ok to round up len to the nearest multiple of 4
 
@@ -141,7 +141,7 @@ fn __WAC_memcpy(dst i32, src i32, len i32) {
     }
 }
 
-fn __free(len i32, ptr i32) {
+fn __free[notrace](len i32, ptr i32) {
     if len is 0 {
         # nothing to do since no alloc was made in the first place
     } else if len <= 16 {
@@ -173,11 +173,11 @@ fn __free(len i32, ptr i32) {
     } else if len <= 1073741824 {
         __free_1073741824(ptr)
     } else {
-        Panic("invalid free")
+        NoTracePanic("invalid free")
     }
 }
 
-fn __malloc_16() i32 {
+fn __malloc_16[notrace]() i32 {
     if __WAC_freelist_16 is 0 {
         __WAC_alloc(16)
     } else {
@@ -187,12 +187,12 @@ fn __malloc_16() i32 {
     }
 }
 
-fn __free_16(ptr i32) {
+fn __free_16[notrace](ptr i32) {
     __write(ptr, __WAC_freelist_16)
     __WAC_freelist_16 = ptr
 }
 
-fn __malloc_64() i32 {
+fn __malloc_64[notrace]() i32 {
     if __WAC_freelist_64 is 0 {
         __WAC_alloc(64)
     } else {
@@ -202,12 +202,12 @@ fn __malloc_64() i32 {
     }
 }
 
-fn __free_64(ptr i32) {
+fn __free_64[notrace](ptr i32) {
     __write(ptr, __WAC_freelist_64)
     __WAC_freelist_64 = ptr
 }
 
-fn __malloc_256() i32 {
+fn __malloc_256[notrace]() i32 {
     if __WAC_freelist_256 is 0 {
         __WAC_alloc(256)
     } else {
@@ -217,12 +217,12 @@ fn __malloc_256() i32 {
     }
 }
 
-fn __free_256(ptr i32) {
+fn __free_256[notrace](ptr i32) {
     __write(ptr, __WAC_freelist_256)
     __WAC_freelist_256 = ptr
 }
 
-fn __malloc_1024() i32 {
+fn __malloc_1024[notrace]() i32 {
     if __WAC_freelist_1024 is 0 {
         __WAC_alloc(1024)
     } else {
@@ -232,12 +232,12 @@ fn __malloc_1024() i32 {
     }
 }
 
-fn __free_1024(ptr i32) {
+fn __free_1024[notrace](ptr i32) {
     __write(ptr, __WAC_freelist_1024)
     __WAC_freelist_1024 = ptr
 }
 
-fn __malloc_4096() i32 {
+fn __malloc_4096[notrace]() i32 {
     if __WAC_freelist_4096 is 0 {
         __WAC_alloc(4096)
     } else {
@@ -247,12 +247,12 @@ fn __malloc_4096() i32 {
     }
 }
 
-fn __free_4096(ptr i32) {
+fn __free_4096[notrace](ptr i32) {
     __write(ptr, __WAC_freelist_4096)
     __WAC_freelist_4096 = ptr
 }
 
-fn __malloc_16384() i32 {
+fn __malloc_16384[notrace]() i32 {
     if __WAC_freelist_16384 is 0 {
         __WAC_alloc(16384)
     } else {
@@ -262,12 +262,12 @@ fn __malloc_16384() i32 {
     }
 }
 
-fn __free_16384(ptr i32) {
+fn __free_16384[notrace](ptr i32) {
     __write(ptr, __WAC_freelist_16384)
     __WAC_freelist_16384 = ptr
 }
 
-fn __malloc_65536() i32 {
+fn __malloc_65536[notrace]() i32 {
     if __WAC_freelist_65536 is 0 {
         __WAC_alloc(65536)
     } else {
@@ -277,12 +277,12 @@ fn __malloc_65536() i32 {
     }
 }
 
-fn __free_65536(ptr i32) {
+fn __free_65536[notrace](ptr i32) {
     __write(ptr, __WAC_freelist_65536)
     __WAC_freelist_65536 = ptr
 }
 
-fn __malloc_262144() i32 {
+fn __malloc_262144[notrace]() i32 {
     if __WAC_freelist_262144 is 0 {
         __WAC_alloc(262144)
     } else {
@@ -292,12 +292,12 @@ fn __malloc_262144() i32 {
     }
 }
 
-fn __free_262144(ptr i32) {
+fn __free_262144[notrace](ptr i32) {
     __write(ptr, __WAC_freelist_262144)
     __WAC_freelist_262144 = ptr
 }
 
-fn __malloc_1048576() i32 {
+fn __malloc_1048576[notrace]() i32 {
     if __WAC_freelist_1048576 is 0 {
         __WAC_alloc(1048576)
     } else {
@@ -307,12 +307,12 @@ fn __malloc_1048576() i32 {
     }
 }
 
-fn __free_1048576(ptr i32) {
+fn __free_1048576[notrace](ptr i32) {
     __write(ptr, __WAC_freelist_1048576)
     __WAC_freelist_1048576 = ptr
 }
 
-fn __malloc_4194304() i32 {
+fn __malloc_4194304[notrace]() i32 {
     if __WAC_freelist_4194304 is 0 {
         __WAC_alloc(4194304)
     } else {
@@ -322,12 +322,12 @@ fn __malloc_4194304() i32 {
     }
 }
 
-fn __free_4194304(ptr i32) {
+fn __free_4194304[notrace](ptr i32) {
     __write(ptr, __WAC_freelist_4194304)
     __WAC_freelist_4194304 = ptr
 }
 
-fn __malloc_16777216() i32 {
+fn __malloc_16777216[notrace]() i32 {
     if __WAC_freelist_16777216 is 0 {
         __WAC_alloc(16777216)
     } else {
@@ -337,12 +337,12 @@ fn __malloc_16777216() i32 {
     }
 }
 
-fn __free_16777216(ptr i32) {
+fn __free_16777216[notrace](ptr i32) {
     __write(ptr, __WAC_freelist_16777216)
     __WAC_freelist_16777216 = ptr
 }
 
-fn __malloc_67108864() i32 {
+fn __malloc_67108864[notrace]() i32 {
     if __WAC_freelist_67108864 is 0 {
         __WAC_alloc(67108864)
     } else {
@@ -352,12 +352,12 @@ fn __malloc_67108864() i32 {
     }
 }
 
-fn __free_67108864(ptr i32) {
+fn __free_67108864[notrace](ptr i32) {
     __write(ptr, __WAC_freelist_67108864)
     __WAC_freelist_67108864 = ptr
 }
 
-fn __malloc_268435456() i32 {
+fn __malloc_268435456[notrace]() i32 {
     if __WAC_freelist_268435456 is 0 {
         __WAC_alloc(268435456)
     } else {
@@ -367,12 +367,12 @@ fn __malloc_268435456() i32 {
     }
 }
 
-fn __free_268435456(ptr i32) {
+fn __free_268435456[notrace](ptr i32) {
     __write(ptr, __WAC_freelist_268435456)
     __WAC_freelist_268435456 = ptr
 }
 
-fn __malloc_1073741824() i32 {
+fn __malloc_1073741824[notrace]() i32 {
     if __WAC_freelist_1073741824 is 0 {
         __WAC_alloc(1073741824)
     } else {
@@ -382,7 +382,7 @@ fn __malloc_1073741824() i32 {
     }
 }
 
-fn __free_1073741824(ptr i32) {
+fn __free_1073741824[notrace](ptr i32) {
     __write(ptr, __WAC_freelist_1073741824)
     __WAC_freelist_1073741824 = ptr
 }
