@@ -1,0 +1,15 @@
+
+fn Panic(s str) noreturn {
+    NoTracePanic(s)
+}
+
+# Like Panic, but won't leave an entry in the stack trace when called
+fn NoTracePanic[notrace](s str) noreturn {
+    __WAC_eprint_stack()
+
+    __eprint0_cstr($cstr("PANIC: "))
+    __eprint0_str(s)
+    __eprint0_cstr($cstr("\n"))
+
+    $asm([], noreturn, "unreachable")
+}

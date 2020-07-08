@@ -47,19 +47,8 @@ pub struct Function {
     pub span: SSpan,
     pub visibility: Visibility,
     pub name: Rc<str>,
-    pub parameters: Vec<(Rc<str>, Type)>,
-    pub return_type: ReturnType,
+    pub type_: FunctionType,
     pub body: Expr,
-}
-
-impl Function {
-    pub fn type_(&self) -> FunctionType {
-        let parameter_types = self.parameters.iter().map(|(_, t)| *t).collect();
-        FunctionType {
-            parameter_types,
-            return_type: self.return_type,
-        }
-    }
 }
 
 pub struct GlobalVariable {
@@ -302,8 +291,15 @@ pub enum ReturnType {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FunctionType {
-    pub parameter_types: Vec<Type>,
+    pub parameters: Vec<(Rc<str>, Type)>,
     pub return_type: ReturnType,
+
+    /// Indicates whether filename, lineno should be stored in the stacktrace
+    /// whenever this function is called.
+    /// If the function is known to never panic or inspect the stack trace,
+    /// it may be better for performance to set this to false.
+    /// By default, this is true.
+    pub trace: bool,
 }
 
 impl From<Type> for ReturnType {

@@ -57,7 +57,7 @@ enum Mode {
 fn add_sources(out: &mut Vec<(Rc<str>, Rc<str>)>, path_str: &str) -> Result<(), std::io::Error> {
     let path = Path::new(path_str);
     if path.is_dir() {
-        add_sources_rec(out, path_str, path)?;
+        add_sources_rec(out, "", path)?;
     } else if path.is_file() {
         // at the top level, if a user specifies a file, even if it has the wrong file
         // extension, accept it as a source
@@ -67,7 +67,11 @@ fn add_sources(out: &mut Vec<(Rc<str>, Rc<str>)>, path_str: &str) -> Result<(), 
     Ok(())
 }
 
-fn add_sources_rec(out: &mut Vec<(Rc<str>, Rc<str>)>, base: &str, path: &Path) -> Result<(), std::io::Error> {
+fn add_sources_rec(
+    out: &mut Vec<(Rc<str>, Rc<str>)>,
+    base: &str,
+    path: &Path,
+) -> Result<(), std::io::Error> {
     let file_name = path
         .file_name()
         .and_then(|s| s.to_str())

@@ -44,13 +44,23 @@ pub struct Span {
     pub main: usize,
     pub start: usize,
     pub end: usize,
+    pub lineno: usize,
 }
 impl Span {
+    pub fn new(main: usize, start: usize, end: usize, lineno: usize) -> Self {
+        Self {
+            main,
+            start,
+            end,
+            lineno,
+        }
+    }
     pub fn join(self, other: Self) -> Self {
         Self {
             main: self.main,
             start: std::cmp::min(self.start, other.start),
             end: std::cmp::max(self.end, other.end),
+            lineno: self.lineno,
         }
     }
     pub fn upto(self, other: Self) -> Self {
@@ -58,40 +68,23 @@ impl Span {
             main: self.main,
             start: std::cmp::min(self.start, other.start),
             end: std::cmp::max(self.end, other.start),
-        }
-    }
-}
-impl From<[usize; 2]> for Span {
-    fn from(a: [usize; 2]) -> Self {
-        Self {
-            main: a[0],
-            start: a[0],
-            end: a[1],
-        }
-    }
-}
-impl From<[usize; 3]> for Span {
-    fn from(a: [usize; 3]) -> Self {
-        Self {
-            main: a[0],
-            start: a[1],
-            end: a[2],
+            lineno: self.lineno,
         }
     }
 }
 #[derive(Debug)]
 pub enum LexError {
     Unrecognized {
-        /// the index into the string where we encountered the
+        /// the location in the string where we encountered the
         /// unrecognized token
-        pos: usize,
+        span: Span,
 
         /// the start of the unrecognized token
         text: String,
     },
     BadRawStringQuote {
-        /// the index where we expected to see the quote char
-        pos: usize,
+        /// the location where we expected to see the quote char
+        span: Span,
 
         /// the actual character that was seen instead of ' or "
         actual: char,
@@ -103,10 +96,10 @@ pub enum LexError {
     UnterminatedStringLiteral {
         /// index into the string marking the start of the
         /// unterminated strin gliteral
-        start: usize,
+        span: Span,
     },
     MismatchedGroupingSymbols {
-        pos: usize,
+        span: Span,
         open: char,
         close: char,
     },
@@ -121,34 +114,43 @@ impl LexError {
             LexError::Unrecognized {
                 /// the index into the string where we encountered the
                 /// unrecognized token
-                pos,
+                span,
 
                 /// the start of the unrecognized token
                     text: _,
-            } => [*pos, *pos + 1].into(),
+            } => *span,
             LexError::BadRawStringQuote {
-                /// the index where we expected to see the quote char
-                pos,
+                /// the location where we expected to see the quote char
+                span,
 
                 /// the actual character that was seen instead of ' or "
                     actual: _,
-            } => [*pos, *pos + 1].into(),
+            } => *span,
             LexError::BadEndState {
                 /// string describing the end state encountered
                     state: _,
-            } => [0, 1].into(),
+            } => dummy_span(),
             LexError::UnterminatedStringLiteral {
                 /// index into the string marking the start of the
                 /// unterminated strin gliteral
-                start,
-            } => [*start, *start + 1].into(),
+                span,
+            } => *span,
             LexError::MismatchedGroupingSymbols {
-                pos,
+                span,
                 open: _,
                 close: _,
-            } => [*pos, *pos + 1].into(),
-            LexError::UnterminatedGroupingSymbol { open: _ } => [0, 1].into(),
+            } => *span,
+            LexError::UnterminatedGroupingSymbol { open: _ } => dummy_span(),
         }
+    }
+}
+
+fn dummy_span() -> Span {
+    Span {
+        main: 0,
+        start: 0,
+        end: 0,
+        lineno: 0,
     }
 }
 
@@ -162,7 +164,7 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
             State::Normal => match c {
                 '\n' => match grouping_stack.last() {
                     Some('{') | None => {
-                        ret.push((Token::Newline, [i, i + 1].into()));
+                        ret.push((Token::Newline, chars.span(i, i + 1)));
                     }
                     _ => {}
                 },
@@ -186,70 +188,70 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
                 }
                 '(' => {
                     grouping_stack.push(c);
-                    ret.push((Token::LParen, [i, i + 1].into()));
+                    ret.push((Token::LParen, chars.span(i, i + 1)));
                 }
                 ')' => {
                     match grouping_stack.pop() {
                         Some('(') => {}
                         other => {
                             return Err(LexError::MismatchedGroupingSymbols {
-                                pos: i,
+                                span: chars.span(i, i + 1),
                                 open: other.unwrap_or('x'),
                                 close: c,
                             })
                         }
                     }
-                    ret.push((Token::RParen, [i, i + 1].into()));
+                    ret.push((Token::RParen, chars.span(i, i + 1)));
                 }
                 '[' => {
                     grouping_stack.push(c);
-                    ret.push((Token::LBracket, [i, i + 1].into()));
+                    ret.push((Token::LBracket, chars.span(i, i + 1)));
                 }
                 ']' => {
                     match grouping_stack.pop() {
                         Some('[') => {}
                         other => {
                             return Err(LexError::MismatchedGroupingSymbols {
-                                pos: i,
+                                span: chars.span(i, i + 1),
                                 open: other.unwrap_or('x'),
                                 close: c,
                             })
                         }
                     }
-                    ret.push((Token::RBracket, [i, i + 1].into()));
+                    ret.push((Token::RBracket, chars.span(i, i + 1)));
                 }
                 '{' => {
                     grouping_stack.push(c);
-                    ret.push((Token::LBrace, [i, i + 1].into()));
+                    ret.push((Token::LBrace, chars.span(i, i + 1)));
                 }
                 '}' => {
                     match grouping_stack.pop() {
                         Some('{') => {}
                         other => {
                             return Err(LexError::MismatchedGroupingSymbols {
-                                pos: i,
+                                span: chars.span(i, i + 1),
                                 open: other.unwrap_or('x'),
                                 close: c,
                             })
                         }
                     }
-                    ret.push((Token::RBrace, [i, i + 1].into()));
+                    ret.push((Token::RBrace, chars.span(i, i + 1)));
                 }
-                ';' => ret.push((Token::Semicolon, [i, i + 1].into())),
-                ':' => ret.push((Token::Colon, [i, i + 1].into())),
-                ',' => ret.push((Token::Comma, [i, i + 1].into())),
-                '$' => ret.push((Token::Dollar, [i, i + 1].into())),
-                '+' => ret.push((Token::Plus, [i, i + 1].into())),
-                '-' => ret.push((Token::Minus, [i, i + 1].into())),
-                '*' => ret.push((Token::Star, [i, i + 1].into())),
-                '%' => ret.push((Token::Percent, [i, i + 1].into())),
-                '^' => ret.push((Token::Caret, [i, i + 1].into())),
-                '&' => ret.push((Token::Ampersand, [i, i + 1].into())),
-                '|' => ret.push((Token::VerticalBar, [i, i + 1].into())),
+                ';' => ret.push((Token::Semicolon, chars.span(i, i + 1))),
+                ':' => ret.push((Token::Colon, chars.span(i, i + 1))),
+                ',' => ret.push((Token::Comma, chars.span(i, i + 1))),
+                '$' => ret.push((Token::Dollar, chars.span(i, i + 1))),
+                '+' => ret.push((Token::Plus, chars.span(i, i + 1))),
+                '-' => ret.push((Token::Minus, chars.span(i, i + 1))),
+                '*' => ret.push((Token::Star, chars.span(i, i + 1))),
+                '%' => ret.push((Token::Percent, chars.span(i, i + 1))),
+                '^' => ret.push((Token::Caret, chars.span(i, i + 1))),
+                '&' => ret.push((Token::Ampersand, chars.span(i, i + 1))),
+                '|' => ret.push((Token::VerticalBar, chars.span(i, i + 1))),
                 '=' | '!' | '<' | '>' | '/' => state = State::Combine(c),
                 _ => {
                     return Err(LexError::Unrecognized {
-                        pos: i,
+                        span: chars.span(i, i + 1),
                         text: format!("{}", c),
                     });
                 }
@@ -261,13 +263,13 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
             }
             State::Combine(first) => {
                 match (first, c) {
-                    ('=', '=') => ret.push((Token::Eq2, [i - 1, i + 1].into())),
-                    ('/', '/') => ret.push((Token::Slash2, [i - 1, i + 1].into())),
-                    ('!', '=') => ret.push((Token::Ne, [i - 1, i + 1].into())),
-                    ('<', '=') => ret.push((Token::Le, [i - 1, i + 1].into())),
-                    ('>', '=') => ret.push((Token::Ge, [i - 1, i + 1].into())),
-                    ('<', '<') => ret.push((Token::Lt2, [i - 1, i + 1].into())),
-                    ('>', '>') => ret.push((Token::Gt2, [i - 1, i + 1].into())),
+                    ('=', '=') => ret.push((Token::Eq2, chars.span(i - 1, i + 1))),
+                    ('/', '/') => ret.push((Token::Slash2, chars.span(i - 1, i + 1))),
+                    ('!', '=') => ret.push((Token::Ne, chars.span(i - 1, i + 1))),
+                    ('<', '=') => ret.push((Token::Le, chars.span(i - 1, i + 1))),
+                    ('>', '=') => ret.push((Token::Ge, chars.span(i - 1, i + 1))),
+                    ('<', '<') => ret.push((Token::Lt2, chars.span(i - 1, i + 1))),
+                    ('>', '>') => ret.push((Token::Gt2, chars.span(i - 1, i + 1))),
                     _ => {
                         // the first character on its own can be a token,
                         // but doesn't combine with the second one
@@ -280,12 +282,12 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
                             '!' => Token::Exclamation,
                             _ => {
                                 return Err(LexError::Unrecognized {
-                                    pos: i,
+                                    span: chars.span(i, i + 2),
                                     text: format!("{}{}", first, c),
                                 })
                             }
                         };
-                        ret.push((tok, [i - 1, i].into()));
+                        ret.push((tok, chars.span(i - 1, i)));
                     }
                 }
                 state = State::Normal;
@@ -297,7 +299,7 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
                 _ if c.is_ascii_digit() => {}
                 _ => {
                     let value: i64 = s[start..i].parse().unwrap();
-                    ret.push((Token::Int(value), [start, i].into()));
+                    ret.push((Token::Int(value), chars.span(start, i)));
 
                     chars.put_back(c);
                     state = State::Normal;
@@ -306,7 +308,7 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
             State::DigitsAfterDot(start) => {
                 if !c.is_ascii_digit() {
                     let value: f64 = s[start..i].parse().unwrap();
-                    ret.push((Token::Float(value), [start, i].into()));
+                    ret.push((Token::Float(value), chars.span(start, i)));
 
                     chars.put_back(c);
                     state = State::Normal;
@@ -315,7 +317,7 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
             State::Name(start) => {
                 if !(c == '_' || c.is_alphanumeric()) {
                     let name = &s[start..i];
-                    ret.push((Token::Name(name), [start, i].into()));
+                    ret.push((Token::Name(name), chars.span(start, i)));
 
                     chars.put_back(c);
                     state = State::Normal;
@@ -326,7 +328,10 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
                     state = State::NormalStringEscape(start, quote);
                 }
                 _ if c == quote => {
-                    ret.push((Token::NormalString(&s[start + 1..i]), [start, i + 1].into()));
+                    ret.push((
+                        Token::NormalString(&s[start + 1..i]),
+                        chars.span(start, i + 1),
+                    ));
                     state = State::Normal;
                 }
                 _ => {}
@@ -340,7 +345,10 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
                     state = State::RawStringBody(start, *hash_len, c);
                 }
                 _ => {
-                    return Err(LexError::BadRawStringQuote { pos: i, actual: c });
+                    return Err(LexError::BadRawStringQuote {
+                        span: chars.span(i, i + 1),
+                        actual: c,
+                    });
                 }
             },
             State::RawStringBody(start, hash_len, quote) => {
@@ -352,7 +360,7 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
                 if hash_len == *seen_so_far {
                     ret.push((
                         Token::RawString(&s[start + 2 + hash_len..i - 1 - *seen_so_far]),
-                        [start, i].into(),
+                        chars.span(start, i),
                     ));
                     chars.put_back(c);
                     state = State::Normal;
@@ -366,10 +374,12 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
     }
     match state {
         State::Normal => {
-            ret.push((Token::EOF, [chars.pos, chars.pos].into()));
+            ret.push((Token::EOF, chars.span(chars.pos, chars.pos)));
         }
         State::RawStringBody(start, _hash_len, _quote) => {
-            return Err(LexError::UnterminatedStringLiteral { start });
+            return Err(LexError::UnterminatedStringLiteral {
+                span: chars.span(start, start + 1),
+            });
         }
         _ => {
             return Err(LexError::BadEndState {
@@ -403,6 +413,7 @@ struct Chars<'a> {
     pos: usize,
     lookahead: VecDeque<char>,
     chars: std::str::Chars<'a>,
+    lineno: usize,
 }
 
 impl<'a> Chars<'a> {
@@ -412,6 +423,7 @@ impl<'a> Chars<'a> {
             pos: 0,
             lookahead: VecDeque::new(),
             chars: s.chars(),
+            lineno: 1,
         }
     }
     fn peek(&mut self) -> Option<char> {
@@ -446,6 +458,9 @@ impl<'a> Chars<'a> {
         if let Some(ch) = self.lookahead.pop_front() {
             let pos = self.pos;
             self.pos += ch.len_utf8();
+            if ch == '\n' {
+                self.lineno += 1;
+            }
             Some((ch, pos))
         } else {
             None
@@ -454,6 +469,17 @@ impl<'a> Chars<'a> {
     fn put_back(&mut self, ch: char) {
         self.lookahead.push_front(ch);
         self.pos -= ch.len_utf8();
+        if ch == '\n' {
+            self.lineno -= 1;
+        }
+    }
+    fn span(&self, main: usize, end: usize) -> Span {
+        Span {
+            main,
+            start: main,
+            end,
+            lineno: self.lineno,
+        }
     }
 }
 

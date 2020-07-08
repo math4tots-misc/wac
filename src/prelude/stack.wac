@@ -1,0 +1,22 @@
+
+
+fn __WAC_stack_overflow[notrace]() noreturn {
+    __WAC_eprint_stack()
+    __eprint0_cstr($cstr("stackoverflow"))
+    $asm([], noreturn, "unreachable")
+}
+
+fn __WAC_eprint_stack[notrace]() {
+    __eprint0_cstr($cstr("== STACKTRACE ==\n"))
+    var i = $asm([], i32, "global.get $rt_stack_start")
+    var end = $asm([], i32, "global.get $rt_stack_top")
+    while i < end {
+        __eprint0_cstr($cstr("  "))
+        __eprint0_cstr(__read(i))
+        __eprint0_cstr($cstr(": "))
+        __eprint0_i32(__read(i + 4))
+        __eprint0_cstr($cstr("\n"))
+
+        i = i + 8
+    }
+}

@@ -69,24 +69,29 @@ fn __str_cat(a str, b str) str {
     ret
 }
 
-fn __print_str(s str) {
+fn __print_str[notrace](s str) {
     var ptr = __WAC_UNSAFE_strptr(s)
     __print_str_raw(__read(ptr + 4), ptr + 8)
 }
 
-fn __eprint_str(s str) {
+fn __eprint_str[notrace](s str) {
     var ptr = __WAC_UNSAFE_strptr(s)
     __eprint_str_raw(__read(ptr + 4), ptr + 8)
 }
 
-fn __strlen(s str) i32 {
+fn __eprint0_str[notrace](s str) {
+    var ptr = __WAC_UNSAFE_strptr(s)
+    __eprint0_str_raw(__read(ptr + 4), ptr + 8)
+}
+
+fn __strlen[notrace](s str) i32 {
     # Gets the length of the given string
     # (i.e. number of bytes in its utf8 representation)
     var ptr = $asm([], i32, "local.get $l_0_s")
     __read(ptr + 4)
 }
 
-fn __WAC_UNSAFE_strptr(s str) i32 {
+fn __WAC_UNSAFE_strptr[notrace](s str) i32 {
     # Returns the given str as an i32
     # This is unsafe since if the last reference was given,
     # the returned pointer would point to freed data

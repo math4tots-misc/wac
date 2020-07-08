@@ -1,11 +1,6 @@
 
 fn Assert(test bool) {
     if !test {
-        Panic("assertion failed")
+        NoTracePanic("assertion failed")
     }
-}
-
-fn Panic(s str) noreturn {
-    PrintErr(__str_cat("PANIC: ", s))
-    $asm([], noreturn, "unreachable")
 }

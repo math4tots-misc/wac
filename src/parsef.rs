@@ -131,30 +131,14 @@ fn parse_func(parser: &mut Parser) -> Result<Function, ParseError> {
         }
     }
     let name = parser.expect_name()?;
-    let mut parameters = Vec::new();
-    parser.expect(Token::LParen)?;
-    while !parser.consume(Token::RParen) {
-        let param_name = parser.expect_name()?;
-        let param_type = parse_type(parser)?;
-        parameters.push((param_name, param_type));
-        if !parser.consume(Token::Comma) {
-            parser.expect(Token::RParen)?;
-            break;
-        }
-    }
-    let return_type = if parser.at(Pattern::Name) {
-        parse_return_type(parser)?
-    } else {
-        ReturnType::Void
-    };
+    let type_ = parse_function_type(parser)?;
     let body = parse_block(parser)?;
     let span = span.upto(&parser.span());
     Ok(Function {
         span,
         visibility,
         name,
-        parameters,
-        return_type,
+        type_,
         body,
     })
 }
@@ -591,11 +575,34 @@ fn parse_block(parser: &mut Parser) -> Result<Expr, ParseError> {
 }
 
 fn parse_function_type(parser: &mut Parser) -> Result<FunctionType, ParseError> {
-    let mut parameter_types = Vec::new();
+    let mut trace = true;
+    if parser.consume(Token::LBracket) {
+        loop {
+            match parser.peek() {
+                Token::Name("notrace") => {
+                    parser.gettok();
+                    trace = false
+                }
+                Token::RBracket => {
+                    parser.gettok();
+                    break;
+                }
+                _ => {
+                    return Err(ParseError::InvalidToken {
+                        span: parser.span(),
+                        expected: "FunctionType attribute".into(),
+                        got: format!("{:?}", parser.peek()),
+                    })
+                }
+            }
+        }
+    }
+    let mut parameters = Vec::new();
     parser.expect(Token::LParen)?;
     while !parser.consume(Token::RParen) {
+        let name = parser.expect_name()?;
         let type_ = parse_type(parser)?;
-        parameter_types.push(type_);
+        parameters.push((name, type_));
         if !parser.consume(Token::Comma) {
             parser.expect(Token::RParen)?;
             break;
@@ -607,8 +614,9 @@ fn parse_function_type(parser: &mut Parser) -> Result<FunctionType, ParseError> 
         ReturnType::Void
     };
     Ok(FunctionType {
-        parameter_types,
+        parameters,
         return_type,
+        trace,
     })
 }
 

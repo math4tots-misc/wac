@@ -1,12 +1,16 @@
 # Some basic language imports
 
-import fn "lang" "hello" __hello(i32, i32)
-import fn "lang" "print_i32" __print_i32(i32)
-import fn "lang" "print_f32" __print_f32(f32)
-import fn "lang" "print_cstr" __print_cstr(i32)
-import fn "lang" "print_str_raw" __print_str_raw(i32, i32)
-import fn "lang" "eprint_str_raw" __eprint_str_raw(i32, i32)
-import fn "lang" "cstrlen" __cstrlen(i32) i32
+import fn "lang" "hello" __hello[notrace](cstr i32, i i32)
+import fn "lang" "print_i32" __print_i32[notrace](x i32)
+import fn "lang" "eprint0_i32" __eprint0_i32[notrace](x i32)
+import fn "lang" "print_f32" __print_f32[notrace](x f32)
+import fn "lang" "print_cstr" __print_cstr[notrace](cstr i32)
+import fn "lang" "eprint0_cstr" __eprint0_cstr[notrace](cstr i32)
+import fn "lang" "print_str_raw" __print_str_raw[notrace](len i32, ptr i32)
+import fn "lang" "print0_str_raw" __print0_str_raw[notrace](len i32, ptr i32)
+import fn "lang" "eprint_str_raw" __eprint_str_raw[notrace](len i32, ptr i32)
+import fn "lang" "eprint0_str_raw" __eprint0_str_raw[notrace](len i32, ptr i32)
+import fn "lang" "cstrlen" __cstrlen[notrace](cstr i32) i32
 
 # We define the entrypoint to be __start so that main can be private
 fn[pub] __start() i32 {
@@ -14,18 +18,18 @@ fn[pub] __start() i32 {
     0
 }
 
-fn __read(ptr i32) i32 {
+fn __read[notrace](ptr i32) i32 {
     $asm([ptr], i32, "i32.load")
 }
 
-fn __write(ptr i32, value i32) {
+fn __write[notrace](ptr i32, value i32) {
     $asm([ptr, value], void, "i32.store")
 }
 
-fn __read_i64(ptr i32) i64 {
+fn __read_i64[notrace](ptr i32) i64 {
     $asm([ptr], i64, "i64.load")
 }
 
-fn __write_i64(ptr i32, value i64) {
+fn __write_i64[notrace](ptr i32, value i64) {
     $asm([ptr, value], void, "i64.store")
 }

@@ -16,7 +16,24 @@ pub const PAGE_SIZE: usize = 65536;
 
 /// Number of bytes at start of memory that's reserved
 /// Compile-time constants stored in memory start from this location
+/// Of course, right after RESERVED_BYTES comes the stack.
 pub const RESERVED_BYTES: usize = 2048;
+
+/// the location in memory where the stack starts
+/// For now, it's the first thing after RESERVED_BYTES
+pub const STACK_START: usize = RESERVED_BYTES;
+
+// the max number of times you can recurse
+pub const MAX_STACK_DEPTH: usize = 256;
+
+// the number of bytes to be reserved for the stack to support MAX_STACK_DEPTH
+// recursions.
+// each function call occupies two pointer values,
+//   1. ptr to filename str (i32)
+//   2. lineno (i32)
+pub const STACK_BYTES: usize = MAX_STACK_DEPTH * 8;
+
+pub const STACK_END: usize = STACK_START + STACK_BYTES;
 
 pub fn translate(sources: Vec<(Rc<str>, Rc<str>)>) -> Result<String, Error> {
     let files = parse_files(sources)?;
@@ -32,6 +49,8 @@ pub fn parse_files(mut sources: Vec<(Rc<str>, Rc<str>)>) -> Result<Vec<(Rc<str>,
         ("[prelude:list]".into(), crate::prelude::LIST.into()),
         ("[prelude:type]".into(), crate::prelude::TYPE.into()),
         ("[prelude:assert]".into(), crate::prelude::ASSERT.into()),
+        ("[prelude:panic]".into(), crate::prelude::PANIC.into()),
+        ("[prelude:stack]".into(), crate::prelude::STACK.into()),
     ];
 
     sources.splice(0..0, prelude);
@@ -100,7 +119,7 @@ pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
             }
         }
         for func in &file.functions {
-            functions.insert(func.name.clone(), func.type_().clone());
+            functions.insert(func.name.clone(), func.type_.clone());
         }
     }
     let mut gscope = GlobalScope::new(functions);
@@ -152,7 +171,7 @@ pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
     // order in which you provide the files
     for (_filename, file) in &files {
         for gvar in &file.globalvars {
-            let mut lscope = LocalScope::new(&gscope);
+            let mut lscope = LocalScope::new(&gscope, true);
             let type_ = if let Some(t) = gvar.type_ {
                 t
             } else {
@@ -286,6 +305,7 @@ struct LocalVarInfo {
 
 struct LocalScope<'a> {
     g: &'a GlobalScope,
+    trace: bool,
     locals: Vec<HashMap<Rc<str>, Rc<LocalVarInfo>>>,
     nlabels: usize,
     continue_labels: Vec<u32>,
@@ -298,9 +318,10 @@ struct LocalScope<'a> {
 }
 
 impl<'a> LocalScope<'a> {
-    fn new(g: &'a GlobalScope) -> Self {
+    fn new(g: &'a GlobalScope, trace: bool) -> Self {
         Self {
             g,
+            trace,
             locals: vec![HashMap::new()],
             nlabels: 0,
             continue_labels: vec![],
@@ -409,10 +430,11 @@ fn translate_func_type(ft: &FunctionType) -> String {
     let mut ret = String::new();
     let FunctionType {
         return_type,
-        parameter_types,
+        parameters,
+        trace: _,
     } = ft;
-    for pt in parameter_types {
-        ret.push_str(&format!(" (param {})", translate_type(*pt)));
+    for (_name, ptype) in parameters {
+        ret.push_str(&format!(" (param {})", translate_type(*ptype)));
     }
     match return_type {
         ReturnType::Value(rt) => {
@@ -457,7 +479,7 @@ fn translate_import(out: &Out, imp: Import) {
 }
 
 fn translate_func(out: &mut Out, gscope: &GlobalScope, func: Function) -> Result<(), Error> {
-    let mut lscope = LocalScope::new(gscope);
+    let mut lscope = LocalScope::new(gscope, func.type_.trace);
 
     match func.visibility {
         Visibility::Public => {
@@ -472,7 +494,7 @@ fn translate_func(out: &mut Out, gscope: &GlobalScope, func: Function) -> Result
     let sink = out.funcs.spawn();
     sink.writeln(format!("(func $f_{}", func.name));
 
-    for parameter in &func.parameters {
+    for parameter in &func.type_.parameters {
         let info = lscope.decl(func.span.clone(), parameter.0.clone(), parameter.1);
         sink.writeln(format!(
             " (param {} {})",
@@ -480,7 +502,7 @@ fn translate_func(out: &mut Out, gscope: &GlobalScope, func: Function) -> Result
             translate_type(info.type_)
         ));
     }
-    match func.return_type {
+    match func.type_.return_type {
         ReturnType::Value(return_type) => {
             sink.writeln(format!(" (result {})", translate_type(return_type)));
         }
@@ -489,7 +511,7 @@ fn translate_func(out: &mut Out, gscope: &GlobalScope, func: Function) -> Result
     // we won't know what locals we have until we finish translate_expr on the body
     let locals_sink = sink.spawn();
     let locals_init = sink.spawn();
-    translate_expr(out, &sink, &mut lscope, func.return_type, &func.body)?;
+    translate_expr(out, &sink, &mut lscope, func.type_.return_type, &func.body)?;
     let epilogue = sink.spawn();
     sink.writeln(")");
 
@@ -503,7 +525,7 @@ fn translate_func(out: &mut Out, gscope: &GlobalScope, func: Function) -> Result
     }
 
     // declare all the local variables (skipping parameters)
-    for info in lscope.decls.iter().skip(func.parameters.len()) {
+    for info in lscope.decls.iter().skip(func.type_.parameters.len()) {
         locals_sink.writeln(format!(
             " (local {} {})",
             info.wasm_name,
@@ -726,17 +748,64 @@ fn translate_expr(
         }
         Expr::FunctionCall(span, fname, argexprs) => {
             let ftype = lscope.getf_or_err(span.clone(), fname)?;
-            if argexprs.len() != ftype.parameter_types.len() {
+            let trace = ftype.trace;
+            if argexprs.len() != ftype.parameters.len() {
                 return Err(Error::Type {
                     span: span.clone(),
-                    expected: format!("{} args", ftype.parameter_types.len()),
+                    expected: format!("{} args", ftype.parameters.len()),
                     got: format!("{} args", argexprs.len()),
                 });
             }
-            for (argexpr, ptype) in argexprs.iter().zip(ftype.parameter_types) {
+            for (argexpr, (_pname, ptype)) in argexprs.iter().zip(ftype.parameters) {
                 translate_expr(out, sink, lscope, ReturnType::Value(ptype), argexpr)?;
             }
+
+            if trace && !lscope.trace {
+                return Err(Error::Type {
+                    span: span.clone(),
+                    expected: "notrace function can only call other notrace functions".into(),
+                    got: "traced function".into(),
+                });
+            }
+
+            if trace {
+                // check for stack overflow
+                sink.writeln("global.get $rt_stack_top");
+                sink.writeln("global.get $rt_stack_end");
+                sink.writeln("i32.ge_s");
+                sink.writeln("if");
+                sink.writeln("call $f___WAC_stack_overflow");
+                sink.writeln("else end");
+
+                // record the file this function call comes from
+                let ptr = out.intern_cstr(&span.source.name);
+                sink.writeln("global.get $rt_stack_top");
+                sink.writeln(format!("i32.const {}", ptr));
+                sink.writeln("i32.store");
+
+                // record the lineno of this function call
+                let lineno = span.lineno() as i32;
+                sink.writeln("global.get $rt_stack_top");
+                sink.writeln("i32.const 4");
+                sink.writeln("i32.add");
+                sink.writeln(format!("i32.const {}", lineno));
+                sink.writeln("i32.store");
+
+                // increment the stack pointer
+                sink.writeln("global.get $rt_stack_top");
+                sink.writeln("i32.const 8");
+                sink.writeln("i32.add");
+                sink.writeln("global.set $rt_stack_top");
+            }
             sink.writeln(format!("call $f_{}", fname));
+            if trace {
+                // pop stack pointer
+                sink.writeln("global.get $rt_stack_top");
+                sink.writeln("i32.const -8");
+                sink.writeln("i32.add");
+                sink.writeln("global.set $rt_stack_top");
+            }
+
             auto_cast(sink, span, lscope, ftype.return_type, etype)?;
         }
         Expr::If(_span, pairs, other) => {
@@ -1423,6 +1492,9 @@ struct Out {
 
 impl Out {
     fn new() -> Self {
+        assert!(RESERVED_BYTES % 16 == 0);
+        assert!(STACK_BYTES % 16 == 0);
+
         let main = Sink::new();
         let imports = main.spawn();
         let memory = main.spawn();
@@ -1444,7 +1516,7 @@ impl Out {
             funcs,
             start,
             exports,
-            data_len: Cell::new(RESERVED_BYTES),
+            data_len: Cell::new(RESERVED_BYTES + STACK_BYTES),
             intern_cstr_map: HashMap::new(),
             intern_str_map: HashMap::new(),
         }
@@ -1457,14 +1529,31 @@ impl Out {
             .writeln(format!("(memory $rt_mem {})", page_len));
         self.gvars
             .writeln(format!("(global $rt_heap_start i32 (i32.const {}))", len,));
+        self.gvars.writeln(format!(
+            "(global $rt_stack_top (mut i32) (i32.const {}))",
+            STACK_START
+        ));
+        self.gvars.writeln(format!(
+            "(global $rt_stack_start i32 (i32.const {}))",
+            STACK_START
+        ));
+        self.gvars.writeln(format!(
+            "(global $rt_stack_end i32 (i32.const {}))",
+            STACK_END
+        ));
         self.main.get()
     }
 
-    fn data(&self, data: &[u8]) -> u32 {
+    fn reserve(&self, len: usize) -> u32 {
         // data is reserved with 16-byte alignment
-        let reserve_len = (data.len() + 16 - 1) / 16 * 16;
+        let reserve_len = (len + 16 - 1) / 16 * 16;
         let ptr = self.data_len.get();
         self.data_len.set(reserve_len + ptr);
+        ptr as u32
+    }
+
+    fn data(&self, data: &[u8]) -> u32 {
+        let ptr = self.reserve(data.len());
         self.data.write(format!("(data (i32.const {}) \"", ptr));
         for byte in data {
             self.data.write(format!("\\{:0>2X}", byte));

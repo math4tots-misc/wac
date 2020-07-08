@@ -9,6 +9,9 @@ pub fn make_import_object() -> wr::ImportObject {
             "print_i32" => wr::func!(|_: &mut wr::Ctx, i: i32| {
                 println!("{}", i);
             }),
+            "eprint0_i32" => wr::func!(|_: &mut wr::Ctx, i: i32| {
+                eprint!("{}", i);
+            }),
             "print_f32" => wr::func!(|_: &mut wr::Ctx, i: f32| {
                 println!("{}", i);
             }),
@@ -20,15 +23,30 @@ pub fn make_import_object() -> wr::ImportObject {
                 let s = read_cstr(memory, ptr);
                 println!("{}", s);
             }),
+            "eprint0_cstr" => wr::func!(|ctx: &mut wr::Ctx, ptr: i32| {
+                let memory = ctx.memory(0);
+                let s = read_cstr(memory, ptr);
+                eprint!("{}", s);
+            }),
             "print_str_raw" => wr::func!(|ctx: &mut wr::Ctx, len: i32, ptr: i32| {
                 let memory = ctx.memory(0);
                 let s = read_str(memory, len, ptr);
                 println!("{}", s);
             }),
+            "print0_str_raw" => wr::func!(|ctx: &mut wr::Ctx, len: i32, ptr: i32| {
+                let memory = ctx.memory(0);
+                let s = read_str(memory, len, ptr);
+                print!("{}", s);
+            }),
             "eprint_str_raw" => wr::func!(|ctx: &mut wr::Ctx, len: i32, ptr: i32| {
                 let memory = ctx.memory(0);
                 let s = read_str(memory, len, ptr);
                 eprintln!("{}", s);
+            }),
+            "eprint0_str_raw" => wr::func!(|ctx: &mut wr::Ctx, len: i32, ptr: i32| {
+                let memory = ctx.memory(0);
+                let s = read_str(memory, len, ptr);
+                eprint!("{}", s);
             }),
             "panic_raw" => wr::func!(|ctx: &mut wr::Ctx, len: i32, ptr: i32| {
                 let memory = ctx.memory(0);
