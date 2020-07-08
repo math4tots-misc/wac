@@ -91,10 +91,6 @@ fn __strlen[notrace](s str) i32 {
     __read(ptr + 4)
 }
 
-impl str SizeOf(self) i32 {
-    __strlen(self)
-}
-
 fn __WAC_UNSAFE_strptr[notrace](s str) i32 {
     # Returns the given str as an i32
     # This is unsafe since if the last reference was given,

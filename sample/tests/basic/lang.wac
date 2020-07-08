@@ -2,7 +2,9 @@
 
 fn __test_sanity() {
     Assert(true)
-    __eprint0_cstr($cstr("SizeOf([1, 2, 3, 4, 5, 6]) = "))
-    __eprint0_i32(SizeOf([1, 2, 3, 4, 5, 6]))
-    __eprint0_cstr($cstr("\n"))
+}
+
+fn __test_size_of() {
+    Assert(SizeOf([1, 2, 3]) is 3)
+    Assert(SizeOf("hello") is 5)
 }

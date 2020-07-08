@@ -1,0 +1,5 @@
+
+
+fn __test_add() {
+    Assert(5 + 5 is 10)
+}
