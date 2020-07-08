@@ -8,3 +8,17 @@ fn __test_size_of() {
     Assert(SizeOf([1, 2, 3]) is 3)
     Assert(SizeOf("hello") is 5)
 }
+
+enum SomeEnum {
+    A,
+    B,
+    C,
+}
+
+record SomeRecord {
+    a i32,
+    b str,
+}
+
+fn ReturnEnum() SomeEnum {
+}

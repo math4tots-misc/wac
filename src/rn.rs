@@ -40,7 +40,7 @@ pub fn run_tests(sources: Vec<(Rc<str>, Rc<str>)>, test_prefix: &str) -> Result<
 
     println!("Test filter: __test_{}", test_prefix);
 
-    // let start = std::time::Instant::now();
+    let start = std::time::Instant::now();
     let mut test_names = Vec::new();
     let mut files = parse_files(sources)?;
     for (_filename, file) in &mut files {
@@ -55,18 +55,18 @@ pub fn run_tests(sources: Vec<(Rc<str>, Rc<str>)>, test_prefix: &str) -> Result<
         }
     }
     let wat_code = translate_files(files)?;
-    // println!("wac to wat time: {}s", start.elapsed().as_secs_f64());
+    let wac_to_wat_time = start.elapsed().as_secs_f64();
 
-    // let start = std::time::Instant::now();
+    let start = std::time::Instant::now();
     let wasm_code = wabt::wat2wasm(&wat_code)?;
-    // println!("wat to wasm time: {}s", start.elapsed().as_secs_f64());
+    let wat_to_wasm_time = start.elapsed().as_secs_f64();
 
-    // let start = std::time::Instant::now();
+    let start = std::time::Instant::now();
     let import_object = make_import_object();
     let instance = wr::instantiate(&wasm_code, &import_object)?;
-    // println!("instantiate time: {}s", start.elapsed().as_secs_f64());
+    let instantiate_time = start.elapsed().as_secs_f64();
 
-    // let start = std::time::Instant::now();
+    let start = std::time::Instant::now();
     println!("Running {} tests", test_names.len());
     for test_name in &test_names {
         print!("  test {}... ", test_name);
@@ -75,9 +75,14 @@ pub fn run_tests(sources: Vec<(Rc<str>, Rc<str>)>, test_prefix: &str) -> Result<
         f.call()?;
         println!("ok");
     }
-    // println!("execution time: {}s", start.elapsed().as_secs_f64());
+    let exec_time = start.elapsed().as_secs_f64();
 
     println!("All tests passed");
+
+    println!("wac to wat time  : {}s", wac_to_wat_time);
+    println!("wat to wasm time : {}s", wat_to_wasm_time);
+    println!("instantiate time : {}s", instantiate_time);
+    println!("execution time   : {}s", exec_time);
 
     Ok(())
 }

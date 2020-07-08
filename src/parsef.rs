@@ -45,6 +45,8 @@ pub fn parse_file(parser: &mut Parser) -> Result<File, ParseError> {
     let mut functions = Vec::new();
     let mut traits = Vec::new();
     let mut impls = Vec::new();
+    let mut enums = Vec::new();
+    let mut records = Vec::new();
     let mut constants = Vec::new();
     let mut constants_map = HashMap::new();
     consume_delim(parser);
@@ -53,6 +55,8 @@ pub fn parse_file(parser: &mut Parser) -> Result<File, ParseError> {
             Token::Name("fn") => functions.push(parse_func(parser)?),
             Token::Name("trait") => traits.push(parse_trait(parser)?),
             Token::Name("impl") => impls.push(parse_impl(parser)?),
+            Token::Name("enum") => enums.push(parse_enum(parser)?),
+            Token::Name("record") => records.push(parse_record(parser)?),
             Token::Name("var") => globalvars.push(parse_globalvar(parser)?),
             Token::Name("const") => constants.push(parse_constant(parser, &mut constants_map)?),
             _ => {
@@ -71,6 +75,8 @@ pub fn parse_file(parser: &mut Parser) -> Result<File, ParseError> {
         functions,
         traits,
         impls,
+        enums,
+        records,
         globalvars,
     })
 }
@@ -214,6 +220,71 @@ fn parse_globalvar(parser: &mut Parser) -> Result<GlobalVariable, ParseError> {
         name,
         type_,
         init,
+    })
+}
+
+fn parse_enum(parser: &mut Parser) -> Result<Enum, ParseError> {
+    let span = parser.span();
+    parser.expect(Token::Name("enum"))?;
+    let name = parser.expect_name()?;
+    let mut members = Vec::new();
+    parser.expect(Token::LBrace)?;
+    consume_delim(parser);
+    while !parser.consume(Token::RBrace) {
+        let member_name = parser.expect_name()?;
+        members.push(member_name);
+        if !parser.consume(Token::Comma) {
+            parser.expect(Token::RBrace)?;
+            break;
+        }
+        consume_delim(parser);
+    }
+    let span = span.upto(&parser.span());
+    let type_offset = match parser.get_user_defined_type(&span, &name)? {
+        Type::Enum(offset) => offset,
+        // yea, it might be broken here, but for the first parse
+        // we don't care. For the second parse, this should be caught
+        // later during translation
+        _ => 0,
+    };
+    Ok(Enum {
+        span,
+        type_offset,
+        name: name,
+        members,
+    })
+}
+
+fn parse_record(parser: &mut Parser) -> Result<Record, ParseError> {
+    let span = parser.span();
+    parser.expect(Token::Name("record"))?;
+    let name = parser.expect_name()?;
+    let mut fields = Vec::new();
+    parser.expect(Token::LBrace)?;
+    consume_delim(parser);
+    while !parser.consume(Token::RBrace) {
+        let member_name = parser.expect_name()?;
+        let type_ = parse_type(parser)?;
+        fields.push((member_name, type_));
+        if !parser.consume(Token::Comma) {
+            parser.expect(Token::RBrace)?;
+            break;
+        }
+        consume_delim(parser);
+    }
+    let span = span.upto(&parser.span());
+    let type_offset = match parser.get_user_defined_type(&span, &name)? {
+        Type::Record(offset) => offset,
+        // yea, it might be broken here, but for the first parse
+        // we don't care. For the second parse, this should be caught
+        // later during translation
+        _ => 0,
+    };
+    Ok(Record {
+        span,
+        type_offset,
+        name: name,
+        fields,
     })
 }
 
@@ -697,6 +768,7 @@ fn parse_type(parser: &mut Parser) -> Result<Type, ParseError> {
         Token::Name("str") => Some(Type::String),
         Token::Name("list") => Some(Type::List),
         Token::Name("id") => Some(Type::Id),
+        Token::Name(name) => Some(parser.get_user_defined_type(&parser.span(), &name.into())?),
         _ => None,
     };
     if let Some(t) = opt {

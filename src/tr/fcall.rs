@@ -95,8 +95,10 @@ pub(super) fn translate_fcall(
             sink.writeln(format!("local.get {}", trait_type_var));
             sink.writeln(format!("i32.const {}", info.id));
             sink.writeln("call $f___WAC_find_funcptr");
-            sink.writeln(format!("call_indirect {}", translate_func_type(&info.type_)));
-            // panic!("TODO: fcall trait")
+            sink.writeln(format!(
+                "call_indirect {}",
+                translate_func_type(&info.type_)
+            ));
         }
     }
 

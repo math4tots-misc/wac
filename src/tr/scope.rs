@@ -29,7 +29,10 @@ pub(super) struct GlobalScope {
 }
 
 impl GlobalScope {
-    pub(super) fn new(functions: HashMap<Rc<str>, FunctionEntry>, traits_by_id: Vec<Rc<TraitInfo>>) -> Self {
+    pub(super) fn new(
+        functions: HashMap<Rc<str>, FunctionEntry>,
+        traits_by_id: Vec<Rc<TraitInfo>>,
+    ) -> Self {
         Self {
             functions,
             varmap: HashMap::new(),
@@ -89,7 +92,11 @@ impl GlobalScope {
         Ok(info)
     }
 
-    pub(super) fn get_trait(&mut self, span: &SSpan, name: &Rc<str>) -> Result<&Rc<TraitInfo>, Error> {
+    pub(super) fn get_trait(
+        &mut self,
+        span: &SSpan,
+        name: &Rc<str>,
+    ) -> Result<&Rc<TraitInfo>, Error> {
         match self.functions.get(name) {
             Some(FunctionEntry::Trait(info)) => Ok(info),
             Some(_) => Err(Error::Type {
@@ -101,11 +108,17 @@ impl GlobalScope {
                 span: span.clone(),
                 expected: "trait".into(),
                 got: "not found".into(),
-            })
+            }),
         }
     }
 
-    pub(super) fn decl_impl(&mut self, span: SSpan, fname: Rc<str>, receiver_type: Type, trait_: Rc<TraitInfo>) -> Result<Rc<ImplInfo>, Error> {
+    pub(super) fn decl_impl(
+        &mut self,
+        span: SSpan,
+        fname: Rc<str>,
+        receiver_type: Type,
+        trait_: Rc<TraitInfo>,
+    ) -> Result<Rc<ImplInfo>, Error> {
         let index = self.impls.len() as i32;
         let info = Rc::new(ImplInfo {
             span: span.clone(),

@@ -9,10 +9,12 @@ pub(super) enum DropPolicy {
 /// the drop parameter determines if the value will be consumed/dropped or not
 pub(super) fn retain(lscope: &mut LocalScope, sink: &Rc<Sink>, type_: Type, dp: DropPolicy) {
     match type_ {
-        Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Type => match dp {
-            DropPolicy::Drop => sink.writeln("drop"),
-            DropPolicy::Keep => {}
-        },
+        Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Type | Type::Enum(_) => {
+            match dp {
+                DropPolicy::Drop => sink.writeln("drop"),
+                DropPolicy::Keep => {}
+            }
+        }
         Type::String => {
             match dp {
                 DropPolicy::Drop => {}
@@ -34,14 +36,7 @@ pub(super) fn retain(lscope: &mut LocalScope, sink: &Rc<Sink>, type_: Type, dp: 
             }
             sink.writeln("call $f___WAC_id_retain");
         }
-        Type::UserDefined(_) => {
-            if type_.is_enum() {
-                // nothing to do, enums don't allocate memory
-            } else {
-                assert!(type_.is_record());
-                panic!("TODO: retain record")
-            }
-        }
+        Type::Record(_) => panic!("TODO: retain record"),
     }
 }
 
@@ -49,10 +44,12 @@ pub(super) fn retain(lscope: &mut LocalScope, sink: &Rc<Sink>, type_: Type, dp: 
 /// the drop parameter determines if the value will be consumed/dropped or not
 pub(super) fn release(lscope: &mut LocalScope, sink: &Rc<Sink>, type_: Type, dp: DropPolicy) {
     match type_ {
-        Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Type => match dp {
-            DropPolicy::Drop => sink.writeln("drop"),
-            DropPolicy::Keep => {}
-        },
+        Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Type | Type::Enum(_) => {
+            match dp {
+                DropPolicy::Drop => sink.writeln("drop"),
+                DropPolicy::Keep => {}
+            }
+        }
         Type::String => {
             match dp {
                 DropPolicy::Drop => {}
@@ -74,14 +71,7 @@ pub(super) fn release(lscope: &mut LocalScope, sink: &Rc<Sink>, type_: Type, dp:
             }
             sink.writeln("call $f___WAC_id_release");
         }
-        Type::UserDefined(_) => {
-            if type_.is_enum() {
-                // nothing to do, enums don't allocate memory
-            } else {
-                assert!(type_.is_record());
-                panic!("TODO: release record")
-            }
-        }
+        Type::Record(_) => panic!("TODO: release record"),
     }
 }
 
@@ -89,7 +79,8 @@ pub(super) fn release(lscope: &mut LocalScope, sink: &Rc<Sink>, type_: Type, dp:
 /// overall, should leave the stack unchanged
 pub(super) fn release_var(sink: &Rc<Sink>, scope: Scope, wasm_name: &Rc<str>, type_: Type) {
     match type_ {
-        Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Type => {}
+        Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Type | Type::Enum(_) => {
+        }
         Type::String => {
             sink.writeln(format!("{}.get {}", scope, wasm_name));
             sink.writeln("call $f___WAC_str_release");
@@ -102,13 +93,6 @@ pub(super) fn release_var(sink: &Rc<Sink>, scope: Scope, wasm_name: &Rc<str>, ty
             sink.writeln(format!("{}.get {}", scope, wasm_name));
             sink.writeln("call $f___WAC_id_release");
         }
-        Type::UserDefined(_) => {
-            if type_.is_enum() {
-                // nothing to do, enums don't allocate memory
-            } else {
-                assert!(type_.is_record());
-                panic!("TODO: release_var record")
-            }
-        }
+        Type::Record(_) => panic!("TODO: release_var record"),
     }
 }

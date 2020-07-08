@@ -8,6 +8,8 @@ pub struct File {
     pub functions: Vec<Function>,
     pub traits: Vec<Trait>,
     pub impls: Vec<Impl>,
+    pub enums: Vec<Enum>,
+    pub records: Vec<Record>,
     pub globalvars: Vec<GlobalVariable>,
 }
 
@@ -47,14 +49,16 @@ pub enum Visibility {
 
 pub struct Enum {
     pub span: SSpan,
+    pub type_offset: u16,
     pub name: Rc<str>,
     pub members: Vec<Rc<str>>,
 }
 
 pub struct Record {
     pub span: SSpan,
+    pub type_offset: u16,
     pub name: Rc<str>,
-    pub members: Vec<Rc<str>>,
+    pub fields: Vec<(Rc<str>, Type)>,
 }
 
 pub struct Trait {
@@ -255,34 +259,19 @@ pub enum Type {
     List,
     Id,
 
-    /// User defined type
-    /// The tag is (the given u16 value) + 1 + TAG_ID
-    ///
-    /// odd tag means it's an enum,
-    /// even tag means it's a record
-    UserDefined(u16),
+    // the tag is (smallest odd number > TAG_ID) + 2 * (given u16)
+    Enum(u16),
+
+    // the tag is (smallest even number > TAG_ID) + 2 * (given u16)
+    Record(u16),
 }
 
 impl Type {
     pub fn first_enum_tag() -> i32 {
-        let first_user_type = Type::UserDefined(0);
-        if first_user_type.is_enum() {
-            first_user_type.tag()
-        } else {
-            let second_user_type = Type::UserDefined(1);
-            assert!(second_user_type.is_enum());
-            second_user_type.tag()
-        }
+        Type::Enum(0).tag()
     }
     pub fn first_record_tag() -> i32 {
-        let first_user_type = Type::UserDefined(0);
-        if first_user_type.is_record() {
-            first_user_type.tag()
-        } else {
-            let second_user_type = Type::UserDefined(1);
-            assert!(second_user_type.is_record());
-            second_user_type.tag()
-        }
+        Type::Record(0).tag()
     }
     pub fn tag(self) -> i32 {
         match self {
@@ -295,19 +284,34 @@ impl Type {
             Type::String => TAG_STRING,
             Type::List => TAG_LIST,
             Type::Id => TAG_ID,
-            Type::UserDefined(offset) => TAG_ID + 1 + (offset as i32),
+            Type::Enum(offset) => {
+                if (TAG_ID + 1) % 2 == 1 {
+                    TAG_ID + 1 + 2 * (offset as i32)
+                } else {
+                    TAG_ID + 2 + 2 * (offset as i32)
+                }
+            }
+            Type::Record(offset) => {
+                if (TAG_ID + 1) % 2 == 0 {
+                    TAG_ID + 1 + 2 * (offset as i32)
+                } else {
+                    TAG_ID + 2 + 2 * (offset as i32)
+                }
+            }
         }
     }
     pub fn is_enum(self) -> bool {
-        match self {
-            Type::UserDefined(_) if self.tag() % 2 == 1 => true,
-            _ => false,
+        if let Type::Enum(_) = self {
+            true
+        } else {
+            false
         }
     }
     pub fn is_record(self) -> bool {
-        match self {
-            Type::UserDefined(_) if !self.is_enum() => true,
-            _ => false,
+        if let Type::Record(_) = self {
+            true
+        } else {
+            false
         }
     }
     pub fn name(&self) -> &'static str {
@@ -321,13 +325,14 @@ impl Type {
             Type::String => "str",
             Type::List => "list",
             Type::Id => "id",
-            Type::UserDefined(_) => "UserDefined",
+            Type::Enum(_) => "Enum",
+            Type::Record(_) => "Record",
         }
     }
     pub fn primitive(self) -> bool {
         match self {
             Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Bool | Type::Type => true,
-            Type::String | Type::List | Type::Id | Type::UserDefined(_) => false,
+            Type::String | Type::List | Type::Id | Type::Enum(_) | Type::Record(_) => false,
         }
     }
     pub fn wasm(self) -> WasmType {
@@ -341,7 +346,8 @@ impl Type {
             Type::String => WasmType::I32,
             Type::List => WasmType::I32,
             Type::Id => WasmType::I64,
-            Type::UserDefined(_) => WasmType::I32,
+            Type::Enum(_) => WasmType::I32,
+            Type::Record(_) => WasmType::I32,
         }
     }
 }

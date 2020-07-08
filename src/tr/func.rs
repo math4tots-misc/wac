@@ -33,7 +33,7 @@ pub(super) fn translate_impl(
             span: imp.span.clone(),
             expected: format!("{}", trait_info.type_),
             got: format!("{}", imp.type_),
-        })
+        });
     }
 
     // create the function associated with this impl

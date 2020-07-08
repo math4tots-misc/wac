@@ -6,21 +6,28 @@ use crate::SSpan;
 use crate::Source;
 use crate::Span;
 use crate::Token;
+use crate::Type;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 pub struct Parser<'a> {
     source: Rc<Source>,
     i: usize,
     tokens_and_spans: Vec<(Token<'a>, Span)>,
+    user_type_map: &'a Option<HashMap<Rc<str>, Type>>,
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(source: &'a Rc<Source>) -> Result<Self, LexError> {
+    pub fn new(
+        source: &'a Rc<Source>,
+        user_type_map: &'a Option<HashMap<Rc<str>, Type>>,
+    ) -> Result<Self, LexError> {
         let tokens_and_spans = lex(&source.data)?;
         Ok(Self {
             source: source.clone(),
             i: 0,
             tokens_and_spans,
+            user_type_map,
         })
     }
     pub fn peek(&self) -> Token<'a> {
@@ -97,6 +104,26 @@ impl<'a> Parser<'a> {
                 expected: "String".into(),
                 got: format!("{:?}", self.peek()),
             }),
+        }
+    }
+    pub fn get_user_defined_type(
+        &mut self,
+        span: &SSpan,
+        name: &Rc<str>,
+    ) -> Result<Type, ParseError> {
+        match self.user_type_map {
+            Some(map) => match map.get(name) {
+                Some(r) => Ok(*r),
+                None => Err(ParseError::InvalidToken {
+                    span: span.clone(),
+                    expected: "enum or record".into(),
+                    got: "user defined type not found".into(),
+                }),
+            },
+            None => {
+                // If no map is provided, return a dummy type
+                Ok(Type::Enum(0))
+            }
         }
     }
 }

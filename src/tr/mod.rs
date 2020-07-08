@@ -59,7 +59,34 @@ pub fn translate(sources: Vec<(Rc<str>, Rc<str>)>) -> Result<String, Error> {
     translate_files(files)
 }
 
-pub fn parse_files(mut sources: Vec<(Rc<str>, Rc<str>)>) -> Result<Vec<(Rc<str>, File)>, Error> {
+pub fn parse_files(sources: Vec<(Rc<str>, Rc<str>)>) -> Result<Vec<(Rc<str>, File)>, Error> {
+    // This is a terrible hack
+    // we parse the the input twice,
+    // first to get a list of all user defined types and what they are (i.e.
+    // enum or record?)
+    // then we do the parse a second time, this time knowing ahead of time
+    // what all the user defined types are
+    let files = parse_files0(sources.clone(), None)?;
+
+    let mut user_type_map = HashMap::new();
+    for file in files {
+        for en in file.1.enums {
+            let type_ = Type::Enum(en.type_offset);
+            user_type_map.insert(en.name, type_);
+        }
+        for rec in file.1.records {
+            let type_ = Type::Record(rec.type_offset);
+            user_type_map.insert(rec.name, type_);
+        }
+    }
+
+    parse_files0(sources, Some(user_type_map))
+}
+
+fn parse_files0(
+    mut sources: Vec<(Rc<str>, Rc<str>)>,
+    user_type_map: Option<HashMap<Rc<str>, Type>>,
+) -> Result<Vec<(Rc<str>, File)>, Error> {
     let prelude = vec![
         ("[prelude:lang]".into(), crate::prelude::LANG.into()),
         ("[prelude:malloc]".into(), crate::prelude::MALLOC.into()),
@@ -81,7 +108,7 @@ pub fn parse_files(mut sources: Vec<(Rc<str>, Rc<str>)>) -> Result<Vec<(Rc<str>,
             name: filename.clone(),
             data: data.clone(),
         });
-        let mut parser = match Parser::new(&source) {
+        let mut parser = match Parser::new(&source, &user_type_map) {
             Ok(parser) => parser,
             Err(error) => return Err(Error::from_lex(source.clone(), error)),
         };
@@ -262,7 +289,8 @@ pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
         let mut meta_itable_bytes = Vec::<u8>::new();
         meta_itable_bytes.resize_with(meta_itable_size, || 0);
 
-        let mut impls_vec: Vec<(Type, HashMap<i32, Rc<ImplInfo>>)> = gscope.impls_map.clone().into_iter().collect();
+        let mut impls_vec: Vec<(Type, HashMap<i32, Rc<ImplInfo>>)> =
+            gscope.impls_map.clone().into_iter().collect();
         impls_vec.sort_by(|a, b| a.0.tag().cmp(&b.0.tag()));
 
         for (type_, map) in impls_vec {
@@ -287,7 +315,7 @@ pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
 
             // add the entry in the meta itable that points to this itable
             // the itable start position
-            meta_itable_bytes[tag * 8    ..tag * 8 + 4].copy_from_slice(&itable_start.to_le_bytes());
+            meta_itable_bytes[tag * 8..tag * 8 + 4].copy_from_slice(&itable_start.to_le_bytes());
             // the itable end position
             meta_itable_bytes[tag * 8 + 4..tag * 8 + 8].copy_from_slice(&itable_end.to_le_bytes());
         }
@@ -296,8 +324,14 @@ pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
         let meta_itable_start = out.data(&meta_itable_bytes);
         let meta_itable_end = meta_itable_start + (meta_itable_bytes.len() as u32);
 
-        out.gvars.writeln(format!("(global $rt_meta_itable_start i32 (i32.const {}))", meta_itable_start));
-        out.gvars.writeln(format!("(global $rt_meta_itable_end   i32 (i32.const {}))", meta_itable_end));
+        out.gvars.writeln(format!(
+            "(global $rt_meta_itable_start i32 (i32.const {}))",
+            meta_itable_start
+        ));
+        out.gvars.writeln(format!(
+            "(global $rt_meta_itable_end   i32 (i32.const {}))",
+            meta_itable_end
+        ));
     }
 
     // initialize the wasm table with all the impls so that they
