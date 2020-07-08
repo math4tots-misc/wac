@@ -58,6 +58,7 @@ fn __WAC_id_release[notrace](x i64) {
         tag is i64 or
         tag is f32 or
         tag is f64 or
+        tag is type or
         tag is bool
     ) {
         # these are primitives, so nothing more to do here
@@ -79,6 +80,7 @@ fn __WAC_id_retain[notrace](x i64) {
         tag is i64 or
         tag is f32 or
         tag is f64 or
+        tag is type or
         tag is bool
     ) {
         # these are primitives, so nothing more to do here
