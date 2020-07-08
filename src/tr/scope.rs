@@ -193,6 +193,10 @@ impl<'a> LocalScope<'a> {
         }
     }
     pub(super) fn helper_shared(&mut self, name: &str, type_: Type) {
+        // it should be ok, but just to be extra safe, only allow
+        // primitive shared values
+        assert!(type_.primitive());
+
         assert!(name.starts_with("$rt_"));
         if let Some(old_type) = self.helper_locals.get(name) {
             assert_eq!(*old_type, type_);
@@ -200,6 +204,10 @@ impl<'a> LocalScope<'a> {
         self.helper_locals.insert(name.into(), type_);
     }
     pub(super) fn helper_unique(&mut self, type_: Type) -> Rc<str> {
+        // it should be ok, but just to be extra safe, only allow
+        // primitive shared values
+        assert!(type_.primitive());
+
         let name: Rc<str> = format!("$rtu_{}", self.next_unique_helper_id).into();
         self.next_unique_helper_id += 1;
         if let Some(old_type) = self.helper_locals.get(&name) {
