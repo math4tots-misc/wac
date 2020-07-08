@@ -5,6 +5,14 @@ fn __test_sanity() {
 }
 
 fn __test_size_of() {
+    # Cases where the impl can be determined
+    # at compile time
     Assert(SizeOf([1, 2, 3]) is 3)
     Assert(SizeOf("hello") is 5)
+
+    # Cases where the impl has to be looked up at runtime
+    var x id = [1, 2, 3, 4, 5]
+    Assert(SizeOf(x) is 5)
+    x = "hello world"
+    Assert(SizeOf(x) is 11)
 }

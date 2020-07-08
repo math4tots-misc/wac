@@ -21,6 +21,7 @@ pub(super) fn translate_fcall(
     }
 
     let mut trait_type_var = None;
+    let mut trait_receiver_type = None;
 
     for (i, (argexpr, (_pname, ptype))) in argexprs.iter().zip(&ftype.parameters).enumerate() {
         translate_expr(out, sink, lscope, ReturnType::Value(*ptype), argexpr)?;
@@ -28,20 +29,32 @@ pub(super) fn translate_fcall(
         if i == 0 {
             match &fentry {
                 FunctionEntry::Trait(_) => {
-                    // for traits, we need to save the dynamic type of the first argument
-                    // for the actual call later
-                    assert_eq!(*ptype, Type::Id);
+                    // we want to check the receiver type, to see if we can find the
+                    // actual function directly
+                    let receiver_type = guess_type(lscope, argexpr)?;
 
-                    let varname = lscope.helper_unique(Type::I32);
+                    if let Type::Id = receiver_type {
+                        // for id receivers, we need to save the dynamic type of the first argument
+                        // for the actual call later
+                        assert_eq!(*ptype, Type::Id);
 
-                    raw_dup(lscope, sink, WasmType::I64);
+                        let varname = lscope.helper_unique(Type::I32);
 
-                    sink.writeln("i64.const 32");
-                    sink.writeln("i64.shr_u");
-                    sink.writeln("i32.wrap_i64");
-                    sink.writeln(format!("local.set {}", varname));
+                        raw_dup(lscope, sink, WasmType::I64);
 
-                    trait_type_var = Some(varname);
+                        sink.writeln("i64.const 32");
+                        sink.writeln("i64.shr_u");
+                        sink.writeln("i32.wrap_i64");
+                        sink.writeln(format!("local.set {}", varname));
+
+                        trait_type_var = Some(varname);
+                    } else {
+                        // in this case, the receiver_type is not 'id', so we can
+                        // retrieve it directly
+                        //
+                        // NOTE: we still pass the argument as an 'id'.
+                        trait_receiver_type = Some(receiver_type);
+                    }
                 }
                 FunctionEntry::Function(_) => {}
             }
@@ -91,14 +104,34 @@ pub(super) fn translate_fcall(
             sink.writeln(format!("call $f_{}", info.name));
         }
         FunctionEntry::Trait(info) => {
-            let trait_type_var = trait_type_var.unwrap();
-            sink.writeln(format!("local.get {}", trait_type_var));
-            sink.writeln(format!("i32.const {}", info.id));
-            sink.writeln("call $f___WAC_find_funcptr");
-            sink.writeln(format!(
-                "call_indirect {}",
-                translate_func_type(&info.type_)
-            ));
+            match trait_receiver_type {
+                Some(receiver_type) => {
+                    // if we get here, it means we could determine
+                    // the actual receiver type
+                    match lscope.g.get_impl(receiver_type, info.id) {
+                        Some(impl_info) => {
+                            sink.writeln(format!("call $f_{}", impl_info.fname));
+                        }
+                        None => {
+                            return Err(Error::Type {
+                                span: span.clone(),
+                                expected: format!("{} trait impl", info.name),
+                                got: format!("no matching impl found for {}", receiver_type),
+                            })
+                        }
+                    }
+                }
+                None => {
+                    let trait_type_var = trait_type_var.unwrap();
+                    sink.writeln(format!("local.get {}", trait_type_var));
+                    sink.writeln(format!("i32.const {}", info.id));
+                    sink.writeln("call $f___WAC_find_funcptr");
+                    sink.writeln(format!(
+                        "call_indirect {}",
+                        translate_func_type(&info.type_)
+                    ));
+                }
+            }
         }
     }
 

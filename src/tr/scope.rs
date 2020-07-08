@@ -143,6 +143,16 @@ impl GlobalScope {
         self.impls.push(info.clone());
         Ok(info)
     }
+
+    pub(super) fn get_impl(&self, receiver_type: Type, trait_id: i32) -> Option<Rc<ImplInfo>> {
+        match self.impls_map.get(&receiver_type).and_then(|map| map.get(&trait_id)) {
+            Some(info) => Some(info.clone()),
+            None => {
+                // if there's no exact match, check to see if there is an 'id' impl
+                self.impls_map.get(&Type::Id).and_then(|map| map.get(&trait_id)).cloned()
+            }
+        }
+    }
 }
 
 pub(super) struct ConstantInfo {
