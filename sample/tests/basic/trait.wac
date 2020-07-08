@@ -1,0 +1,19 @@
+
+
+fn __test_trait_fallback_dynamic() {
+    var x id = 10
+    Assert(FallbackTestTrait(x) is 444)
+
+    x = "hello"
+    Assert(FallbackTestTrait(x) is 555)
+}
+
+trait FallbackTestTrait(self) i32
+
+impl i32 FallbackTestTrait(self) i32 {
+    444
+}
+
+impl id FallbackTestTrait(self) i32 {
+    555
+}

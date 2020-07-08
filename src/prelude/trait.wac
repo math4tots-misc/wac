@@ -19,6 +19,26 @@ fn __WAC_find_funcptr[notrace](type_tag i32, trait_id i32) i32 {
     }
 
     if looking {
+        # If we couldn't find an exact match, look for
+        # an 'id' impl
+        meta_itable_entry = (
+            $asm([], i32, "global.get $rt_meta_itable_start") +
+            ($asm([], i32, "global.get $rt_tag_id") * 8)
+        )
+        itable_start = __read(meta_itable_entry)
+        itable_end = __read(meta_itable_entry + 4)
+        i = itable_start
+
+        while looking and i < itable_end {
+            if __read(i) is trait_id {
+                result = __read(i + 4)
+                looking = false
+            }
+            i = i + 8
+        }
+    }
+
+    if looking {
         NoTracePanic("matching impl not found")
     }
 
