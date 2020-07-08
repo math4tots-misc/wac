@@ -10,6 +10,7 @@ mod sink;
 mod start;
 mod tr;
 mod wfs;
+mod tmap;
 
 extern crate wasmer_runtime as wr;
 
@@ -23,6 +24,8 @@ pub use rn::*;
 pub use sink::*;
 pub use start::*;
 pub use tr::*;
+
+use tmap::*;
 
 #[cfg(test)]
 mod tests {

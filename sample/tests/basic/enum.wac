@@ -1,0 +1,13 @@
+
+
+fn __test_enum() {
+    Assert(BasicEnum.A is BasicEnum.A)
+    Assert(BasicEnum.B is BasicEnum.B)
+    Assert(BasicEnum.B is not BasicEnum.C)
+}
+
+enum BasicEnum {
+    A,
+    B,
+    C,
+}

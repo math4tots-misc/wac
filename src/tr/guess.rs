@@ -22,6 +22,13 @@ pub(super) fn guess_type(lscope: &mut LocalScope, expr: &Expr) -> Result<Type, E
     }
 }
 
+pub(super) fn get_type_from_expr(_lscope: &mut LocalScope, expr: &Expr) -> Option<Type> {
+    match expr {
+        Expr::GetVar(_, name) => Type::from_name(name),
+        _ => None,
+    }
+}
+
 /// tries to guess the type of an expression that must return some value
 /// returning void will cause an error to be returned
 pub(super) fn guess_return_type(lscope: &mut LocalScope, expr: &Expr) -> Result<ReturnType, Error> {
@@ -57,6 +64,23 @@ pub(super) fn guess_return_type(lscope: &mut LocalScope, expr: &Expr) -> Result<
             Ok(ret)
         }
         Expr::While(..) => Ok(ReturnType::Void),
+        Expr::GetAttr(_span, owner, _field) => {
+            match get_type_from_expr(lscope, owner) {
+                Some(type_) => match type_ {
+                    Type::Enum(_) => Ok(ReturnType::Value(type_)),
+                    _ => Err(Error::Type {
+                        span: owner.span().clone(),
+                        expected: "expression".into(),
+                        got: format!("type {}", type_),
+                    })
+                }
+                None => Err(Error::Type {
+                    span: owner.span().clone(),
+                    expected: "enum".into(),
+                    got: format!("{} expression", guess_type(lscope, expr)?),
+                })
+            }
+        }
         Expr::Binop(_span, op, left, right) => Ok(ReturnType::Value(match op {
             // == binops ==
             // equality ops

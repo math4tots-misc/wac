@@ -1,4 +1,7 @@
 use crate::SSpan;
+use crate::get_name_for_record_type_with_offset;
+use crate::get_name_for_enum_type_with_offset;
+use crate::get_user_defined_type_from_name;
 use std::fmt;
 use std::rc::Rc;
 
@@ -105,6 +108,8 @@ pub enum Expr {
     If(SSpan, Vec<(Expr, Expr)>, Box<Expr>),
     While(SSpan, Box<Expr>, Box<Expr>),
 
+    GetAttr(SSpan, Box<Expr>, Rc<str>),
+
     // builtin operators
     Binop(SSpan, Binop, Box<Expr>, Box<Expr>),
     Unop(SSpan, Unop, Box<Expr>),
@@ -130,6 +135,7 @@ impl Expr {
             Expr::FunctionCall(span, ..) => span,
             Expr::If(span, ..) => span,
             Expr::While(span, ..) => span,
+            Expr::GetAttr(span, ..) => span,
             Expr::Binop(span, ..) => span,
             Expr::Unop(span, ..) => span,
             Expr::AssertType(span, ..) => span,
@@ -258,20 +264,24 @@ pub enum Type {
     String,
     List,
     Id,
-
-    // the tag is (smallest odd number > TAG_ID) + 2 * (given u16)
     Enum(u16),
-
-    // the tag is (smallest even number > TAG_ID) + 2 * (given u16)
     Record(u16),
 }
 
 impl Type {
-    pub fn first_enum_tag() -> i32 {
-        Type::Enum(0).tag()
-    }
-    pub fn first_record_tag() -> i32 {
-        Type::Record(0).tag()
+    pub fn from_name(name: &str) -> Option<Type> {
+        match name {
+            "i32" => Some(Type::I32),
+            "i64" => Some(Type::I64),
+            "f32" => Some(Type::F32),
+            "f64" => Some(Type::F64),
+            "bool" => Some(Type::Bool),
+            "type" => Some(Type::Type),
+            "str" => Some(Type::String),
+            "list" => Some(Type::List),
+            "id" => Some(Type::Id),
+            _ => get_user_defined_type_from_name(name),
+        }
     }
     pub fn tag(self) -> i32 {
         match self {
@@ -284,27 +294,18 @@ impl Type {
             Type::String => TAG_STRING,
             Type::List => TAG_LIST,
             Type::Id => TAG_ID,
-            Type::Enum(offset) => {
-                if (TAG_ID + 1) % 2 == 1 {
-                    TAG_ID + 1 + 2 * (offset as i32)
-                } else {
-                    TAG_ID + 2 + 2 * (offset as i32)
-                }
+            // enums always have an odd tag
+            Type::Enum(offset) => if (TAG_ID + 1) % 2 == 1 {
+                (TAG_ID + 1) + 2 * (offset as i32)
+            } else {
+                (TAG_ID + 2) + 2 * (offset as i32)
             }
-            Type::Record(offset) => {
-                if (TAG_ID + 1) % 2 == 0 {
-                    TAG_ID + 1 + 2 * (offset as i32)
-                } else {
-                    TAG_ID + 2 + 2 * (offset as i32)
-                }
-            }
-        }
-    }
-    pub fn is_enum(self) -> bool {
-        if let Type::Enum(_) = self {
-            true
-        } else {
-            false
+            // records always have an even tag
+            Type::Record(offset) => if (TAG_ID + 1) % 2 == 0 {
+                (TAG_ID + 1) + 2 * (offset as i32)
+            } else {
+                (TAG_ID + 2) + 2 * (offset as i32)
+            },
         }
     }
     pub fn is_record(self) -> bool {
@@ -314,25 +315,25 @@ impl Type {
             false
         }
     }
-    pub fn name(&self) -> &'static str {
+    fn name(&self) -> Rc<str> {
         match self {
-            Type::I32 => "i32",
-            Type::I64 => "i64",
-            Type::F32 => "f32",
-            Type::F64 => "f64",
-            Type::Bool => "bool",
-            Type::Type => "type",
-            Type::String => "str",
-            Type::List => "list",
-            Type::Id => "id",
-            Type::Enum(_) => "Enum",
-            Type::Record(_) => "Record",
+            Type::I32 => "i32".into(),
+            Type::I64 => "i64".into(),
+            Type::F32 => "f32".into(),
+            Type::F64 => "f64".into(),
+            Type::Bool => "bool".into(),
+            Type::Type => "type".into(),
+            Type::String => "str".into(),
+            Type::List => "list".into(),
+            Type::Id => "id".into(),
+            Type::Enum(offset) => get_name_for_enum_type_with_offset(*offset),
+            Type::Record(offset) => get_name_for_record_type_with_offset(*offset),
         }
     }
     pub fn primitive(self) -> bool {
         match self {
-            Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Bool | Type::Type => true,
-            Type::String | Type::List | Type::Id | Type::Enum(_) | Type::Record(_) => false,
+            Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Bool | Type::Type | Type::Enum(_) => true,
+            Type::String | Type::List | Type::Id | Type::Record(_) => false,
         }
     }
     pub fn wasm(self) -> WasmType {

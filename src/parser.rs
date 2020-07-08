@@ -1,5 +1,6 @@
 //! Relatively language agnostic tools for parsing
 //! for grammer stuff, see parsef.rs
+use crate::get_user_defined_type_from_name;
 use crate::lex;
 use crate::LexError;
 use crate::SSpan;
@@ -7,27 +8,38 @@ use crate::Source;
 use crate::Span;
 use crate::Token;
 use crate::Type;
-use std::collections::HashMap;
 use std::rc::Rc;
 
 pub struct Parser<'a> {
     source: Rc<Source>,
     i: usize,
     tokens_and_spans: Vec<(Token<'a>, Span)>,
-    user_type_map: &'a Option<HashMap<Rc<str>, Type>>,
+
+    /// we make this distinction because we parse the input twice,
+    /// first to fill in the global type information for user
+    /// defined types, then the second time for the final results.
+    ///
+    /// the first time around, if we encounter a user defined type that
+    /// we don't recognize, we just want to move on with a dummy type
+    ///
+    /// the second time around, if we encounter an unrecognized user
+    /// defined type, that's actually an error
+    ///
+    /// this flag controls which of the above two behaviors to exhibit
+    strict_about_user_defined_types: bool,
 }
 
 impl<'a> Parser<'a> {
     pub fn new(
         source: &'a Rc<Source>,
-        user_type_map: &'a Option<HashMap<Rc<str>, Type>>,
+        strict_about_user_defined_types: bool,
     ) -> Result<Self, LexError> {
         let tokens_and_spans = lex(&source.data)?;
         Ok(Self {
             source: source.clone(),
             i: 0,
             tokens_and_spans,
-            user_type_map,
+            strict_about_user_defined_types,
         })
     }
     pub fn peek(&self) -> Token<'a> {
@@ -111,18 +123,19 @@ impl<'a> Parser<'a> {
         span: &SSpan,
         name: &Rc<str>,
     ) -> Result<Type, ParseError> {
-        match self.user_type_map {
-            Some(map) => match map.get(name) {
-                Some(r) => Ok(*r),
-                None => Err(ParseError::InvalidToken {
-                    span: span.clone(),
-                    expected: "enum or record".into(),
-                    got: "user defined type not found".into(),
-                }),
-            },
+        match get_user_defined_type_from_name(name) {
+            Some(t) => Ok(t),
             None => {
-                // If no map is provided, return a dummy type
-                Ok(Type::Enum(0))
+                if self.strict_about_user_defined_types {
+                    Err(ParseError::InvalidToken {
+                        span: span.clone(),
+                        expected: "enum or record".into(),
+                        got: "user defined type not found".into(),
+                    })
+                } else {
+                    // If not in strict mode, return a dummy type
+                    Ok(Type::Enum(0xFFFF))
+                }
             }
         }
     }

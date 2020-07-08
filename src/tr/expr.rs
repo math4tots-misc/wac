@@ -246,6 +246,34 @@ pub(super) fn translate_expr(
 
             auto_cast(sink, span, lscope, ReturnType::Void, etype)?;
         }
+        Expr::GetAttr(_span, owner, field) => {
+            match get_type_from_expr(lscope, owner) {
+                Some(type_) => match type_ {
+                    Type::Enum(_) => {
+                        match get_enum_value_from_name(type_, field) {
+                            Some(value) => {
+                                sink.writeln(format!("(i32.const {})", value));
+                            }
+                            None => return Err(Error::Type {
+                                span: owner.span().clone(),
+                                expected: format!("{} in enum {}", field, type_),
+                                got: "not found".into(),
+                            })
+                        }
+                    },
+                    _ => return Err(Error::Type {
+                        span: owner.span().clone(),
+                        expected: "expression".into(),
+                        got: format!("type {}", type_),
+                    })
+                }
+                None => return Err(Error::Type {
+                    span: owner.span().clone(),
+                    expected: "enum".into(),
+                    got: format!("{} expression", guess_type(lscope, expr)?),
+                })
+            }
+        }
         Expr::Binop(span, op, left, right) => {
             // == binops ==
             // equality ops
@@ -289,11 +317,11 @@ pub(super) fn translate_expr(
                         (Binop::Is, Type::F32) => "f32.eq",
                         (Binop::Is, _) => "i32.eq",
 
-                        (Binop::IsNot, Type::Id) => "i64.eq",
-                        (Binop::IsNot, Type::I64) => "i64.eq",
-                        (Binop::IsNot, Type::F64) => "f64.eq",
-                        (Binop::IsNot, Type::F32) => "f32.eq",
-                        (Binop::IsNot, _) => "i32.eq",
+                        (Binop::IsNot, Type::Id) => "i64.ne",
+                        (Binop::IsNot, Type::I64) => "i64.ne",
+                        (Binop::IsNot, Type::F64) => "f64.ne",
+                        (Binop::IsNot, Type::F32) => "f32.ne",
+                        (Binop::IsNot, _) => "i32.ne",
 
                         (Binop::Equal, _) => panic!("TODO translate_expr =="),
                         (Binop::NotEqual, _) => panic!("TODO translate_expr !="),

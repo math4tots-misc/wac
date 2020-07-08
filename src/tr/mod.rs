@@ -7,6 +7,10 @@ use crate::Parser;
 use crate::SSpan;
 use crate::Sink;
 use crate::Source;
+use crate::GlobalTypeInfo;
+use crate::set_global_typeinfo;
+use crate::get_enum_value_from_name;
+use crate::get_tag_limit;
 use std::cell::Cell;
 use std::collections::HashMap;
 // use std::collections::HashSet;
@@ -66,26 +70,25 @@ pub fn parse_files(sources: Vec<(Rc<str>, Rc<str>)>) -> Result<Vec<(Rc<str>, Fil
     // enum or record?)
     // then we do the parse a second time, this time knowing ahead of time
     // what all the user defined types are
-    let files = parse_files0(sources.clone(), None)?;
+    let files = parse_files0(sources.clone(), false)?;
 
-    let mut user_type_map = HashMap::new();
+    let mut typeinfo = GlobalTypeInfo::new();
     for file in files {
         for en in file.1.enums {
-            let type_ = Type::Enum(en.type_offset);
-            user_type_map.insert(en.name, type_);
+            typeinfo.decl_enum(en.name.clone(), en.members);
         }
         for rec in file.1.records {
-            let type_ = Type::Record(rec.type_offset);
-            user_type_map.insert(rec.name, type_);
+            typeinfo.decl_record(rec.name.clone());
         }
     }
+    set_global_typeinfo(typeinfo);
 
-    parse_files0(sources, Some(user_type_map))
+    parse_files0(sources, true)
 }
 
 fn parse_files0(
     mut sources: Vec<(Rc<str>, Rc<str>)>,
-    user_type_map: Option<HashMap<Rc<str>, Type>>,
+    strict_about_user_defined_types: bool,
 ) -> Result<Vec<(Rc<str>, File)>, Error> {
     let prelude = vec![
         ("[prelude:lang]".into(), crate::prelude::LANG.into()),
@@ -109,7 +112,7 @@ fn parse_files0(
             name: filename.clone(),
             data: data.clone(),
         });
-        let mut parser = match Parser::new(&source, &user_type_map) {
+        let mut parser = match Parser::new(&source, strict_about_user_defined_types) {
             Ok(parser) => parser,
             Err(error) => return Err(Error::from_lex(source.clone(), error)),
         };
@@ -280,10 +283,7 @@ pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
 
     // write out the itables for each type
     {
-        // for now, let's only assume builtin types
-        // in the future though, this will need to be adjusted
-        // to account for user defined types
-        let ntypes = TAG_ID + 1;
+        let ntypes = get_tag_limit();
 
         // the meta itable maps each type tag to their itables' start and end ptrs
         let meta_itable_size = (ntypes * 8) as usize;

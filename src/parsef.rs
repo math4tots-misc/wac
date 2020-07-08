@@ -240,8 +240,9 @@ fn parse_enum(parser: &mut Parser) -> Result<Enum, ParseError> {
         consume_delim(parser);
     }
     let span = span.upto(&parser.span());
+
     let type_offset = match parser.get_user_defined_type(&span, &name)? {
-        Type::Enum(offset) => offset,
+        // Type::Enum(offset) => offset,
         // yea, it might be broken here, but for the first parse
         // we don't care. For the second parse, this should be caught
         // later during translation
@@ -502,6 +503,16 @@ fn parse_infix(parser: &mut Parser, mut lhs: Expr, prec: u32) -> Result<Expr, Pa
                         })
                     }
                 }
+            }
+            Token::Dot => {
+                if prec > PREC_POSTFIX {
+                    break;
+                }
+                let span = parser.span();
+                parser.gettok();
+                let name = parser.expect_name()?;
+                let span = span.join(&start).upto(&parser.span());
+                lhs = Expr::GetAttr(span, lhs.into(), name);
             }
             Token::Plus | Token::Minus => {
                 if prec > PREC_SUM {

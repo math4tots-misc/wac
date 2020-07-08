@@ -28,6 +28,7 @@ pub enum Token<'a> {
     Caret,
     Ampersand,
     VerticalBar,
+    Dot,
     Lt,
     Le,
     Gt,
@@ -248,6 +249,7 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
                 '^' => ret.push((Token::Caret, chars.span(i, i + 1))),
                 '&' => ret.push((Token::Ampersand, chars.span(i, i + 1))),
                 '|' => ret.push((Token::VerticalBar, chars.span(i, i + 1))),
+                '.' => ret.push((Token::Dot, chars.span(i, i + 1))),
                 '=' | '!' | '<' | '>' | '/' => state = State::Combine(c),
                 _ => {
                     return Err(LexError::Unrecognized {
