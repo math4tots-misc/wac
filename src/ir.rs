@@ -6,6 +6,8 @@ pub struct File {
     pub imports: Vec<Import>,
     pub constants: Vec<Constant>,
     pub functions: Vec<Function>,
+    pub traits: Vec<Trait>,
+    pub impls: Vec<Impl>,
     pub globalvars: Vec<GlobalVariable>,
 }
 
@@ -41,6 +43,20 @@ impl ConstValue {
 pub enum Visibility {
     Private,
     Public,
+}
+
+pub struct Trait {
+    pub span: SSpan,
+    pub name: Rc<str>,
+    pub type_: FunctionType,
+}
+
+pub struct Impl {
+    pub span: SSpan,
+    pub receiver_type: Type,
+    pub trait_name: Rc<str>,
+    pub type_: FunctionType,
+    pub body: Expr,
 }
 
 pub struct Function {
@@ -300,6 +316,10 @@ pub struct FunctionType {
     /// it may be better for performance to set this to false.
     /// By default, this is true.
     pub trace: bool,
+
+    /// if true, this is a Trait,
+    /// otherwise, this is a normal function
+    pub dynamic: bool,
 }
 
 impl From<Type> for ReturnType {

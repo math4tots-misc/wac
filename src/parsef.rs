@@ -30,7 +30,7 @@ pub fn parse_file(parser: &mut Parser) -> Result<File, ParseError> {
         let module_name = parser.expect_string()?;
         let function_name = parser.expect_string()?;
         let alias = parser.expect_name()?;
-        let type_ = parse_function_type(parser)?;
+        let type_ = parse_function_type(parser, false)?;
         let span = span.upto(&parser.span());
         consume_delim(parser);
         imports.push(Import::Function(FunctionImport {
@@ -43,12 +43,16 @@ pub fn parse_file(parser: &mut Parser) -> Result<File, ParseError> {
     }
     let mut globalvars = Vec::new();
     let mut functions = Vec::new();
+    let mut traits = Vec::new();
+    let mut impls = Vec::new();
     let mut constants = Vec::new();
     let mut constants_map = HashMap::new();
     consume_delim(parser);
     while !parser.at(Token::EOF) {
         match parser.peek() {
             Token::Name("fn") => functions.push(parse_func(parser)?),
+            Token::Name("trait") => traits.push(parse_trait(parser)?),
+            Token::Name("impl") => impls.push(parse_impl(parser)?),
             Token::Name("var") => globalvars.push(parse_globalvar(parser)?),
             Token::Name("const") => constants.push(parse_constant(parser, &mut constants_map)?),
             _ => {
@@ -65,6 +69,8 @@ pub fn parse_file(parser: &mut Parser) -> Result<File, ParseError> {
         imports,
         constants,
         functions,
+        traits,
+        impls,
         globalvars,
     })
 }
@@ -131,13 +137,43 @@ fn parse_func(parser: &mut Parser) -> Result<Function, ParseError> {
         }
     }
     let name = parser.expect_name()?;
-    let type_ = parse_function_type(parser)?;
+    let type_ = parse_function_type(parser, false)?;
     let body = parse_block(parser)?;
     let span = span.upto(&parser.span());
     Ok(Function {
         span,
         visibility,
         name,
+        type_,
+        body,
+    })
+}
+
+fn parse_trait(parser: &mut Parser) -> Result<Trait, ParseError> {
+    let span = parser.span();
+    parser.expect(Token::Name("trait"))?;
+    let name = parser.expect_name()?;
+    let type_ = parse_function_type(parser, true)?;
+    let span = span.upto(&parser.span());
+    Ok(Trait {
+        span,
+        name,
+        type_,
+    })
+}
+
+fn parse_impl(parser: &mut Parser) -> Result<Impl, ParseError> {
+    let span = parser.span();
+    parser.expect(Token::Name("impl"))?;
+    let receiver_type = parse_type(parser)?;
+    let trait_name = parser.expect_name()?;
+    let type_ = parse_function_type(parser, true)?;
+    let body = parse_block(parser)?;
+    let span = span.upto(&parser.span());
+    Ok(Impl {
+        span,
+        receiver_type,
+        trait_name,
         type_,
         body,
     })
@@ -574,7 +610,7 @@ fn parse_block(parser: &mut Parser) -> Result<Expr, ParseError> {
     Ok(Expr::Block(span, exprs))
 }
 
-fn parse_function_type(parser: &mut Parser) -> Result<FunctionType, ParseError> {
+fn parse_function_type(parser: &mut Parser, dynamic: bool) -> Result<FunctionType, ParseError> {
     let mut trace = true;
     if parser.consume(Token::LBracket) {
         loop {
@@ -599,13 +635,32 @@ fn parse_function_type(parser: &mut Parser) -> Result<FunctionType, ParseError> 
     }
     let mut parameters = Vec::new();
     parser.expect(Token::LParen)?;
-    while !parser.consume(Token::RParen) {
-        let name = parser.expect_name()?;
-        let type_ = parse_type(parser)?;
-        parameters.push((name, type_));
-        if !parser.consume(Token::Comma) {
+    let parse_remaining_params = if dynamic {
+        // There's no extra information being added, but just to be
+        // extra clear that there's an extra parameter here, require this
+        // in the syntax
+        parser.expect(Token::Name("self"))?;
+
+        // in order for there to be more parameters,
+        // 'self' has to be followed by a comma
+        if parser.consume(Token::Comma) {
+            true
+        } else {
             parser.expect(Token::RParen)?;
-            break;
+            false
+        }
+    } else {
+        true
+    };
+    if parse_remaining_params {
+        while !parser.consume(Token::RParen) {
+            let name = parser.expect_name()?;
+            let type_ = parse_type(parser)?;
+            parameters.push((name, type_));
+            if !parser.consume(Token::Comma) {
+                parser.expect(Token::RParen)?;
+                break;
+            }
         }
     }
     let return_type = if parser.at(Pattern::Name) {
@@ -617,6 +672,7 @@ fn parse_function_type(parser: &mut Parser) -> Result<FunctionType, ParseError> 
         parameters,
         return_type,
         trace,
+        dynamic,
     })
 }
 
