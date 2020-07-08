@@ -142,7 +142,7 @@ fn __WAC_memcpy[notrace](dst i32, src i32, len i32) {
 }
 
 fn __free[notrace](len i32, ptr i32) {
-    if len is 0 {
+    if len is 0 or ptr is 0 {
         # nothing to do since no alloc was made in the first place
     } else if len <= 16 {
         __free_16(ptr)

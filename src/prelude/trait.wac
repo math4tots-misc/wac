@@ -1,0 +1,26 @@
+# Support functions for traits
+
+
+fn __WAC_find_funcptr[notrace](type_tag i32, trait_id i32) i32 {
+    # Find the itable for the given type_tag
+    var meta_itable_entry = $asm([], i32, "global.get $rt_meta_itable_start") + (type_tag * 8)
+    var itable_start = __read(meta_itable_entry)
+    var itable_end = __read(meta_itable_entry + 4)
+
+    var looking = true
+    var i = itable_start
+    var result = 0
+    while looking and i < itable_end {
+        if __read(i) is trait_id {
+            result = __read(i + 4)
+            looking = false
+        }
+        i = i + 8
+    }
+
+    if looking {
+        NoTracePanic("matching impl not found")
+    }
+
+    result
+}

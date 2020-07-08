@@ -490,7 +490,7 @@ pub(super) fn translate_expr(
 pub(super) fn raw_dup(lscope: &mut LocalScope, sink: &Rc<Sink>, wasm_type: WasmType) {
     let t = translate_wasm_type(wasm_type);
     let tmpvar = format!("$rt_tmp_dup_{}", t);
-    lscope.helper(&tmpvar, wasm_type.wac());
+    lscope.helper_shared(&tmpvar, wasm_type.wac());
     sink.writeln(format!("local.tee {}", tmpvar));
     sink.writeln(format!("local.get {}", tmpvar));
 }

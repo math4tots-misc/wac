@@ -321,13 +321,7 @@ impl Type {
             Type::String => "str",
             Type::List => "list",
             Type::Id => "id",
-            Type::UserDefined(_) => {
-                if self.is_enum() {
-                    "enum"
-                } else {
-                    "record"
-                }
-            }
+            Type::UserDefined(_) => "UserDefined",
         }
     }
     pub fn primitive(self) -> bool {
@@ -411,6 +405,16 @@ pub enum ReturnType {
     NoReturn,
 }
 
+impl fmt::Display for ReturnType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ReturnType::Value(t) => t.fmt(f),
+            ReturnType::Void => write!(f, "void"),
+            ReturnType::NoReturn => write!(f, "noreturn"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FunctionType {
     pub parameters: Vec<(Rc<str>, Type)>,
@@ -422,10 +426,23 @@ pub struct FunctionType {
     /// it may be better for performance to set this to false.
     /// By default, this is true.
     pub trace: bool,
+}
 
-    /// if true, this is a Trait,
-    /// otherwise, this is a normal function
-    pub dynamic: bool,
+impl fmt::Display for FunctionType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if !self.trace {
+            write!(f, "[notrace]")?;
+        }
+        write!(f, "(")?;
+        for (i, (name, typ)) in self.parameters.iter().enumerate() {
+            if i > 0 {
+                write!(f, ", ")?;
+            }
+            write!(f, "{} {}", name, typ)?;
+        }
+        write!(f, ") {}", self.return_type)?;
+        Ok(())
+    }
 }
 
 impl From<Type> for ReturnType {

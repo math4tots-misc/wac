@@ -9,7 +9,8 @@ pub(super) fn translate_fcall(
     fname: &Rc<str>,
     argexprs: &Vec<Expr>,
 ) -> Result<(), Error> {
-    let ftype = lscope.getf_or_err(span.clone(), fname)?;
+    let fentry = lscope.getf_or_err(span.clone(), fname)?;
+    let ftype = fentry.type_();
     let trace = ftype.trace;
     if argexprs.len() != ftype.parameters.len() {
         return Err(Error::Type {
@@ -18,8 +19,33 @@ pub(super) fn translate_fcall(
             got: format!("{} args", argexprs.len()),
         });
     }
-    for (argexpr, (_pname, ptype)) in argexprs.iter().zip(ftype.parameters) {
-        translate_expr(out, sink, lscope, ReturnType::Value(ptype), argexpr)?;
+
+    let mut trait_type_var = None;
+
+    for (i, (argexpr, (_pname, ptype))) in argexprs.iter().zip(&ftype.parameters).enumerate() {
+        translate_expr(out, sink, lscope, ReturnType::Value(*ptype), argexpr)?;
+
+        if i == 0 {
+            match &fentry {
+                FunctionEntry::Trait(_) => {
+                    // for traits, we need to save the dynamic type of the first argument
+                    // for the actual call later
+                    assert_eq!(*ptype, Type::Id);
+
+                    let varname = lscope.helper_unique(Type::I32);
+
+                    raw_dup(lscope, sink, WasmType::I64);
+
+                    sink.writeln("i64.const 32");
+                    sink.writeln("i64.shr_u");
+                    sink.writeln("i32.wrap_i64");
+                    sink.writeln(format!("local.set {}", varname));
+
+                    trait_type_var = Some(varname);
+                }
+                FunctionEntry::Function(_) => {}
+            }
+        }
     }
 
     if trace && !lscope.trace {
@@ -59,7 +85,21 @@ pub(super) fn translate_fcall(
         sink.writeln("i32.add");
         sink.writeln("global.set $rt_stack_top");
     }
-    sink.writeln(format!("call $f_{}", fname));
+
+    match &fentry {
+        FunctionEntry::Function(info) => {
+            sink.writeln(format!("call $f_{}", info.name));
+        }
+        FunctionEntry::Trait(info) => {
+            let trait_type_var = trait_type_var.unwrap();
+            sink.writeln(format!("local.get {}", trait_type_var));
+            sink.writeln(format!("i32.const {}", info.id));
+            sink.writeln("call $f___WAC_find_funcptr");
+            sink.writeln(format!("call_indirect {}", translate_func_type(&info.type_)));
+            // panic!("TODO: fcall trait")
+        }
+    }
+
     if trace {
         // pop stack pointer
         sink.writeln("global.get $rt_stack_top");

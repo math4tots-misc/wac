@@ -70,6 +70,8 @@ pub fn parse_files(mut sources: Vec<(Rc<str>, Rc<str>)>) -> Result<Vec<(Rc<str>,
         ("[prelude:assert]".into(), crate::prelude::ASSERT.into()),
         ("[prelude:panic]".into(), crate::prelude::PANIC.into()),
         ("[prelude:stack]".into(), crate::prelude::STACK.into()),
+        ("[prelude:ops]".into(), crate::prelude::OPS.into()),
+        ("[prelude:trait]".into(), crate::prelude::TRAIT.into()),
     ];
 
     sources.splice(0..0, prelude);
@@ -126,22 +128,42 @@ pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
     out.gvars
         .writeln(format!("(global $rt_tag_id   i32 (i32.const {}))", TAG_ID));
 
-    let mut functions = HashMap::new();
+    let mut functions = HashMap::<Rc<str>, FunctionEntry>::new();
+    let mut traits_by_id = Vec::<Rc<TraitInfo>>::new();
 
     // collect all function signatures
     for (_filename, file) in &files {
         for imp in &file.imports {
             match imp {
                 Import::Function(FunctionImport { alias, type_, .. }) => {
-                    functions.insert(alias.clone(), type_.clone());
+                    let entry = FunctionEntry::Function(Rc::new(FunctionInfo {
+                        name: alias.clone(),
+                        type_: type_.clone(),
+                    }));
+                    functions.insert(alias.clone(), entry);
                 }
             }
         }
         for func in &file.functions {
-            functions.insert(func.name.clone(), func.type_.clone());
+            let entry = FunctionEntry::Function(Rc::new(FunctionInfo {
+                name: func.name.clone(),
+                type_: func.type_.clone(),
+            }));
+            functions.insert(func.name.clone(), entry);
+        }
+        for trait_ in &file.traits {
+            let id = traits_by_id.len() as i32;
+            let info = Rc::new(TraitInfo {
+                id,
+                type_: trait_.type_.clone(),
+                name: trait_.name.clone(),
+            });
+            traits_by_id.push(info.clone());
+            let entry = FunctionEntry::Trait(info);
+            functions.insert(trait_.name.clone(), entry);
         }
     }
-    let mut gscope = GlobalScope::new(functions);
+    let mut gscope = GlobalScope::new(functions, traits_by_id);
 
     // [just take the first span in prelude:lang imports, and use that
     // for any builtin thing with no good corresponding location in wac source]
@@ -223,6 +245,68 @@ pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
         for func in file.functions {
             translate_func(&mut out, &gscope, func)?;
         }
+        for imp in file.impls {
+            translate_impl(&mut out, &mut gscope, imp)?;
+        }
     }
+
+    // write out the itables for each type
+    {
+        // for now, let's only assume builtin types
+        // in the future though, this will need to be adjusted
+        // to account for user defined types
+        let ntypes = TAG_ID + 1;
+
+        // the meta itable maps each type tag to their itables' start and end ptrs
+        let meta_itable_size = (ntypes * 8) as usize;
+        let mut meta_itable_bytes = Vec::<u8>::new();
+        meta_itable_bytes.resize_with(meta_itable_size, || 0);
+
+        let mut impls_vec: Vec<(Type, HashMap<i32, Rc<ImplInfo>>)> = gscope.impls_map.clone().into_iter().collect();
+        impls_vec.sort_by(|a, b| a.0.tag().cmp(&b.0.tag()));
+
+        for (type_, map) in impls_vec {
+            // For each type, we store an array of pairs
+            //   (trait_id, impl_index)
+            // print!("type {}, {}: ", type_, type_.tag());
+
+            let mut impl_vec: Vec<(i32, Rc<ImplInfo>)> = map.into_iter().collect();
+            impl_vec.sort_by(|a, b| a.0.cmp(&b.0));
+
+            let mut itable_bytes = Vec::<u8>::new();
+            for (trait_id, impl_info) in impl_vec {
+                // print!("({}[{}], {}) ", trait_id, impl_info.trait_.name, impl_info.index);
+                itable_bytes.extend(&trait_id.to_le_bytes());
+                itable_bytes.extend(&impl_info.index.to_le_bytes());
+            }
+            let itable_start: u32 = out.data(&itable_bytes);
+            let itable_end = itable_start + (itable_bytes.len() as u32);
+            let tag = type_.tag() as usize;
+
+            // println!("[itable: {}, {}]", itable_start, itable_end);
+
+            // add the entry in the meta itable that points to this itable
+            // the itable start position
+            meta_itable_bytes[tag * 8    ..tag * 8 + 4].copy_from_slice(&itable_start.to_le_bytes());
+            // the itable end position
+            meta_itable_bytes[tag * 8 + 4..tag * 8 + 8].copy_from_slice(&itable_end.to_le_bytes());
+        }
+
+        // Finally! the meta-itable is built
+        let meta_itable_start = out.data(&meta_itable_bytes);
+        let meta_itable_end = meta_itable_start + (meta_itable_bytes.len() as u32);
+
+        out.gvars.writeln(format!("(global $rt_meta_itable_start i32 (i32.const {}))", meta_itable_start));
+        out.gvars.writeln(format!("(global $rt_meta_itable_end   i32 (i32.const {}))", meta_itable_end));
+    }
+
+    // initialize the wasm table with all the impls so that they
+    // can be called with call_indirect
+    out.table.writeln("(table $rt_table anyfunc (elem");
+    for (i, info) in gscope.impls.iter().enumerate() {
+        assert_eq!(i, info.index as usize);
+        out.table.writeln(format!("$f_{}", info.fname));
+    }
+    out.table.writeln("))");
     Ok(out.get())
 }

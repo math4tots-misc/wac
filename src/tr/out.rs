@@ -8,6 +8,7 @@ pub(super) struct Out {
     pub(super) gvars: Rc<Sink>,
     pub(super) funcs: Rc<Sink>,
     pub(super) start: Rc<Sink>,
+    pub(super) table: Rc<Sink>,
     pub(super) exports: Rc<Sink>,
 
     pub(super) data_len: Cell<usize>,
@@ -31,6 +32,7 @@ impl Out {
         let start = main.spawn();
         main.writeln(")");
         main.writeln("(start $__rt_start)");
+        let table = main.spawn();
         let exports = main.spawn();
         Self {
             main,
@@ -40,6 +42,7 @@ impl Out {
             gvars,
             funcs,
             start,
+            table,
             exports,
             data_len: Cell::new(RESERVED_BYTES + STACK_BYTES),
             intern_cstr_map: HashMap::new(),

@@ -1,0 +1,4 @@
+# Common operations
+
+trait SizeOf(self) i32
+

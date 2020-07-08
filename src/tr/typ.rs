@@ -6,7 +6,6 @@ pub(super) fn translate_func_type(ft: &FunctionType) -> String {
         return_type,
         parameters,
         trace: _,
-        dynamic: _,
     } = ft;
     for (_name, ptype) in parameters {
         ret.push_str(&format!(" (param {})", translate_type(*ptype)));

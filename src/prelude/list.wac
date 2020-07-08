@@ -28,6 +28,10 @@ fn __WAC_list_release[notrace](ptr i32) {
     }
 }
 
+impl list SizeOf(self) i32 {
+    __listlen(self)
+}
+
 fn __WAC_list_retain[notrace](ptr i32) {
     __write(ptr, __read(ptr) + 1)
     # __hello($cstr("LIST (RETAIN)"), __read(ptr))

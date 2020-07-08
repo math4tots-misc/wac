@@ -46,7 +46,7 @@ pub(super) fn guess_return_type(lscope: &mut LocalScope, expr: &Expr) -> Result<
             None => Ok(ReturnType::Void),
         },
         Expr::FunctionCall(span, name, _) => {
-            Ok(lscope.getf_or_err(span.clone(), name)?.return_type)
+            Ok(lscope.getf_or_err(span.clone(), name)?.type_().return_type)
         }
         Expr::If(_, pairs, other) => {
             let mut ret = ReturnType::NoReturn;

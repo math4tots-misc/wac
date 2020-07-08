@@ -606,7 +606,7 @@ fn parse_block(parser: &mut Parser) -> Result<Expr, ParseError> {
     Ok(Expr::Block(span, exprs))
 }
 
-fn parse_function_type(parser: &mut Parser, dynamic: bool) -> Result<FunctionType, ParseError> {
+fn parse_function_type(parser: &mut Parser, has_self: bool) -> Result<FunctionType, ParseError> {
     let mut trace = true;
     if parser.consume(Token::LBracket) {
         loop {
@@ -631,9 +631,10 @@ fn parse_function_type(parser: &mut Parser, dynamic: bool) -> Result<FunctionTyp
     }
     let mut parameters = Vec::new();
     parser.expect(Token::LParen)?;
-    let parse_remaining_params = if dynamic {
+    let parse_remaining_params = if has_self {
         // The first parameter is always a fixed 'self' parameter
-        // (with implied id type) for dynamic functions
+        // (with implied id type) for has_self functions
+        // has_self applies for 'trait' and 'impl' functions
         parser.expect(Token::Name("self"))?;
         parameters.push(("self".into(), Type::Id));
 
@@ -668,7 +669,6 @@ fn parse_function_type(parser: &mut Parser, dynamic: bool) -> Result<FunctionTyp
         parameters,
         return_type,
         trace,
-        dynamic,
     })
 }
 

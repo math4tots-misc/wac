@@ -7,3 +7,5 @@ pub const TYPE: &'static str = include_str!("type.wac");
 pub const ASSERT: &'static str = include_str!("assert.wac");
 pub const PANIC: &'static str = include_str!("panic.wac");
 pub const STACK: &'static str = include_str!("stack.wac");
+pub const OPS: &'static str = include_str!("ops.wac");
+pub const TRAIT: &'static str = include_str!("trait.wac");

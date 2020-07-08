@@ -63,6 +63,8 @@ fn __WAC_id_release[notrace](x i64) {
         # these are primitives, so nothing more to do here
     } else if tag is str {
         __WAC_str_release(val)
+    } else if tag is list {
+        __WAC_list_release(val)
     } else {
         NoTracePanic("id_release: unrecognized tag")
     }
@@ -82,6 +84,8 @@ fn __WAC_id_retain[notrace](x i64) {
         # these are primitives, so nothing more to do here
     } else if tag is str {
         __WAC_str_retain(val)
+    } else if tag is list {
+        __WAC_list_retain(val)
     } else {
         NoTracePanic("id_retain: unrecognized tag")
     }
