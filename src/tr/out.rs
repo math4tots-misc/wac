@@ -53,22 +53,11 @@ impl Out {
     pub(super) fn get(self) -> String {
         let len = self.data_len.get();
         let page_len = (len + (PAGE_SIZE - 1)) / PAGE_SIZE;
-        self.memory
-            .writeln(format!("(memory $rt_mem {})", page_len));
-        self.gvars
-            .writeln(format!("(global $rt_heap_start i32 (i32.const {}))", len,));
-        self.gvars.writeln(format!(
-            "(global $rt_stack_top (mut i32) (i32.const {}))",
-            STACK_START
-        ));
-        self.gvars.writeln(format!(
-            "(global $rt_stack_start i32 (i32.const {}))",
-            STACK_START
-        ));
-        self.gvars.writeln(format!(
-            "(global $rt_stack_end i32 (i32.const {}))",
-            STACK_END
-        ));
+        self.memory.memory_directive(page_len);
+        self.gvars.global(WasmType::I32, "$rt_heap_start", len as i64);
+        self.gvars.global_mut(WasmType::I32, "$rt_stack_top", STACK_START as i64);
+        self.gvars.global(WasmType::I32, "$rt_stack_start", STACK_START as i64);
+        self.gvars.global(WasmType::I32, "$rt_stack_end", STACK_END as i64);
         self.main.get()
     }
 

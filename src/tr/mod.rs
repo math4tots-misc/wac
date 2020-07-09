@@ -36,6 +36,8 @@ use retain::*;
 use scope::*;
 use typ::*;
 
+pub(crate) use scope::Scope;
+
 pub const PAGE_SIZE: usize = 65536;
 
 /// Number of bytes at start of memory that's reserved

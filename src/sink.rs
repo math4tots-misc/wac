@@ -1,4 +1,5 @@
 use crate::llir::*;
+use crate::Scope;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -63,6 +64,18 @@ impl Sink {
         self.writeln("\")");
     }
 
+    pub fn memory_directive(&self, page_count: usize) {
+        self.writeln(format!("(memory $rt_mem {})", page_count));
+    }
+
+    pub fn global(&self, type_: WasmType, name: &str, value: i64) {
+        self.writeln(format!("(global {} {} ({}.const {}))", name, type_, type_, value));
+    }
+
+    pub fn global_mut(&self, type_: WasmType, name: &str, value: i64) {
+        self.writeln(format!("(global {} (mut {}) ({}.const {}))", name, type_, type_, value));
+    }
+
     pub fn i32_sub(&self) {
         self.writeln("i32.sub");
     }
@@ -83,12 +96,35 @@ impl Sink {
         self.writeln(format!("f64.const {}", value))
     }
 
+    pub fn drop_(&self) {
+        self.writeln("drop");
+    }
+
+    pub fn unreachable(&self) {
+        self.writeln("unreachable");
+    }
+
+    pub fn f32_convert_i32_s(&self) {
+        self.writeln("f32.convert_i32_s")
+    }
+
     pub fn i32_reinterpret_f32(&self) {
         self.writeln("i32.reinterpret_f32")
     }
 
+    pub fn i32_trunc_f32_s(&self) {
+        self.writeln("i32.trunc_f32_s")
+    }
+
     pub fn call(&self, name: &str) {
         self.writeln(format!("call {}", name))
+    }
+
+    pub(crate) fn var_get(&self, scope: Scope, name: &str) {
+        match scope {
+            Scope::Global => self.global_get(name),
+            Scope::Local => self.local_get(name),
+        }
     }
 
     pub fn local_get(&self, name: &str) {

@@ -47,16 +47,16 @@ pub(super) fn auto_cast(
         (ReturnType::NoReturn, _) => {
             // if we're ever provided with a noreturn,
             // there's nothing really to do except let wasm know
-            sink.writeln("unreachable");
+            sink.unreachable();
         }
         (ReturnType::Value(Type::I32), ReturnType::Value(Type::F32)) => {
-            sink.writeln("f32.convert_i32_s");
+            sink.f32_convert_i32_s();
         }
         (ReturnType::Value(Type::I32), ReturnType::Value(Type::Id)) => {
             cast_to_id(sink, TAG_I32);
         }
         (ReturnType::Value(Type::F32), ReturnType::Value(Type::Id)) => {
-            sink.writeln("i32.reinterpret_f32");
+            sink.i32_reinterpret_f32();
             cast_to_id(sink, TAG_F32);
         }
         (ReturnType::Value(Type::Bool), ReturnType::Value(Type::Id)) => {
@@ -72,22 +72,22 @@ pub(super) fn auto_cast(
             cast_to_id(sink, TAG_LIST);
         }
         (ReturnType::Value(Type::Id), ReturnType::Value(Type::I32)) => {
-            sink.writeln("call $f___WAC_raw_id_to_i32");
+            sink.call("$f___WAC_raw_id_to_i32");
         }
         (ReturnType::Value(Type::Id), ReturnType::Value(Type::F32)) => {
-            sink.writeln("call $f___WAC_raw_id_to_f32");
+            sink.call("$f___WAC_raw_id_to_f32");
         }
         (ReturnType::Value(Type::Id), ReturnType::Value(Type::Bool)) => {
-            sink.writeln("call $f___WAC_raw_id_to_bool");
+            sink.call("$f___WAC_raw_id_to_bool");
         }
         (ReturnType::Value(Type::Id), ReturnType::Value(Type::Type)) => {
-            sink.writeln("call $f___WAC_raw_id_to_type");
+            sink.call("$f___WAC_raw_id_to_type");
         }
         (ReturnType::Value(Type::Id), ReturnType::Value(Type::String)) => {
-            sink.writeln("call $f___WAC_raw_id_to_str");
+            sink.call("$f___WAC_raw_id_to_str");
         }
         (ReturnType::Value(Type::Id), ReturnType::Value(Type::List)) => {
-            sink.writeln("call $f___WAC_raw_id_to_list");
+            sink.call("$f___WAC_raw_id_to_list");
         }
         (ReturnType::Value(src), ReturnType::Void) => {
             release(lscope, sink, src, DropPolicy::Drop);
@@ -143,7 +143,7 @@ pub(super) fn explicit_cast(
 ) -> Result<(), Error> {
     match (src, dst) {
         (ReturnType::Value(Type::F32), ReturnType::Value(Type::I32)) => {
-            sink.writeln("i32.trunc_f32_s");
+            sink.i32_trunc_f32_s();
         }
         _ => auto_cast(sink, span, lscope, src, dst)?,
     }

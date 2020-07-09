@@ -1,6 +1,6 @@
 use super::*;
 
-pub(super) enum Scope {
+pub(crate) enum Scope {
     Local,
     Global,
 }
