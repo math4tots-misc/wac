@@ -26,6 +26,7 @@ pub(super) fn translate_impl(
     imp: Impl,
 ) -> Result<(), Error> {
     let trait_info = gscope.get_trait(&imp.span, &imp.trait_name)?.clone();
+    let impl_info = gscope.get_impl(imp.receiver_type, trait_info.id).unwrap();
 
     // check that the impl type matches the trait type exactly
     if trait_info.type_ != imp.type_ {
@@ -43,7 +44,7 @@ pub(super) fn translate_impl(
     //       the user, we want it to look like it has already been cast to the
     //       receiver type.
     //       So rename the first parameter to __WAC_self, then assign self to it
-    let fname: Rc<str> = format!("__WAC_{}#{}", imp.receiver_type, &trait_info.name).into();
+    let fname = &impl_info.fname;
     let mut ftype = imp.type_.clone();
     assert_eq!(ftype.parameters[0].0.as_ref(), "self");
     assert_eq!(ftype.parameters[0].1, Type::Id);
@@ -69,12 +70,6 @@ pub(super) fn translate_impl(
         &ftype,
         &body,
     )?;
-
-    // globally declare this impl
-    // this so that:
-    //   * we can catch duplicate definitions
-    //   * generate the itable for each type
-    gscope.decl_impl(imp.span.clone(), fname, imp.receiver_type, trait_info)?;
 
     Ok(())
 }

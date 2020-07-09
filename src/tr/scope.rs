@@ -165,10 +165,15 @@ impl GlobalScope {
             Some(info) => Some(info.clone()),
             None => {
                 // if there's no exact match, check to see if there is an 'id' impl
-                self.impls_map
+                match self.impls_map
                     .get(&Type::Id)
                     .and_then(|map| map.get(&trait_id))
-                    .cloned()
+                {
+                    Some(info) => Some(info.clone()),
+                    None => {
+                        panic!("{}, {}, {:?}", receiver_type, trait_id, self.traits_by_id[trait_id as usize])
+                    }
+                }
             }
         }
     }
@@ -370,11 +375,13 @@ impl FunctionEntry {
     }
 }
 
+#[derive(Debug)]
 pub(super) struct FunctionInfo {
     pub(super) type_: FunctionType,
     pub(super) name: Rc<str>,
 }
 
+#[derive(Debug)]
 pub(super) struct TraitInfo {
     pub(super) type_: FunctionType,
     pub(super) id: i32,

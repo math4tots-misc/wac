@@ -8,6 +8,11 @@ fn __test_trait_fallback_dynamic() {
     Assert(FallbackTestTrait(x) is 555)
 }
 
+fn __test_trait_fallback_static() {
+    Assert(FallbackTestTrait(10) is 444)
+    Assert(FallbackTestTrait("hello") is 555)
+}
+
 trait FallbackTestTrait(self) i32
 
 impl i32 for FallbackTestTrait(self) i32 {

@@ -247,6 +247,23 @@ pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
         }
     }
 
+    for (_filename, file) in &files {
+        for imp in &file.impls {
+            // globally declare this impl
+            // this is so that:
+            //   * we can catch duplicate definitions
+            //   * generate the itable for each type
+            //
+            // We also have to do this before any expressions are evaluated
+            // since, this information is looked up if a trait function is called
+            // where the receiver type is known at compile time
+            //
+            let trait_info = gscope.get_trait(&imp.span, &imp.trait_name)?.clone();
+            let fname: Rc<str> = format!("__WAC_{}#{}", imp.receiver_type, &trait_info.name).into();
+            gscope.decl_impl(imp.span.clone(), fname, imp.receiver_type, trait_info)?;
+        }
+    }
+
     // translate all global variables
     // NOTE: global variables that appear before cannot refer to
     // global variables that appear later
