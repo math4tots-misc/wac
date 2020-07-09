@@ -202,7 +202,15 @@ pub(super) fn translate_expr(
             auto_cast(sink, span, lscope, ReturnType::Void, etype)?;
         }
         Expr::FunctionCall(span, fname, argexprs) => {
-            translate_fcall(out, lscope, sink, etype, span, fname, &argexprs.iter().collect())?;
+            translate_fcall(
+                out,
+                lscope,
+                sink,
+                etype,
+                span,
+                fname,
+                &argexprs.iter().collect(),
+            )?;
         }
         Expr::If(_span, pairs, other) => {
             for (cond, body) in pairs {
@@ -308,11 +316,27 @@ pub(super) fn translate_expr(
             //     * always returns i32
             match op {
                 Binop::Equal => {
-                    translate_fcall(out, lscope, sink, etype, span, &"Eq".into(), &vec![left, right])?;
+                    translate_fcall(
+                        out,
+                        lscope,
+                        sink,
+                        etype,
+                        span,
+                        &"Eq".into(),
+                        &vec![left, right],
+                    )?;
                     auto_cast(sink, span, lscope, ReturnType::Value(Type::Bool), etype)?;
                 }
                 Binop::NotEqual => {
-                    translate_fcall(out, lscope, sink, etype, span, &"Eq".into(), &vec![left, right])?;
+                    translate_fcall(
+                        out,
+                        lscope,
+                        sink,
+                        etype,
+                        span,
+                        &"Eq".into(),
+                        &vec![left, right],
+                    )?;
                     sink.writeln("i32.eqz");
                     auto_cast(sink, span, lscope, ReturnType::Value(Type::Bool), etype)?;
                 }

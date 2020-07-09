@@ -16,4 +16,7 @@ at some point.
     (in Rust code)
     * Currently, I'm working around this by using a global variable
         TODO: Fix this
-
+* Right now == and != are aliased to 'Eq'
+    TODO: avoid the call when argument types are known and
+    direct instructions can be used (i.e. for primitives)
+    or functions (e.g. for str -> __str_eq, list -> __list_eq)

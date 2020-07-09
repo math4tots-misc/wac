@@ -27,7 +27,7 @@ fn __type_str[notrace](t type) str {
 
     # manually retain the value, so that we can asm cast it
     # into str
-    __WAC_str_retain(ptr)
+    __WAC_ptr_retain(ptr)
 
     $asm([ptr], str, "")
 }

@@ -104,6 +104,8 @@ fn parse_files0(
         ("[prelude:trait]".into(), crate::prelude::TRAIT.into()),
         ("[prelude:print]".into(), crate::prelude::PRINT.into()),
         ("[prelude:bool]".into(), crate::prelude::BOOL.into()),
+        ("[prelude:int]".into(), crate::prelude::INT.into()),
+        ("[prelude:buffer]".into(), crate::prelude::BUFFER.into()),
     ];
 
     sources.splice(0..0, prelude);
@@ -128,37 +130,6 @@ fn parse_files0(
 /// a wat webassembly module
 pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
     let mut out = Out::new();
-
-    // some universal constants
-    // we provide these both as 'const' and as wasm globals because
-    // from inside wac normally, constants may be preferrable,
-    // but from inside asm blocks, it's not possible to use const values
-    out.gvars
-        .writeln(format!("(global $rt_tag_i32  i32 (i32.const {}))", TAG_I32));
-    out.gvars
-        .writeln(format!("(global $rt_tag_i64  i32 (i32.const {}))", TAG_I64));
-    out.gvars
-        .writeln(format!("(global $rt_tag_f32  i32 (i32.const {}))", TAG_F32));
-    out.gvars
-        .writeln(format!("(global $rt_tag_f64  i32 (i32.const {}))", TAG_F64));
-    out.gvars.writeln(format!(
-        "(global $rt_tag_bool i32 (i32.const {}))",
-        TAG_BOOL
-    ));
-    out.gvars.writeln(format!(
-        "(global $rt_tag_type i32 (i32.const {}))",
-        TAG_TYPE
-    ));
-    out.gvars.writeln(format!(
-        "(global $rt_tag_str  i32 (i32.const {}))",
-        TAG_STRING
-    ));
-    out.gvars.writeln(format!(
-        "(global $rt_tag_list i32 (i32.const {}))",
-        TAG_LIST
-    ));
-    out.gvars
-        .writeln(format!("(global $rt_tag_id   i32 (i32.const {}))", TAG_ID));
 
     let mut functions = HashMap::<Rc<str>, FunctionEntry>::new();
     let mut traits_by_id = Vec::<Rc<TraitInfo>>::new();
@@ -204,31 +175,9 @@ pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
     // prepare the special type constants
     // these could be in the source directly, but it would make it harder to keep
     // both the rust and wac code in sync.
-    gscope.decl_const(void_span.clone(), "i32".into(), ConstValue::Type(Type::I32))?;
-    gscope.decl_const(void_span.clone(), "i64".into(), ConstValue::Type(Type::I64))?;
-    gscope.decl_const(void_span.clone(), "f32".into(), ConstValue::Type(Type::F32))?;
-    gscope.decl_const(void_span.clone(), "f64".into(), ConstValue::Type(Type::F64))?;
-    gscope.decl_const(
-        void_span.clone(),
-        "bool".into(),
-        ConstValue::Type(Type::Bool),
-    )?;
-    gscope.decl_const(
-        void_span.clone(),
-        "type".into(),
-        ConstValue::Type(Type::Type),
-    )?;
-    gscope.decl_const(
-        void_span.clone(),
-        "str".into(),
-        ConstValue::Type(Type::String),
-    )?;
-    gscope.decl_const(
-        void_span.clone(),
-        "list".into(),
-        ConstValue::Type(Type::List),
-    )?;
-    gscope.decl_const(void_span.clone(), "id".into(), ConstValue::Type(Type::Id))?;
+    for type_ in Type::list_builtins() {
+        gscope.decl_const(void_span.clone(), type_.name().into(), ConstValue::Type(type_))?;
+    }
 
     // prepare all constants
     for (_filename, file) in &files {

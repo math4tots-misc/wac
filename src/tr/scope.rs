@@ -50,8 +50,6 @@ impl GlobalScope {
         cval: ConstValue,
     ) -> Result<Rc<ConstantInfo>, Error> {
         if let Some(info) = self.varmap.get(&name) {
-            println!("info -> {:?}, {:?}", info, cval);
-            println!("name -> {:?}", name);
             return Err(Error::ConflictingDefinitions {
                 span1: info.span().clone(),
                 span2: span,
@@ -165,14 +163,16 @@ impl GlobalScope {
             Some(info) => Some(info.clone()),
             None => {
                 // if there's no exact match, check to see if there is an 'id' impl
-                match self.impls_map
+                match self
+                    .impls_map
                     .get(&Type::Id)
                     .and_then(|map| map.get(&trait_id))
                 {
                     Some(info) => Some(info.clone()),
-                    None => {
-                        panic!("{}, {}, {:?}", receiver_type, trait_id, self.traits_by_id[trait_id as usize])
-                    }
+                    None => panic!(
+                        "{}, {}, {:?}",
+                        receiver_type, trait_id, self.traits_by_id[trait_id as usize]
+                    ),
                 }
             }
         }

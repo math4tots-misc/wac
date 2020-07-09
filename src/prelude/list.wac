@@ -28,11 +28,6 @@ fn __WAC_list_release[notrace](ptr i32) {
     }
 }
 
-fn __WAC_list_retain[notrace](ptr i32) {
-    __write(ptr, __read(ptr) + 1)
-    # __hello($cstr("LIST (RETAIN)"), __read(ptr))
-}
-
 fn __listlen[notrace](s list) i32 {
     # Gets the length of the given list
     var ptr = $asm([], i32, "local.get $l_0_s")

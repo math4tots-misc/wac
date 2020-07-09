@@ -23,7 +23,7 @@ fn __WAC_find_funcptr[notrace](type_tag i32, trait_id i32) i32 {
         # an 'id' impl
         meta_itable_entry = (
             $asm([], i32, "global.get $rt_meta_itable_start") +
-            ($asm([], i32, "global.get $rt_tag_id") * 8)
+            ($asm([id], i32, "") * 8)
         )
         itable_start = __read(meta_itable_entry)
         itable_end = __read(meta_itable_entry + 4)

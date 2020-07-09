@@ -13,11 +13,6 @@ fn __WAC_str_release[notrace](ptr i32) {
     }
 }
 
-fn __WAC_str_retain[notrace](ptr i32) {
-    __write(ptr, __read(ptr) + 1)
-    # __hello($cstr("STRING (RETAIN)"), __read(ptr))
-}
-
 fn __WAC_str_alloc(strlen i32) str {
     # Allocates space for string of a given length
     var ptr = __malloc(8 + strlen)

@@ -92,6 +92,14 @@ pub(super) fn auto_cast(
         (ReturnType::Value(src), ReturnType::Void) => {
             release(lscope, sink, src, DropPolicy::Drop);
         }
+        (ReturnType::Value(Type::I64), ReturnType::Value(Type::Id))
+        | (ReturnType::Value(Type::F64), ReturnType::Value(Type::Id)) => {
+            return Err(Error::Type {
+                span: span.clone(),
+                expected: format!("{:?}", dst),
+                got: format!("{:?} (id cannot store 64-bit values)", src),
+            });
+        }
         (ReturnType::Value(src), ReturnType::Value(dst)) => {
             return Err(Error::Type {
                 span: span.clone(),
