@@ -536,13 +536,30 @@ pub(super) fn translate_expr(
             // logical
             //   !
             //     * always returns bool
-            Unop::Plus | Unop::Minus => {
+            Unop::Plus => {
                 let guessed_type = match guess_type(lscope, expr)? {
                     Type::I32 => Type::I32,
                     _ => Type::F32,
                 };
                 translate_expr(out, sink, lscope, ReturnType::Value(guessed_type), expr)?;
                 auto_cast(sink, span, lscope, ReturnType::Value(guessed_type), etype)?
+            }
+            Unop::Minus => {
+                match guess_type(lscope, expr)? {
+                    Type::I32 => {
+                        let guessed_type = Type::I32;
+                        sink.writeln("i32.const 0");
+                        translate_expr(out, sink, lscope, ReturnType::Value(guessed_type), expr)?;
+                        sink.writeln("i32.sub");
+                        auto_cast(sink, span, lscope, ReturnType::Value(guessed_type), etype)?
+                    }
+                    _ => {
+                        let guessed_type = Type::F32;
+                        translate_expr(out, sink, lscope, ReturnType::Value(guessed_type), expr)?;
+                        sink.writeln("f32.neg");
+                        auto_cast(sink, span, lscope, ReturnType::Value(guessed_type), etype)?
+                    }
+                }
             }
             Unop::Not => {
                 translate_expr(out, sink, lscope, ReturnType::Value(Type::Bool), expr)?;

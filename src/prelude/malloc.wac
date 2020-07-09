@@ -28,7 +28,7 @@ fn __WAC_alloc[notrace](len i32) i32 {
 
     var ptr = __WAC_heap_end
 
-    var required_page_count = (ptr + __WAC_PAGE_SIZE - 1) // __WAC_PAGE_SIZE
+    var required_page_count = (ptr + len + __WAC_PAGE_SIZE - 1) // __WAC_PAGE_SIZE
     var current_page_count = $asm([], i32, "memory.size")
 
     if current_page_count < required_page_count {
