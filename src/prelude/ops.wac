@@ -3,6 +3,9 @@
 
 ################################################
 # Eq
+#
+# To check two values for equivalence
+#
 ################################################
 
 trait Eq(self, other id) bool
@@ -28,6 +31,9 @@ impl str for Eq(self, other id) bool {
 
 ################################################
 # str
+#
+# For converting values into str
+#
 ################################################
 
 impl bool for str(self) str {

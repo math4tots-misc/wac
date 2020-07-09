@@ -215,9 +215,8 @@ pub const TAG_F64: i32 = 4;
 pub const TAG_BOOL: i32 = 5;
 pub const TAG_TYPE: i32 = 6;
 pub const TAG_STRING: i32 = 7;
-pub const TAG_BUFFER: i32 = 8;
-pub const TAG_LIST: i32 = 9;
-pub const TAG_ID: i32 = 10;
+pub const TAG_LIST: i32 = 8;
+pub const TAG_ID: i32 = 9;
 
 #[repr(i32)]
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -236,11 +235,6 @@ pub enum BuiltinType {
     /// i32 that points to:
     ///   [refcnt i32][size i32][utf8...]
     String = TAG_STRING,
-
-    /// Reference counted buffer type
-    /// i32 that points to:
-    ///   [refcnt i32][size i32][capacity i32][ptr i32]
-    Buffer = TAG_BUFFER,
 
     /// Reference counted list type
     /// i32 that points to:
@@ -268,7 +262,6 @@ pub enum Type {
     Bool,
     Type,
     String,
-    Buffer,
     List,
     Id,
     Enum(u16),
@@ -299,7 +292,6 @@ impl Type {
             Type::Bool => TAG_BOOL,
             Type::Type => TAG_TYPE,
             Type::String => TAG_STRING,
-            Type::Buffer => TAG_BUFFER,
             Type::List => TAG_LIST,
             Type::Id => TAG_ID,
             // enums always have an odd tag
@@ -343,7 +335,6 @@ impl Type {
             Type::Bool,
             Type::Type,
             Type::String,
-            Type::Buffer,
             Type::List,
             Type::Id,
         ]
@@ -364,7 +355,6 @@ impl Type {
             Type::Bool => "bool".into(),
             Type::Type => "type".into(),
             Type::String => "str".into(),
-            Type::Buffer => "buffer".into(),
             Type::List => "list".into(),
             Type::Id => "id".into(),
             Type::Enum(offset) => get_name_for_enum_type_with_offset(*offset),
@@ -380,7 +370,7 @@ impl Type {
             | Type::Bool
             | Type::Type
             | Type::Enum(_) => true,
-            Type::String | Type::List | Type::Buffer | Type::Id | Type::Record(_) => false,
+            Type::String | Type::List | Type::Id | Type::Record(_) => false,
         }
     }
     pub fn wasm(self) -> WasmType {
@@ -392,7 +382,6 @@ impl Type {
             Type::Bool => WasmType::I32,
             Type::Type => WasmType::I32,
             Type::String => WasmType::I32,
-            Type::Buffer => WasmType::I32,
             Type::List => WasmType::I32,
             Type::Id => WasmType::I64,
             Type::Enum(_) => WasmType::I32,
@@ -411,7 +400,6 @@ impl From<BuiltinType> for Type {
             BuiltinType::Bool => Self::Bool,
             BuiltinType::Type => Self::Type,
             BuiltinType::String => Self::String,
-            BuiltinType::Buffer => Self::Buffer,
             BuiltinType::List => Self::List,
             BuiltinType::Id => Self::Id,
         }

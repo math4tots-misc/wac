@@ -15,7 +15,7 @@ pub(super) fn retain(lscope: &mut LocalScope, sink: &Rc<Sink>, type_: Type, dp: 
                 DropPolicy::Keep => {}
             }
         }
-        Type::String | Type::Buffer | Type::List => {
+        Type::String | Type::List => {
             match dp {
                 DropPolicy::Drop => {}
                 DropPolicy::Keep => raw_dup(lscope, sink, WasmType::I32),
@@ -50,13 +50,6 @@ pub(super) fn release(lscope: &mut LocalScope, sink: &Rc<Sink>, type_: Type, dp:
             }
             sink.writeln("call $f___WAC_str_release");
         }
-        Type::Buffer => {
-            match dp {
-                DropPolicy::Drop => {}
-                DropPolicy::Keep => raw_dup(lscope, sink, WasmType::I32),
-            }
-            sink.writeln("call $f___WAC_buffer_release");
-        }
         Type::List => {
             match dp {
                 DropPolicy::Drop => {}
@@ -84,10 +77,6 @@ pub(super) fn release_var(sink: &Rc<Sink>, scope: Scope, wasm_name: &Rc<str>, ty
         Type::String => {
             sink.writeln(format!("{}.get {}", scope, wasm_name));
             sink.writeln("call $f___WAC_str_release");
-        }
-        Type::Buffer => {
-            sink.writeln(format!("{}.get {}", scope, wasm_name));
-            sink.writeln("call $f___WAC_buffer_release");
         }
         Type::List => {
             sink.writeln(format!("{}.get {}", scope, wasm_name));

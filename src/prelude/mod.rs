@@ -38,4 +38,3 @@ pub const TRAIT: &'static str = include_str!("trait.wac");
 pub const PRINT: &'static str = include_str!("print.wac");
 pub const BOOL: &'static str = include_str!("bool.wac");
 pub const INT: &'static str = include_str!("int.wac");
-pub const BUFFER: &'static str = include_str!("buffer.wac");

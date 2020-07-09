@@ -105,7 +105,6 @@ fn parse_files0(
         ("[prelude:print]".into(), crate::prelude::PRINT.into()),
         ("[prelude:bool]".into(), crate::prelude::BOOL.into()),
         ("[prelude:int]".into(), crate::prelude::INT.into()),
-        ("[prelude:buffer]".into(), crate::prelude::BUFFER.into()),
     ];
 
     sources.splice(0..0, prelude);
