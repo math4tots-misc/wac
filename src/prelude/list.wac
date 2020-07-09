@@ -178,3 +178,27 @@ fn __list_swap[notrace](items list, i i32, j i32) {
     __list_setitem(items, i, __list_getitem(items, j))
     __list_setitem(items, j, tmp)
 }
+
+fn __list_clone[notrace](list list) list {
+    var len = __listlen(list)
+    var ret = __new_list()
+    var i = 0
+    while i < len {
+        __list_push(ret, __list_getitem(list, i))
+        i = i + 1
+    }
+    ret
+}
+
+fn __list_eq(a list, b list) bool {
+    var len = __listlen(a)
+    len is __listlen(b) and {
+        var i = 0
+        var maybe_eq = true
+        while maybe_eq and i < len {
+            maybe_eq = a[i] == b[i]
+            i = i + 1
+        }
+        maybe_eq
+    }
+}

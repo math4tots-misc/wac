@@ -28,6 +28,13 @@ impl str for Eq(self, other id) bool {
     }
 }
 
+impl list for Eq(self, other id) bool {
+    self is other or type(other) is list and {
+        var other list = other
+        __list_eq(self, other)
+    }
+}
+
 ################################################
 # str
 #
@@ -138,6 +145,18 @@ trait Reverse(self)
 
 impl list for Reverse(self) {
     __list_reverse(self)
+}
+
+################################################
+# Clone
+#
+# Clone a container
+#
+################################################
+trait Clone(self) id
+
+impl list for Clone(self) id {
+    __list_clone(self)
 }
 
 ################################################

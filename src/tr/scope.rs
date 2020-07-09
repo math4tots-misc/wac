@@ -169,10 +169,7 @@ impl GlobalScope {
                     .and_then(|map| map.get(&trait_id))
                 {
                     Some(info) => Some(info.clone()),
-                    None => panic!(
-                        "{}, {}, {:?}",
-                        receiver_type, trait_id, self.traits_by_id[trait_id as usize]
-                    ),
+                    None => None,
                 }
             }
         }
