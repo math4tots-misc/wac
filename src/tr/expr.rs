@@ -246,34 +246,36 @@ pub(super) fn translate_expr(
 
             auto_cast(sink, span, lscope, ReturnType::Void, etype)?;
         }
-        Expr::GetAttr(_span, owner, field) => {
-            match get_type_from_expr(lscope, owner) {
-                Some(type_) => match type_ {
-                    Type::Enum(_) => {
-                        match get_enum_value_from_name(type_, field) {
-                            Some(value) => {
-                                sink.writeln(format!("(i32.const {})", value));
-                            }
-                            None => return Err(Error::Type {
-                                span: owner.span().clone(),
-                                expected: format!("{} in enum {}", field, type_),
-                                got: "not found".into(),
-                            })
-                        }
-                    },
-                    _ => return Err(Error::Type {
+        Expr::GetAttr(_span, owner, field) => match get_type_from_expr(lscope, owner) {
+            Some(type_) => match type_ {
+                Type::Enum(_) => match get_enum_value_from_name(type_, field) {
+                    Some(value) => {
+                        sink.writeln(format!("(i32.const {})", value));
+                    }
+                    None => {
+                        return Err(Error::Type {
+                            span: owner.span().clone(),
+                            expected: format!("{} in enum {}", field, type_),
+                            got: "not found".into(),
+                        })
+                    }
+                },
+                _ => {
+                    return Err(Error::Type {
                         span: owner.span().clone(),
                         expected: "expression".into(),
                         got: format!("type {}", type_),
                     })
                 }
-                None => return Err(Error::Type {
+            },
+            None => {
+                return Err(Error::Type {
                     span: owner.span().clone(),
                     expected: "enum".into(),
                     got: format!("{} expression", guess_type(lscope, expr)?),
                 })
             }
-        }
+        },
         Expr::Binop(span, op, left, right) => {
             // == binops ==
             // equality ops

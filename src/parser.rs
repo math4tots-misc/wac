@@ -26,7 +26,7 @@ pub struct Parser<'a> {
     /// defined type, that's actually an error
     ///
     /// this flag controls which of the above two behaviors to exhibit
-    strict_about_user_defined_types: bool,
+    pub(crate) strict_about_user_defined_types: bool,
 }
 
 impl<'a> Parser<'a> {

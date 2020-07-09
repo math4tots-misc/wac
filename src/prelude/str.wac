@@ -1,10 +1,14 @@
 
-fn str(x id) str {
-    # TODO: once traits are implemented, make this a trait fn
-    if type(x) is str {
-        x
-    } else {
-        NoTracePanic("TODO str")
+trait str(self) str
+
+impl str for str(self) str {
+    self
+}
+
+impl str for Eq(self, other id) bool {
+    self is other or type(other) is str and {
+        var other str = other
+        __str_eq(self, other)
     }
 }
 
@@ -59,6 +63,29 @@ fn __str_cat(a str, b str) str {
     __WAC_memcpy(rbuf + alen, bbuf, blen)
 
     ret
+}
+
+fn __str_eq(a str, b str) bool {
+    var alen = __strlen(a)
+    var blen = __strlen(b)
+    var abuf = __WAC_str_buffer(a)
+    var bbuf = __WAC_str_buffer(b)
+
+    if alen is blen {
+        var eq_so_far = true
+        var i = 0
+        while eq_so_far and i + 4 < alen {
+            eq_so_far = __read(abuf + i) is __read(bbuf + i)
+            i = i + 4
+        }
+        while eq_so_far and i < alen {
+            eq_so_far = __read_u8(abuf + i) is __read_u8(bbuf + i)
+            i = i + 1
+        }
+        eq_so_far
+    } else {
+        false
+    }
 }
 
 fn __print_str[notrace](s str) {

@@ -59,9 +59,16 @@ impl SSpan {
         )
     }
     pub fn lineno(&self) -> usize {
+        // TODO: fix self.span.lineno
         assert_eq!(
             self.span.lineno,
-            self.source.data[..self.span.main].matches('\n').count() + 1
+            self.source.data[..self.span.main].matches('\n').count()
+                + 1
+                + if self.source.data[self.span.main..].chars().next() == Some('\n') {
+                    1
+                } else {
+                    0
+                },
         );
         self.span.lineno
     }

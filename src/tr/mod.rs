@@ -1,16 +1,16 @@
 //! logic for translating wac sources to a single wat/webassembly source
+use crate::get_enum_value_from_name;
+use crate::get_tag_limit;
 use crate::ir::*;
 use crate::parse_file;
+use crate::set_global_typeinfo;
 use crate::Binop;
 use crate::Error;
+use crate::GlobalTypeInfo;
 use crate::Parser;
 use crate::SSpan;
 use crate::Sink;
 use crate::Source;
-use crate::GlobalTypeInfo;
-use crate::set_global_typeinfo;
-use crate::get_enum_value_from_name;
-use crate::get_tag_limit;
 use std::cell::Cell;
 use std::collections::HashMap;
 // use std::collections::HashSet;
@@ -103,6 +103,7 @@ fn parse_files0(
         ("[prelude:ops]".into(), crate::prelude::OPS.into()),
         ("[prelude:trait]".into(), crate::prelude::TRAIT.into()),
         ("[prelude:print]".into(), crate::prelude::PRINT.into()),
+        ("[prelude:bool]".into(), crate::prelude::BOOL.into()),
     ];
 
     sources.splice(0..0, prelude);
@@ -234,6 +235,16 @@ pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
         for c in &file.constants {
             gscope.decl_const(c.span.clone(), c.name.clone(), c.value.clone())?;
         }
+        for enum_ in &file.enums {
+            let type_ = Type::from_name(&enum_.name).unwrap();
+            assert!(type_.is_enum());
+            gscope.decl_type(enum_.span.clone(), type_)?;
+        }
+        for record in &file.records {
+            let type_ = Type::from_name(&record.name).unwrap();
+            assert!(type_.is_record());
+            gscope.decl_type(record.span.clone(), type_)?;
+        }
     }
 
     // translate all global variables
@@ -281,7 +292,39 @@ pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
         }
     }
 
-    // write out the itables for each type
+    // store the string representation of each type
+    {
+        let ntypes = get_tag_limit();
+        let typestr_table_size = (ntypes * 4) as usize;
+
+        // not all parts of this table may be filled in
+        // e.g. if there are significantly more enum types
+        // than records, or vice versa, there will be 'holes'
+        // in the type list
+        let mut typestr_table_bytes = Vec::<u8>::new();
+        typestr_table_bytes.resize_with(typestr_table_size, || 0);
+
+        for type_ in Type::list() {
+            let pos = (type_.tag() * 4) as usize;
+            let ptr = out.intern_str(&type_.name()) as u32;
+            typestr_table_bytes[pos..pos + 4].copy_from_slice(&ptr.to_le_bytes());
+        }
+
+        let typestr_table_start = out.data(&typestr_table_bytes) as usize;
+        let typestr_table_end = typestr_table_start + typestr_table_bytes.len();
+        out.gvars.writeln(format!(
+            "(global $rt_typestr_table_start i32 (i32.const {}))",
+            typestr_table_start,
+        ));
+        out.gvars.writeln(format!(
+            "(global $rt_typestr_table_end i32 (i32.const {}))",
+            typestr_table_end,
+        ));
+    }
+
+    // write out the itables for each type that needs it
+    // (this is for dispatching dynamic trait function calls to
+    // their matching impls)
     {
         let ntypes = get_tag_limit();
 

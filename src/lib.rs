@@ -8,9 +8,9 @@ mod prelude;
 mod rn;
 mod sink;
 mod start;
+mod tmap;
 mod tr;
 mod wfs;
-mod tmap;
 
 extern crate wasmer_runtime as wr;
 

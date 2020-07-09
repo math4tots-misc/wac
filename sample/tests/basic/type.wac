@@ -1,0 +1,18 @@
+
+fn __test_type_str() {
+    # static lookup
+    Assert(Eq(str(type), "type"))
+    Assert(Eq(str(i32), "i32"))
+    Assert(Eq(str(TestTypeStrType), "TestTypeStrType"))
+
+    # dynamic lookup
+    var x id = type
+    Assert(Eq(str(x), "type"))
+    x = i32
+    Assert(Eq(str(x), "i32"))
+    x = TestTypeStrType
+    Assert(Eq(str(x), "TestTypeStrType"))
+}
+
+enum TestTypeStrType {
+}

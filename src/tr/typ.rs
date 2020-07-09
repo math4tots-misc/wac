@@ -62,6 +62,9 @@ pub(super) fn auto_cast(
         (ReturnType::Value(Type::Bool), ReturnType::Value(Type::Id)) => {
             cast_to_id(sink, TAG_BOOL);
         }
+        (ReturnType::Value(Type::Type), ReturnType::Value(Type::Id)) => {
+            cast_to_id(sink, TAG_TYPE);
+        }
         (ReturnType::Value(Type::String), ReturnType::Value(Type::Id)) => {
             cast_to_id(sink, TAG_STRING);
         }
@@ -76,6 +79,9 @@ pub(super) fn auto_cast(
         }
         (ReturnType::Value(Type::Id), ReturnType::Value(Type::Bool)) => {
             sink.writeln("call $f___WAC_raw_id_to_bool");
+        }
+        (ReturnType::Value(Type::Id), ReturnType::Value(Type::Type)) => {
+            sink.writeln("call $f___WAC_raw_id_to_type");
         }
         (ReturnType::Value(Type::Id), ReturnType::Value(Type::String)) => {
             sink.writeln("call $f___WAC_raw_id_to_str");

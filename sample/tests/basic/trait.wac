@@ -10,10 +10,10 @@ fn __test_trait_fallback_dynamic() {
 
 trait FallbackTestTrait(self) i32
 
-impl i32 FallbackTestTrait(self) i32 {
+impl i32 for FallbackTestTrait(self) i32 {
     444
 }
 
-impl id FallbackTestTrait(self) i32 {
+impl id for FallbackTestTrait(self) i32 {
     555
 }

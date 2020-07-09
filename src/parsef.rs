@@ -168,6 +168,7 @@ fn parse_impl(parser: &mut Parser) -> Result<Impl, ParseError> {
     let span = parser.span();
     parser.expect(Token::Name("impl"))?;
     let receiver_type = parse_type(parser)?;
+    parser.expect(Token::Name("for"))?;
     let trait_name = parser.expect_name()?;
     let type_ = parse_function_type(parser, true)?;
     let body = parse_block(parser)?;
@@ -241,16 +242,8 @@ fn parse_enum(parser: &mut Parser) -> Result<Enum, ParseError> {
     }
     let span = span.upto(&parser.span());
 
-    let type_offset = match parser.get_user_defined_type(&span, &name)? {
-        // Type::Enum(offset) => offset,
-        // yea, it might be broken here, but for the first parse
-        // we don't care. For the second parse, this should be caught
-        // later during translation
-        _ => 0,
-    };
     Ok(Enum {
         span,
-        type_offset,
         name: name,
         members,
     })
@@ -274,16 +267,8 @@ fn parse_record(parser: &mut Parser) -> Result<Record, ParseError> {
         consume_delim(parser);
     }
     let span = span.upto(&parser.span());
-    let type_offset = match parser.get_user_defined_type(&span, &name)? {
-        Type::Record(offset) => offset,
-        // yea, it might be broken here, but for the first parse
-        // we don't care. For the second parse, this should be caught
-        // later during translation
-        _ => 0,
-    };
     Ok(Record {
         span,
-        type_offset,
         name: name,
         fields,
     })
@@ -611,7 +596,7 @@ fn parse_infix(parser: &mut Parser, mut lhs: Expr, prec: u32) -> Result<Expr, Pa
                 }
                 let span = parser.span();
                 parser.gettok();
-                let rhs = parse_expr(parser, PREC_LOGICAL_AND + 1)?;
+                let rhs = parse_expr(parser, PREC_LOGICAL_OR + 1)?;
                 let span = span.join(&start).upto(&parser.span());
                 lhs = Expr::If(
                     span.clone(),

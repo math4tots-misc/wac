@@ -7,6 +7,10 @@ fn type[notrace](x id) type {
     "#)
 }
 
+impl type for str(self) str {
+    __type_str(self)
+}
+
 fn __WAC_typeof_raw[notrace](x i64) type {
     $asm([], type, r#"
         local.get $l_0_x
@@ -14,4 +18,20 @@ fn __WAC_typeof_raw[notrace](x i64) type {
         i64.shr_u
         i32.wrap_i64
     "#)
+}
+
+fn __type_str[notrace](t type) str {
+    var raw_type = $asm([t], i32, "")
+
+    # ptr to the str value
+    var ptr = __read(
+        $asm([], i32, "global.get $rt_typestr_table_start") +
+        raw_type * 4
+    )
+
+    # manually retain the value, so that we can asm cast it
+    # into str
+    __WAC_str_retain(ptr)
+
+    $asm([ptr], str, "")
 }

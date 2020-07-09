@@ -1,5 +1,5 @@
-use crate::TAG_ID;
 use crate::Type;
+use crate::TAG_ID;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -18,14 +18,18 @@ thread_local! {
 }
 
 pub(crate) fn set_global_typeinfo(tmap: GlobalTypeInfo) {
-    TYPE_MAP.with(|cell| {
-        cell.replace(Some(tmap))
-    });
+    TYPE_MAP.with(|cell| cell.replace(Some(tmap)));
 }
 
 pub(crate) fn get_name_for_record_type_with_offset(offset: u16) -> Rc<str> {
     TYPE_MAP.with(|cell| {
-        match cell.borrow().as_ref().unwrap().offset_to_record_name.get(offset as usize) {
+        match cell
+            .borrow()
+            .as_ref()
+            .unwrap()
+            .offset_to_record_name
+            .get(offset as usize)
+        {
             Some(name) => name.clone(),
             None => format!("[record:{}]", offset).into(),
         }
@@ -34,7 +38,13 @@ pub(crate) fn get_name_for_record_type_with_offset(offset: u16) -> Rc<str> {
 
 pub(crate) fn get_name_for_enum_type_with_offset(offset: u16) -> Rc<str> {
     TYPE_MAP.with(|cell| {
-        match cell.borrow().as_ref().unwrap().offset_to_enum_name.get(offset as usize) {
+        match cell
+            .borrow()
+            .as_ref()
+            .unwrap()
+            .offset_to_enum_name
+            .get(offset as usize)
+        {
             Some(name) => name.clone(),
             None => format!("[enum:{}]", offset).into(),
         }
@@ -43,20 +53,31 @@ pub(crate) fn get_name_for_enum_type_with_offset(offset: u16) -> Rc<str> {
 
 pub(crate) fn get_user_defined_type_from_name(name: &str) -> Option<Type> {
     TYPE_MAP.with(|cell| {
-        cell.borrow().as_ref().and_then(|info| info.get_type_from_name(name))
+        cell.borrow()
+            .as_ref()
+            .and_then(|info| info.get_type_from_name(name))
     })
 }
 
 pub(crate) fn get_enum_value_from_name(enum_type: Type, name: &str) -> Option<i32> {
     TYPE_MAP.with(|cell| {
-        cell.borrow().as_ref().unwrap().get_enum_value_from_name(enum_type, name)
+        cell.borrow()
+            .as_ref()
+            .unwrap()
+            .get_enum_value_from_name(enum_type, name)
     })
 }
 
 pub(crate) fn get_tag_limit() -> i32 {
-    TYPE_MAP.with(|cell| {
-        cell.borrow().as_ref().unwrap().get_tag_limit()
-    })
+    TYPE_MAP.with(|cell| cell.borrow().as_ref().unwrap().get_tag_limit())
+}
+
+pub(crate) fn list_all_enum_types() -> Vec<Type> {
+    TYPE_MAP.with(|cell| cell.borrow().as_ref().unwrap().list_all_enum_types())
+}
+
+pub(crate) fn list_all_record_types() -> Vec<Type> {
+    TYPE_MAP.with(|cell| cell.borrow().as_ref().unwrap().list_all_record_types())
 }
 
 /// Contains the mapping between user defined type names and
@@ -83,9 +104,15 @@ impl GlobalTypeInfo {
     }
 
     pub(crate) fn decl_enum(&mut self, name: Rc<str>, members: Vec<Rc<str>>) {
-        assert_eq!(self.offset_to_enum_name.len(), self.enum_name_to_offset.len());
+        assert_eq!(
+            self.offset_to_enum_name.len(),
+            self.enum_name_to_offset.len()
+        );
         assert_eq!(self.offset_to_enum_name.len(), self.enum_members.len());
-        assert_eq!(self.offset_to_enum_name.len(), self.str_to_enum_id_maps.len());
+        assert_eq!(
+            self.offset_to_enum_name.len(),
+            self.str_to_enum_id_maps.len()
+        );
         let offset = self.enum_members.len() as u16;
         let mut str_to_enum_id = HashMap::new();
         for (i, member) in members.iter().enumerate() {
@@ -98,7 +125,10 @@ impl GlobalTypeInfo {
     }
 
     pub(crate) fn decl_record(&mut self, name: Rc<str>) {
-        assert_eq!(self.offset_to_record_name.len(), self.record_name_to_offset.len());
+        assert_eq!(
+            self.offset_to_record_name.len(),
+            self.record_name_to_offset.len()
+        );
         let offset = self.record_name_to_offset.len() as u16;
         self.offset_to_record_name.push(name.clone());
         self.record_name_to_offset.insert(name, offset);
@@ -110,15 +140,13 @@ impl GlobalTypeInfo {
             None => match self.enum_name_to_offset.get(name) {
                 Some(offset) => Some(Type::Enum(*offset)),
                 None => None,
-            }
+            },
         }
     }
 
     pub(crate) fn get_enum_value_from_name(&self, enum_type: Type, name: &str) -> Option<i32> {
         match enum_type {
-            Type::Enum(offset) => {
-                self.str_to_enum_id_maps[offset as usize].get(name).cloned()
-            }
+            Type::Enum(offset) => self.str_to_enum_id_maps[offset as usize].get(name).cloned(),
             _ => panic!("get_enum_value_from_name, expected enum, got {}", enum_type),
         }
     }
@@ -131,12 +159,28 @@ impl GlobalTypeInfo {
         let mut limit = TAG_ID + 1;
 
         if record_offset_limit > 0 {
-            limit = std::cmp::max(limit, Type::Record(record_offset_limit - 1).tag());
+            limit = std::cmp::max(limit, 1 + Type::Record(record_offset_limit - 1).tag());
         }
         if enum_offset_limit > 0 {
-            limit = std::cmp::max(limit, Type::Record(enum_offset_limit - 1).tag());
+            limit = std::cmp::max(limit, 1 + Type::Enum(enum_offset_limit - 1).tag());
         }
 
         limit
+    }
+
+    pub(crate) fn list_all_enum_types(&self) -> Vec<Type> {
+        let mut ret = vec![];
+        for i in 0..self.enum_name_to_offset.len() {
+            ret.push(Type::Enum(i as u16));
+        }
+        ret
+    }
+
+    pub(crate) fn list_all_record_types(&self) -> Vec<Type> {
+        let mut ret = vec![];
+        for i in 0..self.record_name_to_offset.len() {
+            ret.push(Type::Record(i as u16));
+        }
+        ret
     }
 }

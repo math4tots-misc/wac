@@ -10,3 +10,4 @@ pub const STACK: &'static str = include_str!("stack.wac");
 pub const OPS: &'static str = include_str!("ops.wac");
 pub const TRAIT: &'static str = include_str!("trait.wac");
 pub const PRINT: &'static str = include_str!("print.wac");
+pub const BOOL: &'static str = include_str!("bool.wac");

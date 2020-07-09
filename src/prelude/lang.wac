@@ -33,3 +33,19 @@ fn __read_i64[notrace](ptr i32) i64 {
 fn __write_i64[notrace](ptr i32, value i64) {
     $asm([ptr, value], void, "i64.store")
 }
+
+fn __read_u8[notrace](ptr i32) i32 {
+    $asm([ptr], i32, "i32.load8_u")
+}
+
+fn __write_u8[notrace](ptr i32, value i32) {
+    $asm([ptr, value], void, "i32.store8")
+}
+
+fn __read_u16[notrace](ptr i32) i32 {
+    $asm([ptr], i32, "i32.load16_u")
+}
+
+fn __write_u16[notrace](ptr i32, value i32) {
+    $asm([ptr, value], void, "i32.store16")
+}

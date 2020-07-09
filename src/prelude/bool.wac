@@ -1,0 +1,12 @@
+
+impl bool for Eq(self, other id) bool {
+    self is other
+}
+
+impl bool for str(self) str {
+    if self {
+        "true"
+    } else {
+        "false"
+    }
+}

@@ -50,6 +50,8 @@ impl GlobalScope {
         cval: ConstValue,
     ) -> Result<Rc<ConstantInfo>, Error> {
         if let Some(info) = self.varmap.get(&name) {
+            println!("info -> {:?}, {:?}", info, cval);
+            println!("name -> {:?}", name);
             return Err(Error::ConflictingDefinitions {
                 span1: info.span().clone(),
                 span2: span,
@@ -64,6 +66,16 @@ impl GlobalScope {
         self.varmap
             .insert(name.clone(), ScopeEntry::Constant(info.clone()));
         Ok(info)
+    }
+
+    pub(super) fn decl_type(
+        &mut self,
+        span: SSpan,
+        type_: Type,
+    ) -> Result<Rc<ConstantInfo>, Error> {
+        let name = type_.name();
+        let cval = ConstValue::Type(type_);
+        self.decl_const(span, name, cval)
     }
 
     pub(super) fn decl_gvar(
@@ -145,16 +157,24 @@ impl GlobalScope {
     }
 
     pub(super) fn get_impl(&self, receiver_type: Type, trait_id: i32) -> Option<Rc<ImplInfo>> {
-        match self.impls_map.get(&receiver_type).and_then(|map| map.get(&trait_id)) {
+        match self
+            .impls_map
+            .get(&receiver_type)
+            .and_then(|map| map.get(&trait_id))
+        {
             Some(info) => Some(info.clone()),
             None => {
                 // if there's no exact match, check to see if there is an 'id' impl
-                self.impls_map.get(&Type::Id).and_then(|map| map.get(&trait_id)).cloned()
+                self.impls_map
+                    .get(&Type::Id)
+                    .and_then(|map| map.get(&trait_id))
+                    .cloned()
             }
         }
     }
 }
 
+#[derive(Debug)]
 pub(super) struct ConstantInfo {
     pub(super) span: SSpan,
     #[allow(dead_code)]
@@ -163,6 +183,7 @@ pub(super) struct ConstantInfo {
 }
 
 /// global variable declaration
+#[derive(Debug)]
 pub(super) struct GlobalVarInfo {
     #[allow(dead_code)]
     pub(super) span: SSpan,
@@ -173,6 +194,7 @@ pub(super) struct GlobalVarInfo {
 }
 
 /// local variable declaration
+#[derive(Debug)]
 pub(super) struct LocalVarInfo {
     #[allow(dead_code)]
     pub(super) span: SSpan,
@@ -308,7 +330,7 @@ impl<'a> LocalScope<'a> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub(super) enum ScopeEntry {
     Local(Rc<LocalVarInfo>),
     Global(Rc<GlobalVarInfo>),

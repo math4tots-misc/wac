@@ -1,0 +1,3 @@
+fn __test_str_eq() {
+    Eq("hello", "hello")
+}

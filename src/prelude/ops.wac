@@ -2,11 +2,11 @@
 
 trait SizeOf(self) i32
 
-impl str SizeOf(self) i32 {
+impl str for SizeOf(self) i32 {
     __strlen(self)
 }
 
-impl list SizeOf(self) i32 {
+impl list for SizeOf(self) i32 {
     __listlen(self)
 }
 

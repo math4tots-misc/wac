@@ -1,7 +1,9 @@
-use crate::SSpan;
-use crate::get_name_for_record_type_with_offset;
 use crate::get_name_for_enum_type_with_offset;
+use crate::get_name_for_record_type_with_offset;
 use crate::get_user_defined_type_from_name;
+use crate::list_all_enum_types;
+use crate::list_all_record_types;
+use crate::SSpan;
 use std::fmt;
 use std::rc::Rc;
 
@@ -52,14 +54,12 @@ pub enum Visibility {
 
 pub struct Enum {
     pub span: SSpan,
-    pub type_offset: u16,
     pub name: Rc<str>,
     pub members: Vec<Rc<str>>,
 }
 
 pub struct Record {
     pub span: SSpan,
-    pub type_offset: u16,
     pub name: Rc<str>,
     pub fields: Vec<(Rc<str>, Type)>,
 }
@@ -295,17 +295,28 @@ impl Type {
             Type::List => TAG_LIST,
             Type::Id => TAG_ID,
             // enums always have an odd tag
-            Type::Enum(offset) => if (TAG_ID + 1) % 2 == 1 {
-                (TAG_ID + 1) + 2 * (offset as i32)
-            } else {
-                (TAG_ID + 2) + 2 * (offset as i32)
+            Type::Enum(offset) => {
+                if (TAG_ID + 1) % 2 == 1 {
+                    (TAG_ID + 1) + 2 * (offset as i32)
+                } else {
+                    (TAG_ID + 2) + 2 * (offset as i32)
+                }
             }
             // records always have an even tag
-            Type::Record(offset) => if (TAG_ID + 1) % 2 == 0 {
-                (TAG_ID + 1) + 2 * (offset as i32)
-            } else {
-                (TAG_ID + 2) + 2 * (offset as i32)
-            },
+            Type::Record(offset) => {
+                if (TAG_ID + 1) % 2 == 0 {
+                    (TAG_ID + 1) + 2 * (offset as i32)
+                } else {
+                    (TAG_ID + 2) + 2 * (offset as i32)
+                }
+            }
+        }
+    }
+    pub fn is_enum(self) -> bool {
+        if let Type::Enum(_) = self {
+            true
+        } else {
+            false
         }
     }
     pub fn is_record(self) -> bool {
@@ -315,7 +326,24 @@ impl Type {
             false
         }
     }
-    fn name(&self) -> Rc<str> {
+    /// list all known types
+    pub fn list() -> Vec<Type> {
+        let mut ret = vec![
+            Type::I32,
+            Type::I64,
+            Type::F32,
+            Type::F64,
+            Type::Bool,
+            Type::Type,
+            Type::String,
+            Type::List,
+            Type::Id,
+        ];
+        ret.extend(list_all_enum_types());
+        ret.extend(list_all_record_types());
+        ret
+    }
+    pub fn name(&self) -> Rc<str> {
         match self {
             Type::I32 => "i32".into(),
             Type::I64 => "i64".into(),
@@ -332,7 +360,13 @@ impl Type {
     }
     pub fn primitive(self) -> bool {
         match self {
-            Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Bool | Type::Type | Type::Enum(_) => true,
+            Type::I32
+            | Type::I64
+            | Type::F32
+            | Type::F64
+            | Type::Bool
+            | Type::Type
+            | Type::Enum(_) => true,
             Type::String | Type::List | Type::Id | Type::Record(_) => false,
         }
     }
