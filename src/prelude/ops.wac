@@ -150,10 +150,27 @@ impl list for Reverse(self) {
 ################################################
 # Clone
 #
-# Clone a container
+# Clone a value
 #
 ################################################
 trait Clone(self) id
+
+impl bool for Clone(self) id {
+    self
+}
+
+impl i32 for Clone(self) id {
+    self
+}
+
+impl f32 for Clone(self) id {
+    self
+}
+
+impl str for Clone(self) id {
+    # NOTE: strings are immutable
+    self
+}
 
 impl list for Clone(self) id {
     __list_clone(self)
