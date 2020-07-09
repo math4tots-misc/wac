@@ -10,7 +10,6 @@ import fn "lang" "print_str_raw" __print_str_raw[notrace](len i32, ptr i32)
 import fn "lang" "print0_str_raw" __print0_str_raw[notrace](len i32, ptr i32)
 import fn "lang" "eprint_str_raw" __eprint_str_raw[notrace](len i32, ptr i32)
 import fn "lang" "eprint0_str_raw" __eprint0_str_raw[notrace](len i32, ptr i32)
-import fn "lang" "cstrlen" __cstrlen[notrace](cstr i32) i32
 
 # We define the entrypoint to be __start so that main can be private
 fn[pub] __start() i32 {

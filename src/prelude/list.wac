@@ -157,3 +157,24 @@ fn __list_setitem[notrace](list list, index i32, value id) {
 fn __list_buffer[notrace](list list) i32 {
     __read($asm([], i32, "local.get $l_0_list") + 12)
 }
+
+fn __list_reverse[notrace](items list) {
+    var len = __listlen(items)
+    var buffer = __list_buffer(items)
+
+    var i = 0
+    while i + i < len {
+        var ptr1 = buffer + 8 * i
+        var ptr2 = buffer + 8 * (len - 1 - i)
+        var tmp = __read_i64(ptr1)
+        __write_i64(ptr1, __read_i64(ptr2))
+        __write_i64(ptr2, tmp)
+        i = i + 1
+    }
+}
+
+fn __list_swap[notrace](items list, i i32, j i32) {
+    var tmp = __list_getitem(items, i)
+    __list_setitem(items, i, __list_getitem(items, j))
+    __list_setitem(items, j, tmp)
+}

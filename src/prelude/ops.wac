@@ -44,6 +44,10 @@ impl bool for str(self) str {
     }
 }
 
+impl i32 for str(self) str {
+    __i32_str(self)
+}
+
 impl str for str(self) str {
     self
 }
@@ -122,6 +126,18 @@ trait SetItem(self, index id, value id)
 
 impl list for SetItem(self, index id, value id) {
     __list_setitem(self, index, value)
+}
+
+################################################
+# Reverse
+#
+# Reverse an ordered container
+#
+################################################
+trait Reverse(self)
+
+impl list for Reverse(self) {
+    __list_reverse(self)
 }
 
 ################################################
