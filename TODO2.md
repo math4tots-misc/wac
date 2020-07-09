@@ -11,3 +11,9 @@ at some point.
     recursive descent
 * Allow calling functions with arguments specified
     with keywords
+* Figure out a story for how to get type names
+    in contexts where only the typetag is available
+    (in Rust code)
+    * Currently, I'm working around this by using a global variable
+        TODO: Fix this
+

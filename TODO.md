@@ -12,13 +12,6 @@
 * some sort of switch or match (may depend on first
     having some sort of global constants mechanism
     to be useful)
-* Call trait funcs directly when receiver type is known
-* enum types
-    Partially implemented but not yet usable. still needs:
-    * a way to refer to each entry
-* Figure out a story for how to get type names
-    in contexts where only the typetag is available
-    (in Rust code)
 
 # DONE
 
@@ -62,3 +55,5 @@
     grouping bits of data together should be possible
     to keep things simple, they should be dumb structs
     behind reference counted pointers
+* enum types
+* Call trait funcs directly when receiver type is known
