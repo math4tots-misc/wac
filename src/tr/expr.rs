@@ -116,7 +116,7 @@ pub(super) fn translate_expr(
             for expr in exprs {
                 raw_dup(lscope, sink, WasmType::I32);
                 translate_expr(out, sink, lscope, ReturnType::Value(Type::Id), expr)?;
-                sink.writeln("call $f___list_push_raw_no_retain");
+                sink.writeln("call $f___WAC_list_push_raw_no_retain");
             }
             auto_cast(sink, span, lscope, ReturnType::Value(Type::List), etype)?;
         }
@@ -284,6 +284,28 @@ pub(super) fn translate_expr(
                 })
             }
         },
+        Expr::GetItem(span, owner, index) => {
+            translate_fcall(
+                out,
+                lscope,
+                sink,
+                etype,
+                span,
+                &"GetItem".into(),
+                &vec![owner, index],
+            )?;
+        }
+        Expr::SetItem(span, owner, index, setexpr) => {
+            translate_fcall(
+                out,
+                lscope,
+                sink,
+                etype,
+                span,
+                &"SetItem".into(),
+                &vec![owner, index, setexpr],
+            )?;
+        }
         Expr::Binop(span, op, left, right) => {
             // == binops ==
             // identity ops
@@ -325,14 +347,13 @@ pub(super) fn translate_expr(
                         &"Eq".into(),
                         &vec![left, right],
                     )?;
-                    auto_cast(sink, span, lscope, ReturnType::Value(Type::Bool), etype)?;
                 }
                 Binop::NotEqual => {
                     translate_fcall(
                         out,
                         lscope,
                         sink,
-                        etype,
+                        ReturnType::Value(Type::Bool),
                         span,
                         &"Eq".into(),
                         &vec![left, right],

@@ -109,6 +109,8 @@ pub enum Expr {
     While(SSpan, Box<Expr>, Box<Expr>),
 
     GetAttr(SSpan, Box<Expr>, Rc<str>),
+    GetItem(SSpan, Box<Expr>, Box<Expr>),
+    SetItem(SSpan, Box<Expr>, Box<Expr>, Box<Expr>),
 
     // builtin operators
     Binop(SSpan, Binop, Box<Expr>, Box<Expr>),
@@ -136,6 +138,8 @@ impl Expr {
             Expr::If(span, ..) => span,
             Expr::While(span, ..) => span,
             Expr::GetAttr(span, ..) => span,
+            Expr::GetItem(span, ..) => span,
+            Expr::SetItem(span, ..) => span,
             Expr::Binop(span, ..) => span,
             Expr::Unop(span, ..) => span,
             Expr::AssertType(span, ..) => span,

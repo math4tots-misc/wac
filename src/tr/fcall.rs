@@ -15,8 +15,8 @@ pub(super) fn translate_fcall(
     if argexprs.len() != ftype.parameters.len() {
         return Err(Error::Type {
             span: span.clone(),
-            expected: format!("{} args", ftype.parameters.len()),
-            got: format!("{} args", argexprs.len()),
+            expected: format!("{} arg(s)", ftype.parameters.len()),
+            got: format!("{} arg(s)", argexprs.len()),
         });
     }
 

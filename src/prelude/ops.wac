@@ -4,10 +4,9 @@
 ################################################
 # Eq
 #
-# To check two values for equivalence
+# Check two values for equivalence
 #
 ################################################
-
 trait Eq(self, other id) bool
 
 impl bool for Eq(self, other id) bool {
@@ -35,6 +34,7 @@ impl str for Eq(self, other id) bool {
 # For converting values into str
 #
 ################################################
+trait str(self) str
 
 impl bool for str(self) str {
     if self {
@@ -43,8 +43,6 @@ impl bool for str(self) str {
         "false"
     }
 }
-
-trait str(self) str
 
 impl str for str(self) str {
     self
@@ -56,8 +54,14 @@ impl type for str(self) str {
 
 ################################################
 # SizeOf
+#
+# Get the number of elements in a container
+# (e.g. list)
+#
+# For strings, this gives you the number
+# of bytes, not the number of chars!
+#
 ################################################
-
 trait SizeOf(self) i32
 
 impl str for SizeOf(self) i32 {
@@ -66,4 +70,56 @@ impl str for SizeOf(self) i32 {
 
 impl list for SizeOf(self) i32 {
     __listlen(self)
+}
+
+################################################
+# Push
+#
+# Add an element to the end of a container
+# (e.g. list)
+#
+################################################
+trait Push(self, item id)
+
+impl list for Push(self, item id) {
+    __list_push(self, item)
+}
+
+################################################
+# Pop
+#
+# Remove an element from the end of a container
+# (e.g. list)
+#
+################################################
+trait Pop(self) id
+
+impl list for Pop(self) id {
+    __list_pop(self)
+}
+
+################################################
+# GetItem
+#
+# Get an item from a container with an index
+# (e.g. list or map)
+#
+################################################
+trait GetItem(self, index id) id
+
+impl list for GetItem(self, index id) id {
+    __list_getitem(self, index)
+}
+
+################################################
+# SetItem
+#
+# Get an item from a container with an index
+# (e.g. list or map)
+#
+################################################
+trait SetItem(self, index id, value id)
+
+impl list for SetItem(self, index id, value id) {
+    __list_setitem(self, index, value)
 }

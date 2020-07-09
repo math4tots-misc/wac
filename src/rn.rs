@@ -54,6 +54,8 @@ pub fn run_tests(sources: Vec<(Rc<str>, Rc<str>)>, test_prefix: &str) -> Result<
             }
         }
     }
+    let file_loading_time = start.elapsed().as_secs_f64();
+    let start = std::time::Instant::now();
     let wat_code = translate_files(files)?;
     let wac_to_wat_time = start.elapsed().as_secs_f64();
 
@@ -79,10 +81,11 @@ pub fn run_tests(sources: Vec<(Rc<str>, Rc<str>)>, test_prefix: &str) -> Result<
 
     println!("All tests passed");
 
-    println!("wac to wat time  : {}s", wac_to_wat_time);
-    println!("wat to wasm time : {}s", wat_to_wasm_time);
-    println!("instantiate time : {}s", instantiate_time);
-    println!("execution time   : {}s", exec_time);
+    println!("file loading time  : {}s", file_loading_time);
+    println!("wac to wat time    : {}s", wac_to_wat_time);
+    println!("wat to wasm time   : {}s", wat_to_wasm_time);
+    println!("instantiate time   : {}s", instantiate_time);
+    println!("execution time     : {}s", exec_time);
 
     Ok(())
 }

@@ -79,6 +79,8 @@ pub(super) fn guess_return_type(lscope: &mut LocalScope, expr: &Expr) -> Result<
                 got: format!("{} expression", guess_type(lscope, expr)?),
             }),
         },
+        Expr::GetItem(..) => Ok(ReturnType::Value(Type::Id)),
+        Expr::SetItem(..) => Ok(ReturnType::Void),
         Expr::Binop(_span, op, left, right) => Ok(ReturnType::Value(match op {
             // == binops ==
             // equality ops

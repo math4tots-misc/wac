@@ -41,7 +41,7 @@ fn __WAC_UNSAFE_listptr[notrace](s list) i32 {
     $asm([], i32, "local.get $l_0_s")
 }
 
-fn __new_list() list {
+fn __new_list[notrace]() list {
     var ptr = __malloc(16)
 
     # refcnt
@@ -59,12 +59,14 @@ fn __new_list() list {
     $asm([], list, "local.get $l_0_ptr")
 }
 
-fn __list_push_raw(list i32, item i64) {
-    __WAC_id_retain(item)
-    __list_push_raw_no_retain(list, item)
+fn __list_push[notrace](list list, item id) {
+    var raw_list = $asm([], i32, "local.get $l_0_list")
+    var raw_item = $asm([], i64, "local.get $l_1_item")
+    __WAC_id_retain(raw_item)
+    __WAC_list_push_raw_no_retain(raw_list, raw_item)
 }
 
-fn __list_push_raw_no_retain[notrace](list i32, item i64) {
+fn __WAC_list_push_raw_no_retain[notrace](list i32, item i64) {
 
     var len = __read(list + 4)
     var capacity = __read(list + 8)
@@ -86,15 +88,72 @@ fn __list_push_raw_no_retain[notrace](list i32, item i64) {
         )
     }
 
-    # __hello($cstr("new len"), len + 1)
-    # __hello($cstr("cap"), capacity)
-    # __hello($cstr("buf"), __read(list + 12))
-    # __print_cstr($cstr(""))
-
     # update the 'len' field
     __write(list + 4, len + 1)
 
     var buffer = __read(list + 12)
 
     __write_i64(buffer + 8 * len, item)
+}
+
+fn __list_pop[notrace](list list) id {
+    # There's no need to release manually,
+    # we're just transferring the retain that this list had to the
+    # reference to the retain we would've needed to do for a
+    # return value
+    $asm([__WAC_list_pop_raw_no_release(
+        $asm([], i32, "local.get $l_0_list"),
+    )], id, "")
+}
+
+fn __WAC_list_pop_raw_no_release[notrace](list i32) i64 {
+    var new_len = __read(list + 4) - 1
+    if new_len < 0 {
+        NoTracePanic("Pop from empty list")
+    }
+    __write(list + 4, new_len)
+
+    # buffer[new_len]
+    __read_i64(__read(list + 12) + 8 * new_len)
+}
+
+fn __list_getitem[notrace](list list, index i32) id {
+    var len = __listlen(list)
+
+    if index < 0 or index >= len {
+        NoTracePanic("list index out of bounds")
+    }
+
+    var buffer = __list_buffer(list)
+    var raw_item = __read_i64(buffer + index * 8)
+
+    # We have to retain for the return
+    __WAC_id_retain(raw_item)
+
+    $asm([raw_item], id, "")
+}
+
+fn __list_setitem[notrace](list list, index i32, value id) {
+    var len = __listlen(list)
+
+    if index < 0 or index >= len {
+        NoTracePanic("list index out of bounds")
+    }
+
+    var buffer = __list_buffer(list)
+    var item_ptr = buffer + index * 8
+
+    # Retain the new item (for ownership in list)
+    __WAC_id_retain($asm([], i64, "local.get $l_2_value"))
+
+    # Release the old item
+    __WAC_id_release(__read_i64(item_ptr))
+
+    # Actually replace the value
+    __write_i64(item_ptr, $asm([], i64, "local.get $l_2_value"))
+}
+
+# Get a pointer to the list's buffer
+fn __list_buffer[notrace](list list) i32 {
+    __read($asm([], i32, "local.get $l_0_list") + 12)
 }

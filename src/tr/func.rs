@@ -32,8 +32,8 @@ pub(super) fn translate_impl(
     if trait_info.type_ != imp.type_ {
         return Err(Error::Type {
             span: imp.span.clone(),
-            expected: format!("{}", trait_info.type_),
-            got: format!("{}", imp.type_),
+            expected: format!("impl type {}", trait_info.type_),
+            got: format!("impl type {}", imp.type_),
         });
     }
 

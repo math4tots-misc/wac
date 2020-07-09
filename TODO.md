@@ -1,5 +1,8 @@
 # TODO
 
+* record type
+    While record types are kinda implemented
+    There needs to be a corresponding 'constructor' function
 * reference counted mstr type (or maybe call it 'buffer'?)
     A mutable buffer storing UCS4 data.
     Maybe also for storing a simple array of i32 values?
