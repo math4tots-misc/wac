@@ -5,15 +5,13 @@
 fn __WAC_str_release[notrace](ptr i32) {
     var refcnt = __read(ptr) - 1
     if refcnt > 0 {
-        # __hello($cstr("STRING (RELEASE)"), refcnt)
         __write(ptr, refcnt)
     } else {
-        # __hello($cstr("STRING IS BEING FREED!!"), ptr)
         __free(__read(ptr + 4) + 8, ptr)
     }
 }
 
-fn __WAC_str_alloc(strlen i32) str {
+fn __WAC_str_alloc[notrace](strlen i32) str {
     # Allocates space for string of a given length
     var ptr = __malloc(8 + strlen)
     __write(ptr, 1)           # refcnt
@@ -28,6 +26,42 @@ fn __WAC_str_buffer[notrace](s str) i32 {
         i32.const 8
         i32.add
     "###)
+}
+
+# Joins a list of strings with the given separator
+fn __str_join[notrace](separator str, items list) str {
+    var separator_len = __strlen(separator)
+    var separator_buffer = __WAC_str_buffer(separator)
+    var items_len = __listlen(items)
+
+    var final_len = 0
+    var i = 0
+    while i < items_len {
+        if i > 0 {
+            final_len = final_len + separator_len
+        }
+        final_len = final_len + __strlen(__list_getitem(items, i))
+        i = i + 1
+    }
+
+    var ret = __WAC_str_alloc(final_len)
+    var buffer = __WAC_str_buffer(ret)
+
+    i = 0
+    while i < items_len {
+        if i > 0 {
+            __WAC_memcpy(buffer, separator_buffer, separator_len)
+            buffer = buffer + separator_len
+        }
+        var item str = __list_getitem(items, i)
+        var item_len = __strlen(item)
+        var item_buffer = __WAC_str_buffer(item)
+        __WAC_memcpy(buffer, item_buffer, item_len)
+        buffer = buffer + item_len
+        i = i + 1
+    }
+
+    ret
 }
 
 # concatenates two strings

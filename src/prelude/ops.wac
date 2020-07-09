@@ -123,3 +123,16 @@ trait SetItem(self, index id, value id)
 impl list for SetItem(self, index id, value id) {
     __list_setitem(self, index, value)
 }
+
+################################################
+# Join
+#
+# Get an item from a container with an index
+# (e.g. list or map)
+#
+################################################
+trait Join(self, items list) id
+
+impl str for Join(self, items list) id {
+    __str_join(self, items)
+}

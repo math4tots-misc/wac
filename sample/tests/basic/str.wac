@@ -1,3 +1,11 @@
 fn __test_str_eq() {
     Assert(Eq("hello", "hello"))
 }
+
+fn __test_str_join() {
+    var s = 'abcd'
+    Assert(__str_eq(Join('', ['a', 'b', 'c', 'd']), 'abcd'))
+    Assert(Join('', ['a', 'b', 'c', 'd']) == 'abcd')
+    Assert(Join('x', ['a', 'b', 'c']) == 'axbxc')
+    Assert(Join(' ', ['11', 'b', 'c']) == '11 b c')
+}

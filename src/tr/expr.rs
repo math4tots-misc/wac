@@ -192,12 +192,12 @@ pub(super) fn translate_expr(
                 Some(t) => *t,
                 None => guess_type(lscope, setexpr)?,
             };
-            let info = lscope.decl(span.clone(), name.clone(), type_);
             // There's no need to retain here, because anything that's currently
-            // on the stack already have a retain on them. By popping from the
+            // on the stack already has a retain on it. By popping from the
             // stack, we're transferring the retain on the stack into the
             // variable itself.
             translate_expr(out, sink, lscope, ReturnType::Value(type_), setexpr)?;
+            let info = lscope.decl(span.clone(), name.clone(), type_);
             sink.writeln(format!("local.set {}", info.wasm_name));
             auto_cast(sink, span, lscope, ReturnType::Void, etype)?;
         }
