@@ -1,3 +1,4 @@
+use crate::llir::*;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -49,5 +50,68 @@ impl Sink {
             }
         }
         string
+    }
+}
+
+/// methods that correspond to webassembly constructs
+impl Sink {
+    pub fn data_directive(&self, ptr: WasmPtr, data: &[u8]) {
+        self.write(format!("(data (i32.const {}) \"", ptr));
+        for byte in data {
+            self.write(format!("\\{:0>2X}", byte));
+        }
+        self.writeln("\")");
+    }
+
+    pub fn i32_sub(&self) {
+        self.writeln("i32.sub");
+    }
+
+    pub fn i32_const(&self, value: i32) {
+        self.writeln(format!("i32.const {}", value))
+    }
+
+    pub fn i64_const(&self, value: i64) {
+        self.writeln(format!("i64.const {}", value))
+    }
+
+    pub fn f32_const(&self, value: f32) {
+        self.writeln(format!("f32.const {}", value))
+    }
+
+    pub fn f64_const(&self, value: f64) {
+        self.writeln(format!("f64.const {}", value))
+    }
+
+    pub fn i32_reinterpret_f32(&self) {
+        self.writeln("i32.reinterpret_f32")
+    }
+
+    pub fn call(&self, name: &str) {
+        self.writeln(format!("call {}", name))
+    }
+
+    pub fn local_get(&self, name: &str) {
+        self.writeln(format!("local.get {}", name))
+    }
+
+    pub fn local_set(&self, name: &str) {
+        self.writeln(format!("local.set {}", name))
+    }
+
+    pub fn local_tee(&self, name: &str) {
+        self.writeln(format!("local.tee {}", name))
+    }
+
+    pub fn global_get(&self, name: &str) {
+        self.writeln(format!("global.get {}", name))
+    }
+
+    pub fn global_set(&self, name: &str) {
+        self.writeln(format!("global.set {}", name))
+    }
+
+    pub fn global_tee(&self, name: &str) {
+        self.writeln(format!("global.tee {}", name))
     }
 }

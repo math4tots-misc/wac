@@ -11,10 +11,10 @@ pub(super) fn translate_expr(
         Expr::Bool(span, x) => {
             match etype {
                 ReturnType::Value(Type::Bool) => {
-                    sink.writeln(format!("(i32.const {})", if *x { 1 } else { 0 }));
+                    sink.i32_const(if *x { 1 } else { 0 });
                 }
                 ReturnType::Value(Type::Id) => {
-                    sink.writeln(format!("(i32.const {})", if *x { 1 } else { 0 }));
+                    sink.i32_const(if *x { 1 } else { 0 });
                     cast_to_id(sink, TAG_BOOL);
                 }
                 ReturnType::Value(t) => {
@@ -39,19 +39,19 @@ pub(super) fn translate_expr(
         Expr::Int(span, x) => {
             match etype {
                 ReturnType::Value(Type::I32) => {
-                    sink.writeln(format!("(i32.const {})", x));
+                    sink.i32_const(*x as i32);
                 }
                 ReturnType::Value(Type::I64) => {
-                    sink.writeln(format!("(i64.const {})", x));
+                    sink.i64_const(*x);
                 }
                 ReturnType::Value(Type::F32) => {
-                    sink.writeln(format!("(f32.const {})", x));
+                    sink.f32_const(*x as f32);
                 }
                 ReturnType::Value(Type::F64) => {
-                    sink.writeln(format!("(f64.const {})", x));
+                    sink.f64_const(*x as f64);
                 }
                 ReturnType::Value(Type::Id) => {
-                    sink.writeln(format!("(i32.const {})", x));
+                    sink.i32_const(*x as i32);
                     cast_to_id(sink, TAG_I32);
                 }
                 ReturnType::Value(t) => {
@@ -76,14 +76,14 @@ pub(super) fn translate_expr(
         Expr::Float(span, x) => {
             match etype {
                 ReturnType::Value(Type::F32) => {
-                    sink.writeln(format!("(f32.const {})", x));
+                    sink.f32_const(*x as f32);
                 }
                 ReturnType::Value(Type::F64) => {
-                    sink.writeln(format!("(f64.const {})", x));
+                    sink.f64_const(*x as f64);
                 }
                 ReturnType::Value(Type::Id) => {
-                    sink.writeln(format!("(f32.const {})", x));
-                    sink.writeln("i32.reinterpret_f32");
+                    sink.f32_const(*x as f32);
+                    sink.i32_reinterpret_f32();
                     cast_to_id(sink, TAG_F32);
                 }
                 ReturnType::Value(t) => {
@@ -107,16 +107,16 @@ pub(super) fn translate_expr(
         }
         Expr::String(span, value) => {
             let ptr = out.intern_str(value);
-            sink.writeln(format!("(i32.const {})", ptr));
+            sink.i32_const(ptr);
             retain(lscope, sink, Type::String, DropPolicy::Keep);
             auto_cast(sink, span, lscope, ReturnType::Value(Type::String), etype)?;
         }
         Expr::List(span, exprs) => {
-            sink.writeln("call $f___new_list");
+            sink.call("$f___new_list");
             for expr in exprs {
                 raw_dup(lscope, sink, WasmType::I32);
                 translate_expr(out, sink, lscope, ReturnType::Value(Type::Id), expr)?;
-                sink.writeln("call $f___WAC_list_push_raw_no_retain");
+                sink.call("$f___WAC_list_push_raw_no_retain");
             }
             auto_cast(sink, span, lscope, ReturnType::Value(Type::List), etype)?;
         }
@@ -139,19 +139,19 @@ pub(super) fn translate_expr(
             let gtype = entry.type_();
             match entry {
                 ScopeEntry::Local(info) => {
-                    sink.writeln(format!("local.get {}", info.wasm_name));
+                    sink.local_get(&info.wasm_name);
                     retain(lscope, sink, info.type_, DropPolicy::Keep);
                 }
                 ScopeEntry::Global(info) => {
-                    sink.writeln(format!("global.get {}", info.wasm_name));
+                    sink.global_get(&info.wasm_name);
                     retain(lscope, sink, info.type_, DropPolicy::Keep);
                 }
                 ScopeEntry::Constant(info) => match &info.value {
                     ConstValue::I32(x) => {
-                        sink.writeln(format!("i32.const {}", x));
+                        sink.i32_const(*x);
                     }
                     ConstValue::Type(t) => {
-                        sink.writeln(format!("i32.const {}", t.tag()));
+                        sink.i32_const(t.tag());
                     }
                 },
             }
@@ -170,12 +170,12 @@ pub(super) fn translate_expr(
                 ScopeEntry::Local(info) => {
                     translate_expr(out, sink, lscope, ReturnType::Value(info.type_), setexpr)?;
                     release_var(sink, Scope::Local, &info.wasm_name, info.type_);
-                    sink.writeln(format!("local.set {}", info.wasm_name));
+                    sink.local_set(&info.wasm_name);
                 }
                 ScopeEntry::Global(info) => {
                     translate_expr(out, sink, lscope, ReturnType::Value(info.type_), setexpr)?;
                     release_var(sink, Scope::Global, &info.wasm_name, info.type_);
-                    sink.writeln(format!("global.set {}", info.wasm_name));
+                    sink.global_set(&info.wasm_name);
                 }
                 ScopeEntry::Constant(_) => {
                     return Err(Error::Type {
@@ -198,7 +198,7 @@ pub(super) fn translate_expr(
             // variable itself.
             translate_expr(out, sink, lscope, ReturnType::Value(type_), setexpr)?;
             let info = lscope.decl(span.clone(), name.clone(), type_);
-            sink.writeln(format!("local.set {}", info.wasm_name));
+            sink.local_set(&info.wasm_name);
             auto_cast(sink, span, lscope, ReturnType::Void, etype)?;
         }
         Expr::FunctionCall(span, fname, argexprs) => {
@@ -258,7 +258,7 @@ pub(super) fn translate_expr(
             Some(type_) => match type_ {
                 Type::Enum(_) => match get_enum_value_from_name(type_, field) {
                     Some(value) => {
-                        sink.writeln(format!("(i32.const {})", value));
+                        sink.i32_const(value);
                     }
                     None => {
                         return Err(Error::Type {
@@ -573,7 +573,7 @@ pub(super) fn translate_expr(
         }
         Expr::CString(span, value) => {
             let ptr = out.intern_cstr(value);
-            sink.writeln(format!("i32.const {}", ptr));
+            sink.i32_const(ptr);
             auto_cast(sink, span, lscope, ReturnType::Value(Type::I32), etype)?
         }
         Expr::Asm(span, args, type_, asm_code) => {

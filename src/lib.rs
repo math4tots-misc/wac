@@ -11,6 +11,7 @@ mod start;
 mod tmap;
 mod tr;
 mod wfs;
+mod llir;
 
 extern crate wasmer_runtime as wr;
 
@@ -24,6 +25,7 @@ pub use rn::*;
 pub use sink::*;
 pub use start::*;
 pub use tr::*;
+pub use llir::*;
 
 use tmap::*;
 

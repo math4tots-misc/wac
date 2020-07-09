@@ -12,8 +12,8 @@ pub(super) struct Out {
     pub(super) exports: Rc<Sink>,
 
     pub(super) data_len: Cell<usize>,
-    pub(super) intern_cstr_map: HashMap<Rc<str>, u32>,
-    pub(super) intern_str_map: HashMap<Rc<str>, u32>,
+    pub(super) intern_cstr_map: HashMap<Rc<str>, WasmPtr>,
+    pub(super) intern_str_map: HashMap<Rc<str>, WasmPtr>,
 }
 
 impl Out {
@@ -72,25 +72,21 @@ impl Out {
         self.main.get()
     }
 
-    pub(super) fn reserve(&self, len: usize) -> u32 {
+    pub(super) fn reserve(&self, len: usize) -> WasmPtr {
         // data is reserved with 16-byte alignment
         let reserve_len = (len + 16 - 1) / 16 * 16;
         let ptr = self.data_len.get();
         self.data_len.set(reserve_len + ptr);
-        ptr as u32
+        ptr as WasmPtr
     }
 
-    pub(super) fn data(&self, data: &[u8]) -> u32 {
+    pub(super) fn data(&self, data: &[u8]) -> WasmPtr {
         let ptr = self.reserve(data.len());
-        self.data.write(format!("(data (i32.const {}) \"", ptr));
-        for byte in data {
-            self.data.write(format!("\\{:0>2X}", byte));
-        }
-        self.data.writeln("\")");
-        ptr as u32
+        self.data.data_directive(ptr, data);
+        ptr
     }
 
-    pub(super) fn intern_cstr(&mut self, s: &Rc<str>) -> u32 {
+    pub(super) fn intern_cstr(&mut self, s: &Rc<str>) -> WasmPtr {
         if !self.intern_cstr_map.contains_key(s) {
             let mut buffer = s.as_bytes().to_vec();
             buffer.push(0);
@@ -100,7 +96,7 @@ impl Out {
         *self.intern_cstr_map.get(s).unwrap()
     }
 
-    pub(super) fn intern_str(&mut self, s: &Rc<str>) -> u32 {
+    pub(super) fn intern_str(&mut self, s: &Rc<str>) -> WasmPtr {
         if !self.intern_str_map.contains_key(s) {
             let mut buffer = Vec::<u8>::new();
             // refcnt

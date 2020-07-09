@@ -2,6 +2,7 @@
 use crate::get_enum_value_from_name;
 use crate::get_tag_limit;
 use crate::ir::*;
+use crate::llir::*;
 use crate::parse_file;
 use crate::set_global_typeinfo;
 use crate::Binop;
@@ -271,7 +272,7 @@ pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
 
         for type_ in Type::list() {
             let pos = (type_.tag() * 4) as usize;
-            let ptr = out.intern_str(&type_.name()) as u32;
+            let ptr = out.intern_str(&type_.name()) as WasmPtr;
             typestr_table_bytes[pos..pos + 4].copy_from_slice(&ptr.to_le_bytes());
         }
 
@@ -316,8 +317,8 @@ pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
                 itable_bytes.extend(&trait_id.to_le_bytes());
                 itable_bytes.extend(&impl_info.index.to_le_bytes());
             }
-            let itable_start: u32 = out.data(&itable_bytes);
-            let itable_end = itable_start + (itable_bytes.len() as u32);
+            let itable_start: WasmPtr = out.data(&itable_bytes);
+            let itable_end = itable_start + (itable_bytes.len() as WasmPtr);
             let tag = type_.tag() as usize;
 
             // println!("[itable: {}, {}]", itable_start, itable_end);
@@ -331,7 +332,7 @@ pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
 
         // Finally! the meta-itable is built
         let meta_itable_start = out.data(&meta_itable_bytes);
-        let meta_itable_end = meta_itable_start + (meta_itable_bytes.len() as u32);
+        let meta_itable_end = meta_itable_start + (meta_itable_bytes.len() as WasmPtr);
 
         out.gvars.writeln(format!(
             "(global $rt_meta_itable_start i32 (i32.const {}))",

@@ -4,6 +4,7 @@ use crate::get_user_defined_type_from_name;
 use crate::list_all_enum_types;
 use crate::list_all_record_types;
 use crate::SSpan;
+use crate::llir::*;
 use std::fmt;
 use std::rc::Rc;
 
@@ -189,25 +190,6 @@ impl Import {
     pub fn span(&self) -> &SSpan {
         match self {
             Import::Function(i) => &i.span,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum WasmType {
-    I32,
-    I64,
-    F32,
-    F64,
-}
-
-impl WasmType {
-    pub fn wac(self) -> Type {
-        match self {
-            Self::I32 => Type::I32,
-            Self::I64 => Type::I64,
-            Self::F32 => Type::F32,
-            Self::F64 => Type::F64,
         }
     }
 }
