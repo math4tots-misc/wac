@@ -1,4 +1,56 @@
-# Common operations
+# Common traits and their impls
+
+
+################################################
+# Eq
+################################################
+
+trait Eq(self, other id) bool
+
+impl bool for Eq(self, other id) bool {
+    self is other
+}
+
+impl i32 for Eq(self, other id) bool {
+    self is other
+}
+
+impl f32 for Eq(self, other id) bool {
+    self is other
+}
+
+impl str for Eq(self, other id) bool {
+    self is other or type(other) is str and {
+        var other str = other
+        __str_eq(self, other)
+    }
+}
+
+################################################
+# str
+################################################
+
+impl bool for str(self) str {
+    if self {
+        "true"
+    } else {
+        "false"
+    }
+}
+
+trait str(self) str
+
+impl str for str(self) str {
+    self
+}
+
+impl type for str(self) str {
+    __type_str(self)
+}
+
+################################################
+# SizeOf
+################################################
 
 trait SizeOf(self) i32
 
@@ -9,7 +61,3 @@ impl str for SizeOf(self) i32 {
 impl list for SizeOf(self) i32 {
     __listlen(self)
 }
-
-trait Eq(self, other id) bool
-
-

@@ -5,6 +5,7 @@
     Maybe also for storing a simple array of i32 values?
     This way indexing, changing a char at location, etc
     is easy and fast
+* namespaces/modules
 * control flow (return)
 * control flow (break, continue)
 * refrence counted map type
@@ -12,6 +13,9 @@
 * some sort of switch or match (may depend on first
     having some sort of global constants mechanism
     to be useful)
+* function calls by keyword parameters
+    This is part of the reason why a function's type
+    includes the parameters' names
 
 # DONE
 

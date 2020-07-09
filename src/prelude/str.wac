@@ -1,17 +1,4 @@
 
-trait str(self) str
-
-impl str for str(self) str {
-    self
-}
-
-impl str for Eq(self, other id) bool {
-    self is other or type(other) is str and {
-        var other str = other
-        __str_eq(self, other)
-    }
-}
-
 # str layout:
 #   [refcnt i32][len(bytes) i32][utf8...]
 #

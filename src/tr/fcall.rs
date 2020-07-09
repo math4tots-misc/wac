@@ -7,7 +7,7 @@ pub(super) fn translate_fcall(
     etype: ReturnType,
     span: &SSpan,
     fname: &Rc<str>,
-    argexprs: &Vec<Expr>,
+    argexprs: &Vec<&Expr>,
 ) -> Result<(), Error> {
     let fentry = lscope.getf_or_err(span.clone(), fname)?;
     let ftype = fentry.type_();

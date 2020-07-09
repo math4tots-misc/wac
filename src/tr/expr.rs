@@ -202,7 +202,7 @@ pub(super) fn translate_expr(
             auto_cast(sink, span, lscope, ReturnType::Void, etype)?;
         }
         Expr::FunctionCall(span, fname, argexprs) => {
-            translate_fcall(out, lscope, sink, etype, span, fname, argexprs)?;
+            translate_fcall(out, lscope, sink, etype, span, fname, &argexprs.iter().collect())?;
         }
         Expr::If(_span, pairs, other) => {
             for (cond, body) in pairs {
@@ -278,11 +278,14 @@ pub(super) fn translate_expr(
         },
         Expr::Binop(span, op, left, right) => {
             // == binops ==
-            // equality ops
-            //   is, is not, ==, !=
+            // identity ops
+            //   is, is not
             //     * always returns bool
             //     * arguments same type
             //     * applies to (almost?) any type
+            // equality ops
+            //   ==, !=
+            //     * Syntactic sugar for Eq(..), !Eq(..)
             // comparison ops
             //   <, >, <=, >=
             //     * always returns bool
@@ -304,7 +307,16 @@ pub(super) fn translate_expr(
             //     * only accepts i32
             //     * always returns i32
             match op {
-                Binop::Is | Binop::IsNot | Binop::Equal | Binop::NotEqual => {
+                Binop::Equal => {
+                    translate_fcall(out, lscope, sink, etype, span, &"Eq".into(), &vec![left, right])?;
+                    auto_cast(sink, span, lscope, ReturnType::Value(Type::Bool), etype)?;
+                }
+                Binop::NotEqual => {
+                    translate_fcall(out, lscope, sink, etype, span, &"Eq".into(), &vec![left, right])?;
+                    sink.writeln("i32.eqz");
+                    auto_cast(sink, span, lscope, ReturnType::Value(Type::Bool), etype)?;
+                }
+                Binop::Is | Binop::IsNot => {
                     let ltype = guess_type(lscope, left)?;
                     let rtype = guess_type(lscope, right)?;
                     let union_type = best_union_type(ltype, rtype);

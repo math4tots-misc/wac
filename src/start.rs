@@ -30,19 +30,22 @@ pub fn main() {
                 std::process::exit(exitcode);
             }
             Err(error) => {
-                panic!("{}", error.format());
+                eprintln!("{}", error.format());
+                std::process::exit(1);
             }
         },
         Mode::Test => match run_tests(sources, &test_prefix) {
             Ok(()) => {}
             Err(error) => {
-                panic!("{}", error.format());
+                eprintln!("{}", error.format());
+                std::process::exit(1);
             }
         },
         Mode::CompileOnly => match translate(sources) {
             Ok(string) => println!("{}", string),
             Err(error) => {
-                panic!("{}", error.format());
+                eprintln!("{}", error.format());
+                std::process::exit(1);
             }
         },
     }

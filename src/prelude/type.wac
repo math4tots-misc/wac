@@ -7,10 +7,6 @@ fn type[notrace](x id) type {
     "#)
 }
 
-impl type for str(self) str {
-    __type_str(self)
-}
-
 fn __WAC_typeof_raw[notrace](x i64) type {
     $asm([], type, r#"
         local.get $l_0_x
