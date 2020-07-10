@@ -7,3 +7,8 @@ fn __test_i32_str() {
     Assert(str(8585) == '8585')
     Assert(str(-8585) == '-8585')
 }
+
+fn __test_i32_hex_literals() {
+    AssertEq(0xFF, 255)
+    AssertEq(0xA, 10)
+}

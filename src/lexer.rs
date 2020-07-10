@@ -301,6 +301,9 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
                     state = State::DigitsAfterDot(start);
                 }
                 _ if c.is_ascii_digit() => {}
+                'x' => {
+                    state = State::HexDigits(start);
+                }
                 _ => {
                     let value: i64 = s[start..i].parse().unwrap();
                     ret.push((Token::Int(value), chars.span(start, i)));
@@ -313,6 +316,16 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
                 if !c.is_ascii_digit() {
                     let value: f64 = s[start..i].parse().unwrap();
                     ret.push((Token::Float(value), chars.span(start, i)));
+
+                    chars.put_back(c);
+                    state = State::Normal;
+                }
+            }
+            State::HexDigits(start) => match c {
+                _ if c.is_ascii_hexdigit() => {}
+                _ => {
+                    let value = i64::from_str_radix(&s[start + 2..i], 16).unwrap();
+                    ret.push((Token::Int(value), chars.span(start, i)));
 
                     chars.put_back(c);
                     state = State::Normal;
@@ -404,6 +417,7 @@ enum State {
     Combine(char),
     Digits(usize),
     DigitsAfterDot(usize),
+    HexDigits(usize),
     Name(usize),
     NormalString(usize, char),
     NormalStringEscape(usize, char),
