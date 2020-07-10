@@ -62,6 +62,7 @@ pub fn run_tests(sources: Vec<(Rc<str>, Rc<str>)>, test_prefix: &str) -> Result<
     let start = std::time::Instant::now();
     let wasm_code = wabt::wat2wasm(&wat_code)?;
     let wat_to_wasm_time = start.elapsed().as_secs_f64();
+    let wasm_code_size = wasm_code.len();
 
     let start = std::time::Instant::now();
     let import_object = make_import_object();
@@ -86,6 +87,7 @@ pub fn run_tests(sources: Vec<(Rc<str>, Rc<str>)>, test_prefix: &str) -> Result<
     println!("wat to wasm time   : {}s", wat_to_wasm_time);
     println!("instantiate time   : {}s", instantiate_time);
     println!("execution time     : {}s", exec_time);
+    println!("wasm code size     : {:.3}kb", (wasm_code_size as f64) / (2.0f64.powi(10)));
 
     Ok(())
 }
