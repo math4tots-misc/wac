@@ -1,0 +1,22 @@
+
+# Gets the index for a str or list given its length
+fn __index[notrace](i i32, len i32) i32 {
+    if i < 0 {
+        i = i + len
+    }
+    if i < 0 or i >= len {
+        NoTracePanic("Index out of bounds")
+    }
+    i
+}
+
+# Gets the adjusted end index for a container
+fn __end_index[notrace](i i32, len i32) i32 {
+    if i < 0 {
+        i = i + len
+    }
+    if i < 0 or i > len {
+        NoTracePanic("Index out of bounds")
+    }
+    i
+}

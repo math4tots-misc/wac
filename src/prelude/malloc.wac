@@ -130,14 +130,16 @@ fn __realloc[notrace](old_len i32, new_len i32, ptr i32) i32 {
 }
 
 fn __WAC_memcpy[notrace](dst i32, src i32, len i32) {
-    # almost memcpy.
-    # assumes that it's ok to round up len to the nearest multiple of 4
-
     var end = src + len
-    while src < end {
+    while src + 4 < end {
         __write(dst, __read(src))
         src = src + 4
         dst = dst + 4
+    }
+    while src < end {
+        __write_u8(dst, __read_u8(src))
+        src = src + 1
+        dst = dst + 1
     }
 }
 

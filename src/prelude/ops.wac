@@ -188,3 +188,16 @@ trait Join(self, items list) id
 impl str for Join(self, items list) id {
     __str_join(self, items)
 }
+
+
+################################################
+
+trait Slice(self, start i32, end i32) id
+
+fn OpenSlice(self id, start i32) id {
+    Slice(self, start, SizeOf(self))
+}
+
+impl str for Slice(self, start i32, end i32) id {
+    __str_slice(self, start, end)
+}

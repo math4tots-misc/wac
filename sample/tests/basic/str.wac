@@ -37,3 +37,11 @@ fn __test_str_join() {
 "#
     Assert(s == Join("", parts))
 }
+
+fn __test_str_slice() {
+    Assert(OpenSlice("hello", 1) == "ello")
+    Assert(Slice("hello", 1, -1) == "ell")
+    Assert(Slice("hello world", 0, 5) == "hello")
+    Assert(Slice("hello world", 0, 4) == "hell")
+    Assert(Slice("hello world", 0, -1) == "hello worl")
+}

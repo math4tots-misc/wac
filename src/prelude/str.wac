@@ -65,7 +65,7 @@ fn __str_join[notrace](separator str, items list) str {
 }
 
 # concatenates two strings
-fn __str_cat(a str, b str) str {
+fn __str_cat[notrace](a str, b str) str {
     var alen = __strlen(a)
     var blen = __strlen(b)
     var strlen = alen + blen
@@ -131,4 +131,21 @@ fn __WAC_UNSAFE_strptr[notrace](s str) i32 {
     # This is unsafe since if the last reference was given,
     # the returned pointer would point to freed data
     $asm([], i32, "local.get $l_0_s")
+}
+
+fn __str_slice[notrace](s str, start i32, end i32) str {
+    var slen = __strlen(s)
+    var start = __index(start, slen)
+    var end = __end_index(end, slen)
+
+    if start < end {
+        var slice_len = end - start
+        var ret = __WAC_str_alloc(slice_len)
+        var src_buffer = __WAC_str_buffer(s)
+        var ret_buffer = __WAC_str_buffer(ret)
+        __WAC_memcpy(ret_buffer, src_buffer + start, slice_len)
+        ret
+    } else {
+        ""
+    }
 }

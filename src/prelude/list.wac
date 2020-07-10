@@ -119,10 +119,7 @@ fn __WAC_list_pop_raw_no_release[notrace](list i32) i64 {
 
 fn __list_getitem[notrace](list list, index i32) id {
     var len = __listlen(list)
-
-    if index < 0 or index >= len {
-        NoTracePanic("list index out of bounds")
-    }
+    var index = __index(index, len)
 
     var buffer = __list_buffer(list)
     var raw_item = __read_i64(buffer + index * 8)
@@ -135,10 +132,7 @@ fn __list_getitem[notrace](list list, index i32) id {
 
 fn __list_setitem[notrace](list list, index i32, value id) {
     var len = __listlen(list)
-
-    if index < 0 or index >= len {
-        NoTracePanic("list index out of bounds")
-    }
+    var index = __index(index, len)
 
     var buffer = __list_buffer(list)
     var item_ptr = buffer + index * 8
