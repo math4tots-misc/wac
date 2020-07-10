@@ -482,7 +482,7 @@ pub(super) fn translate_expr(
                         ReturnType::Value(union_type),
                         ReturnType::Value(Type::F32),
                     )?;
-                    sink.writeln("f32.div");
+                    sink.f32_div();
                     auto_cast(sink, span, lscope, ReturnType::Value(Type::F32), etype)?;
                 }
                 Binop::TruncDivide => {
@@ -493,12 +493,13 @@ pub(super) fn translate_expr(
                         Type::I32 => {
                             translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), left)?;
                             translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), right)?;
-                            sink.writeln("i32.div_s");
+                            sink.i32_div_s();
                         }
                         Type::F32 | Type::Id => {
                             translate_expr(out, sink, lscope, ReturnType::Value(Type::F32), left)?;
                             translate_expr(out, sink, lscope, ReturnType::Value(Type::F32), right)?;
-                            sink.writeln("f32.div\ni32.trunc_f32_s");
+                            sink.f32_div();
+                            sink.i32_trunc_f32_s();
                         }
                         _ => Err(Error::Type {
                             span: span.clone(),
@@ -548,9 +549,9 @@ pub(super) fn translate_expr(
                 match guess_type(lscope, expr)? {
                     Type::I32 => {
                         let guessed_type = Type::I32;
-                        sink.writeln("i32.const 0");
+                        sink.i32_const(0);
                         translate_expr(out, sink, lscope, ReturnType::Value(guessed_type), expr)?;
-                        sink.writeln("i32.sub");
+                        sink.i32_sub();
                         auto_cast(sink, span, lscope, ReturnType::Value(guessed_type), etype)?
                     }
                     _ => {
@@ -595,15 +596,15 @@ pub(super) fn raw_dup(lscope: &mut LocalScope, sink: &Rc<Sink>, wasm_type: WasmT
     let t = translate_wasm_type(wasm_type);
     let tmpvar = format!("$rt_tmp_dup_{}", t);
     lscope.helper_shared(&tmpvar, wasm_type.wac());
-    sink.writeln(format!("local.tee {}", tmpvar));
-    sink.writeln(format!("local.get {}", tmpvar));
+    sink.local_tee(&tmpvar);
+    sink.local_get(&tmpvar);
 }
 
 /// adds opcodes to convert an i32 type to an 'id'
 pub(super) fn cast_to_id(sink: &Rc<Sink>, tag: i32) {
-    sink.writeln("i64.extend_i32_u");
-    sink.writeln(format!("i64.const {}", tag));
-    sink.writeln("i64.const 32");
+    sink.i64_extend_i32_u();
+    sink.i64_const(tag as i64);
+    sink.i64_const(32);
     sink.writeln("i64.shl");
     sink.writeln("i64.or");
 }

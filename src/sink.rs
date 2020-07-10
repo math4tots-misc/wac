@@ -80,6 +80,14 @@ impl Sink {
         self.writeln("i32.sub");
     }
 
+    pub fn i32_div_s(&self) {
+        self.writeln("i32.div_s");
+    }
+
+    pub fn f32_div(&self) {
+        self.writeln("f32.div");
+    }
+
     pub fn i32_const(&self, value: i32) {
         self.writeln(format!("i32.const {}", value))
     }
@@ -114,6 +122,10 @@ impl Sink {
 
     pub fn i32_trunc_f32_s(&self) {
         self.writeln("i32.trunc_f32_s")
+    }
+
+    pub fn i64_extend_i32_u(&self) {
+        self.writeln("i64.extend_i32_u")
     }
 
     pub fn call(&self, name: &str) {
