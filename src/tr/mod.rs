@@ -2,6 +2,7 @@
 use crate::get_enum_value_from_name;
 use crate::get_tag_limit;
 use crate::ir::*;
+use crate::list_all_enum_types_with_members;
 use crate::llir::*;
 use crate::parse_file;
 use crate::set_global_typeinfo;
@@ -179,7 +180,11 @@ pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
     // these could be in the source directly, but it would make it harder to keep
     // both the rust and wac code in sync.
     for type_ in Type::list_builtins() {
-        gscope.decl_const(void_span.clone(), type_.name().into(), ConstValue::Type(type_))?;
+        gscope.decl_const(
+            void_span.clone(),
+            type_.name().into(),
+            ConstValue::Type(type_),
+        )?;
     }
 
     // prepare all constants
@@ -276,9 +281,46 @@ pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
 
         let typestr_table_start = out.data(&typestr_table_bytes) as usize;
         let typestr_table_end = typestr_table_start + typestr_table_bytes.len();
-        out.gvars.global(WasmType::I32, "$rt_typestr_table_start", typestr_table_start as i64);
-        out.gvars.global(WasmType::I32, "$rt_typestr_table_end", typestr_table_end as i64);
+        out.gvars.global(
+            WasmType::I32,
+            "$rt_typestr_table_start",
+            typestr_table_start as i64,
+        );
+        out.gvars.global(
+            WasmType::I32,
+            "$rt_typestr_table_end",
+            typestr_table_end as i64,
+        );
     }
+
+    // store enum info
+    // each enum info looks like:
+    //   [i32 # members][i32 ptr to name of member, ...]
+    let enums = list_all_enum_types_with_members();
+    let enum_meta_buffer_size = enums.len() * 4 + 4;
+    let mut enum_meta_buffer = Vec::<u8>::new();
+    enum_meta_buffer.resize_with(enum_meta_buffer_size, || 0);
+    for (en, members) in enums {
+        let offset = match en {
+            Type::Enum(offset) => offset,
+            _ => panic!("Not enum? {:?}", en),
+        } as usize;
+        let mut enum_info_bytes = Vec::<u8>::new();
+        enum_info_bytes.extend(&((members.len() * 4) as i32).to_le_bytes());
+        for member in members {
+            enum_info_bytes.extend(&out.intern_str(&member).to_le_bytes());
+        }
+        // we store it with a one extra pointer offset because the first
+        // 4 bytes are used for the size
+        enum_meta_buffer[offset * 4 + 4..offset * 4 + 8]
+            .copy_from_slice(&out.data(&enum_info_bytes).to_le_bytes());
+    }
+    let enum_meta_buffer_start = out.data(&enum_meta_buffer) as usize;
+    out.gvars.global(
+        WasmType::I32,
+        "$rt_enum_meta_buffer_start",
+        enum_meta_buffer_start as i64,
+    );
 
     // write out the itables for each type that needs it
     // (this is for dispatching dynamic trait function calls to
@@ -326,8 +368,13 @@ pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
         let meta_itable_start = out.data(&meta_itable_bytes);
         let meta_itable_end = meta_itable_start + (meta_itable_bytes.len() as WasmPtr);
 
-        out.gvars.global(WasmType::I32, "$rt_meta_itable_start", meta_itable_start as i64);
-        out.gvars.global(WasmType::I32, "$rt_meta_itable_end", meta_itable_end as i64);
+        out.gvars.global(
+            WasmType::I32,
+            "$rt_meta_itable_start",
+            meta_itable_start as i64,
+        );
+        out.gvars
+            .global(WasmType::I32, "$rt_meta_itable_end", meta_itable_end as i64);
     }
 
     // initialize the wasm table with all the impls so that they

@@ -33,5 +33,4 @@ impl fmt::Display for WasmType {
 
 pub type WasmPtr = i32;
 
-pub struct WasmModule {
-}
+pub struct WasmModule {}

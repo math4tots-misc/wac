@@ -53,7 +53,11 @@ impl type for str(self) str {
 }
 
 impl id for str(self) str {
-    repr(self)
+    if __type_is_enum(type(self)) {
+        __type_enum_value_name(self)
+    } else {
+        repr(self)
+    }
 }
 
 ##############################################################################
@@ -77,11 +81,18 @@ impl i32 for repr(self) str {
 }
 
 impl id for repr(self) str {
-    Join("", [
-        "<",
-        str(type(self)),
-        " value>",
-    ])
+    if __type_is_enum(type(self)) {
+        Join('.', [
+            __type_str(type(self)),
+            __type_enum_value_name(self),
+        ])
+    } else {
+        Join("", [
+            "<",
+            str(type(self)),
+            " value>",
+        ])
+    }
 }
 
 ##############################################################################

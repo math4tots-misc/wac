@@ -292,11 +292,12 @@ pub(super) fn translate_expr(
 
             auto_cast(sink, span, lscope, ReturnType::Void, etype)?;
         }
-        Expr::GetAttr(_span, owner, field) => match get_type_from_expr(lscope, owner) {
+        Expr::GetAttr(span, owner, field) => match get_type_from_expr(lscope, owner) {
             Some(type_) => match type_ {
                 Type::Enum(_) => match get_enum_value_from_name(type_, field) {
                     Some(value) => {
                         sink.i32_const(value);
+                        auto_cast(sink, span, lscope, ReturnType::Value(type_), etype)?;
                     }
                     None => {
                         return Err(Error::Type {
@@ -583,23 +584,21 @@ pub(super) fn translate_expr(
                 translate_expr(out, sink, lscope, ReturnType::Value(guessed_type), expr)?;
                 auto_cast(sink, span, lscope, ReturnType::Value(guessed_type), etype)?
             }
-            Unop::Minus => {
-                match guess_type(lscope, expr)? {
-                    Type::I32 => {
-                        let guessed_type = Type::I32;
-                        sink.i32_const(0);
-                        translate_expr(out, sink, lscope, ReturnType::Value(guessed_type), expr)?;
-                        sink.i32_sub();
-                        auto_cast(sink, span, lscope, ReturnType::Value(guessed_type), etype)?
-                    }
-                    _ => {
-                        let guessed_type = Type::F32;
-                        translate_expr(out, sink, lscope, ReturnType::Value(guessed_type), expr)?;
-                        sink.writeln("f32.neg");
-                        auto_cast(sink, span, lscope, ReturnType::Value(guessed_type), etype)?
-                    }
+            Unop::Minus => match guess_type(lscope, expr)? {
+                Type::I32 => {
+                    let guessed_type = Type::I32;
+                    sink.i32_const(0);
+                    translate_expr(out, sink, lscope, ReturnType::Value(guessed_type), expr)?;
+                    sink.i32_sub();
+                    auto_cast(sink, span, lscope, ReturnType::Value(guessed_type), etype)?
                 }
-            }
+                _ => {
+                    let guessed_type = Type::F32;
+                    translate_expr(out, sink, lscope, ReturnType::Value(guessed_type), expr)?;
+                    sink.writeln("f32.neg");
+                    auto_cast(sink, span, lscope, ReturnType::Value(guessed_type), etype)?
+                }
+            },
             Unop::Not => {
                 translate_expr(out, sink, lscope, ReturnType::Value(Type::Bool), expr)?;
                 sink.writeln("i32.eqz");

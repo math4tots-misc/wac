@@ -31,3 +31,34 @@ fn __type_str[notrace](t type) str {
 
     $asm([ptr], str, "")
 }
+
+fn __type_is_enum[notrace](type type) bool {
+    var i = $asm([type], i32, "")
+    i > $asm([id], i32, "") and i % 2 is 1
+}
+
+fn __type_is_record[notrace](type type) bool {
+    var i = $asm([type], i32, "")
+    i > $asm([id], i32, "") and i % 2 is 0
+}
+
+fn __type_enum_value_name[notrace](value id) str {
+    var value_type = type(value)
+    if !__type_is_enum(value_type) {
+        NoTracePanic("__type_enum_value_name: not an enum")
+    }
+    var enum_type_offset = (
+        ($asm([value_type], i32, "") - $asm([id], i32, "")) // 2
+    )
+    var info_ptr = __read(
+        $asm([], i32, "global.get $rt_enum_meta_buffer_start") +
+        enum_type_offset * 4,
+    )
+    var raw_value = $asm([], i32, r#"
+        local.get $l_0_value
+        i32.wrap_i64
+    "#)
+    var str_ptr = __read(info_ptr + 4 + raw_value * 4)
+    __WAC_ptr_retain(str_ptr)
+    $asm([str_ptr], str, "")
+}

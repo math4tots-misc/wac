@@ -512,11 +512,7 @@ fn parse_infix(parser: &mut Parser, mut lhs: Expr, prec: u32) -> Result<Expr, Pa
                 let index = parse_expr(parser, 0)?;
                 parser.expect(Token::RBracket)?;
                 let span = span.upto(&parser.span());
-                lhs = Expr::GetItem(
-                    span,
-                    lhs.into(),
-                    index.into(),
-                );
+                lhs = Expr::GetItem(span, lhs.into(), index.into());
             }
             Token::Dot => {
                 if prec > PREC_POSTFIX {
@@ -683,12 +679,7 @@ fn parse_infix(parser: &mut Parser, mut lhs: Expr, prec: u32) -> Result<Expr, Pa
                     }
                     Expr::GetItem(getitem_span, owner, index) => {
                         let setexpr = parse_expr(parser, 0)?;
-                        lhs = Expr::SetItem(
-                            span.join(&getitem_span),
-                            owner,
-                            index,
-                            setexpr.into(),
-                        )
+                        lhs = Expr::SetItem(span.join(&getitem_span), owner, index, setexpr.into())
                     }
                     _ => {
                         return Err(ParseError::InvalidToken {

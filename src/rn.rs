@@ -87,7 +87,10 @@ pub fn run_tests(sources: Vec<(Rc<str>, Rc<str>)>, test_prefix: &str) -> Result<
     println!("wat to wasm time   : {}s", wat_to_wasm_time);
     println!("instantiate time   : {}s", instantiate_time);
     println!("execution time     : {}s", exec_time);
-    println!("wasm code size     : {:.3}kb", (wasm_code_size as f64) / (2.0f64.powi(10)));
+    println!(
+        "wasm code size     : {:.3}kb",
+        (wasm_code_size as f64) / (2.0f64.powi(10))
+    );
 
     Ok(())
 }

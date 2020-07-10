@@ -2,6 +2,7 @@ mod er;
 mod imp;
 mod ir;
 mod lexer;
+mod llir;
 mod parsef;
 mod parser;
 mod prelude;
@@ -11,7 +12,6 @@ mod start;
 mod tmap;
 mod tr;
 mod wfs;
-mod llir;
 
 extern crate wasmer_runtime as wr;
 
@@ -19,13 +19,13 @@ pub use er::*;
 pub use imp::*;
 pub use ir::*;
 pub use lexer::*;
+pub use llir::*;
 pub use parsef::*;
 pub use parser::*;
 pub use rn::*;
 pub use sink::*;
 pub use start::*;
 pub use tr::*;
-pub use llir::*;
 
 use tmap::*;
 

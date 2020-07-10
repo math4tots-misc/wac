@@ -69,11 +69,17 @@ impl Sink {
     }
 
     pub fn global(&self, type_: WasmType, name: &str, value: i64) {
-        self.writeln(format!("(global {} {} ({}.const {}))", name, type_, type_, value));
+        self.writeln(format!(
+            "(global {} {} ({}.const {}))",
+            name, type_, type_, value
+        ));
     }
 
     pub fn global_mut(&self, type_: WasmType, name: &str, value: i64) {
-        self.writeln(format!("(global {} (mut {}) ({}.const {}))", name, type_, type_, value));
+        self.writeln(format!(
+            "(global {} (mut {}) ({}.const {}))",
+            name, type_, type_, value
+        ));
     }
 
     pub fn i32_add(&self) {
@@ -172,7 +178,10 @@ impl Sink {
     }
 
     pub fn start_loop(&self, break_label: u32, continue_label: u32) {
-        self.writeln(format!("(block $lbl_{} (loop $lbl_{}", break_label, continue_label));
+        self.writeln(format!(
+            "(block $lbl_{} (loop $lbl_{}",
+            break_label, continue_label
+        ));
     }
 
     pub fn br(&self, label: u32) {

@@ -52,24 +52,42 @@ pub(super) fn auto_cast(
         (ReturnType::Value(Type::I32), ReturnType::Value(Type::F32)) => {
             sink.f32_convert_i32_s();
         }
-        (ReturnType::Value(Type::I32), ReturnType::Value(Type::Id)) => {
-            cast_to_id(sink, TAG_I32);
-        }
-        (ReturnType::Value(Type::F32), ReturnType::Value(Type::Id)) => {
-            sink.i32_reinterpret_f32();
-            cast_to_id(sink, TAG_F32);
-        }
-        (ReturnType::Value(Type::Bool), ReturnType::Value(Type::Id)) => {
-            cast_to_id(sink, TAG_BOOL);
-        }
-        (ReturnType::Value(Type::Type), ReturnType::Value(Type::Id)) => {
-            cast_to_id(sink, TAG_TYPE);
-        }
-        (ReturnType::Value(Type::String), ReturnType::Value(Type::Id)) => {
-            cast_to_id(sink, TAG_STRING);
-        }
-        (ReturnType::Value(Type::List), ReturnType::Value(Type::Id)) => {
-            cast_to_id(sink, TAG_LIST);
+        (ReturnType::Value(src), ReturnType::Value(Type::Id)) => {
+            match src {
+                Type::Id => {}
+                Type::I32 => {
+                    cast_to_id(sink, TAG_I32);
+                }
+                Type::F32 => {
+                    sink.i32_reinterpret_f32();
+                    cast_to_id(sink, TAG_F32);
+                }
+                Type::Bool => {
+                    cast_to_id(sink, TAG_BOOL);
+                }
+                Type::Type => {
+                    cast_to_id(sink, TAG_TYPE);
+                }
+                Type::String => {
+                    cast_to_id(sink, TAG_STRING);
+                }
+                Type::List => {
+                    cast_to_id(sink, TAG_LIST);
+                }
+                Type::I64 | Type::F64 => {
+                    return Err(Error::Type {
+                        span: span.clone(),
+                        expected: format!("{:?}", dst),
+                        got: format!("{:?} (id cannot store 64-bit values)", src),
+                    });
+                }
+                Type::Enum(_) => {
+                    cast_to_id(sink, src.tag());
+                }
+                Type::Record(_) => {
+                    cast_to_id(sink, src.tag());
+                }
+            }
         }
         (ReturnType::Value(Type::Id), ReturnType::Value(Type::I32)) => {
             sink.call("$f___WAC_raw_id_to_i32");
@@ -91,14 +109,6 @@ pub(super) fn auto_cast(
         }
         (ReturnType::Value(src), ReturnType::Void) => {
             release(lscope, sink, src, DropPolicy::Drop);
-        }
-        (ReturnType::Value(Type::I64), ReturnType::Value(Type::Id))
-        | (ReturnType::Value(Type::F64), ReturnType::Value(Type::Id)) => {
-            return Err(Error::Type {
-                span: span.clone(),
-                expected: format!("{:?}", dst),
-                got: format!("{:?} (id cannot store 64-bit values)", src),
-            });
         }
         (ReturnType::Value(src), ReturnType::Value(dst)) => {
             return Err(Error::Type {

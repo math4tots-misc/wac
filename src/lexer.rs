@@ -333,7 +333,7 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
                     chars.put_back(c);
                     state = State::Normal;
                 }
-            }
+            },
             State::HexDigits(start) => match c {
                 _ if c.is_ascii_hexdigit() => {}
                 _ => {
@@ -343,7 +343,7 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
                     chars.put_back(c);
                     state = State::Normal;
                 }
-            }
+            },
             State::Name(start) => {
                 if !(c == '_' || c.is_alphanumeric()) {
                     let name = &s[start..i];

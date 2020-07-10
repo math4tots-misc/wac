@@ -76,6 +76,15 @@ pub(crate) fn list_all_enum_types() -> Vec<Type> {
     TYPE_MAP.with(|cell| cell.borrow().as_ref().unwrap().list_all_enum_types())
 }
 
+pub(crate) fn list_all_enum_types_with_members() -> Vec<(Type, Vec<Rc<str>>)> {
+    TYPE_MAP.with(|cell| {
+        cell.borrow()
+            .as_ref()
+            .unwrap()
+            .list_all_enum_types_with_members()
+    })
+}
+
 pub(crate) fn list_all_record_types() -> Vec<Type> {
     TYPE_MAP.with(|cell| cell.borrow().as_ref().unwrap().list_all_record_types())
 }
@@ -180,6 +189,14 @@ impl GlobalTypeInfo {
         let mut ret = vec![];
         for i in 0..self.record_name_to_offset.len() {
             ret.push(Type::Record(i as u16));
+        }
+        ret
+    }
+
+    pub(crate) fn list_all_enum_types_with_members(&self) -> Vec<(Type, Vec<Rc<str>>)> {
+        let mut ret = vec![];
+        for i in 0..self.enum_name_to_offset.len() {
+            ret.push((Type::Enum(i as u16), self.enum_members[i].clone()));
         }
         ret
     }

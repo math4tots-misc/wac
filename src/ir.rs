@@ -3,8 +3,8 @@ use crate::get_name_for_record_type_with_offset;
 use crate::get_user_defined_type_from_name;
 use crate::list_all_enum_types;
 use crate::list_all_record_types;
-use crate::SSpan;
 use crate::llir::*;
+use crate::SSpan;
 use std::fmt;
 use std::rc::Rc;
 
