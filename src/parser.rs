@@ -9,6 +9,36 @@ use crate::Span;
 use crate::Token;
 use crate::Type;
 use std::rc::Rc;
+use std::collections::HashSet;
+
+/// Special names not allowed for use as variable or function names
+pub const RESERVED_NAMES: &'static [&'static str] = &[
+    "fn",
+    "trait",
+    "impl",
+    "record",
+    "enum",
+    "import",
+
+    "var",
+    "const",
+
+    "true",
+    "false",
+    "nil",
+    "and",
+    "or",
+    "is",
+    "not",
+
+    "if",
+    "else",
+    "for",
+    "while",
+    "break",
+    "continue",
+    "return",
+];
 
 pub struct Parser<'a> {
     source: Rc<Source>,
@@ -27,6 +57,8 @@ pub struct Parser<'a> {
     ///
     /// this flag controls which of the above two behaviors to exhibit
     pub(crate) strict_about_user_defined_types: bool,
+
+    reserved: HashSet<&'static str>,
 }
 
 impl<'a> Parser<'a> {
@@ -40,6 +72,7 @@ impl<'a> Parser<'a> {
             i: 0,
             tokens_and_spans,
             strict_about_user_defined_types,
+            reserved: RESERVED_NAMES.iter().map(|s| *s).collect(),
         })
     }
     pub fn peek(&self) -> Token<'a> {
@@ -90,8 +123,16 @@ impl<'a> Parser<'a> {
     pub fn expect_name(&mut self) -> Result<Rc<str>, ParseError> {
         match self.peek() {
             Token::Name(name) => {
-                self.gettok();
-                Ok(name.into())
+                if self.reserved.contains(name) {
+                    Err(ParseError::InvalidToken {
+                        span: self.span(),
+                        expected: "Name".into(),
+                        got: format!("reserved name {:?}", name),
+                    })
+                } else {
+                    self.gettok();
+                    Ok(name.into())
+                }
             }
             _ => Err(ParseError::InvalidToken {
                 span: self.span(),
