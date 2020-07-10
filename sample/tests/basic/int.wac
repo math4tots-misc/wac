@@ -12,3 +12,8 @@ fn __test_i32_hex_literals() {
     AssertEq(0xFF, 255)
     AssertEq(0xA, 10)
 }
+
+fn __test_i32_binary_literals() {
+    AssertEq(0b1111, 1 + 2 + 4 + 8)
+    AssertEq(0b1010, 2 + 8)
+}
