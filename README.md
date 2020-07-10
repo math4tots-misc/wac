@@ -2,4 +2,4 @@
 
 Small ultra-portable language, for joy
 
-~A small C-like language that compiles to webassembly~
+~A small (Objective-)C-like language that compiles to webassembly~
