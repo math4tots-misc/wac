@@ -1,5 +1,20 @@
 # TODO
 
+* char type
+* chars type (buffer of chars)
+* floating point math (log, sin, cos, pow, etc)
+* simplify the imported print functions
+* some kind of for loops
+    Specialized to just integer ranges
+* Format function for formatted strings
+* auto impl enums for 'trait str' (maybe also records?)
+* Make '__read/__write' into intrinsics in stead of function calls
+    Maybe $read/$write?
+* Forbid at least some special identifiers from being used as variable/function names
+    Maybe hook into parser's 'expect_name'?
+* Syntax highlighting VSCode plugin
+* 0.0.1 version on crates.io
+
 * record type
     While record types are kinda implemented
     There needs to be a corresponding 'constructor' function
