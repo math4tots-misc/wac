@@ -37,6 +37,7 @@ pub struct Constant {
 pub enum ConstValue {
     I32(i32),
     Type(Type),
+    Enum(Type, i32),
 }
 
 impl ConstValue {
@@ -44,6 +45,7 @@ impl ConstValue {
         match self {
             ConstValue::I32(_) => Type::I32,
             ConstValue::Type(_) => Type::Type,
+            ConstValue::Enum(type_, _) => *type_,
         }
     }
 }
@@ -114,6 +116,8 @@ pub enum Expr {
     GetItem(SSpan, Box<Expr>, Box<Expr>),
     SetItem(SSpan, Box<Expr>, Box<Expr>, Box<Expr>),
 
+    Switch(SSpan, Box<Expr>, Vec<(Vec<ConstValue>, Expr)>, Option<Box<Expr>>),
+
     // builtin operators
     Binop(SSpan, Binop, Box<Expr>, Box<Expr>),
     Unop(SSpan, Unop, Box<Expr>),
@@ -143,6 +147,7 @@ impl Expr {
             Expr::GetAttr(span, ..) => span,
             Expr::GetItem(span, ..) => span,
             Expr::SetItem(span, ..) => span,
+            Expr::Switch(span, ..) => span,
             Expr::Binop(span, ..) => span,
             Expr::Unop(span, ..) => span,
             Expr::AscribeType(span, ..) => span,

@@ -177,6 +177,21 @@ impl Sink {
         self.writeln(format!("global.tee {}", name))
     }
 
+    pub fn start_block(&self, break_label: u32, type_: Option<WasmType>) {
+        self.writeln(format!(
+            "(block $lbl_{}{}",
+            break_label,
+            match type_ {
+                Some(type_) => format!(" (result {})", type_),
+                None => "".to_owned(),
+            },
+        ));
+    }
+
+    pub fn end_block(&self) {
+        self.writeln(")");
+    }
+
     pub fn start_loop(&self, break_label: u32, continue_label: u32) {
         self.writeln(format!(
             "(block $lbl_{} (loop $lbl_{}",

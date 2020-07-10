@@ -153,6 +153,9 @@ pub(super) fn translate_expr(
                     ConstValue::Type(t) => {
                         sink.i32_const(t.tag());
                     }
+                    ConstValue::Enum(_, value) => {
+                        sink.i32_const(*value);
+                    }
                 },
             }
             auto_cast(sink, span, lscope, ReturnType::Value(gtype), etype)?;
@@ -344,6 +347,87 @@ pub(super) fn translate_expr(
                 &"SetItem".into(),
                 &vec![owner, index, setexpr],
             )?;
+        }
+        Expr::Switch(span, src, pairs, other) => {
+            // TODO: use br_table
+
+            let src_type = {
+                let mut src_type = ReturnType::NoReturn;
+                for (cvals, _) in pairs {
+                    for cval in cvals {
+                        src_type = best_union_return_type(
+                            src_type,
+                            ReturnType::Value(cval.type_()),
+                        );
+                    }
+                }
+                match src_type {
+                    ReturnType::Value(src_type) => src_type,
+                    _ => panic!("Impossible cval type in switch: {:?}", src_type),
+                }
+            };
+
+            // we want to make sure src_type is a copy, integral type
+            match src_type {
+                Type::I32 | Type::Type | Type::Enum(_) => {}
+                _ => {
+                    return Err(Error::Type {
+                        span: span.clone(),
+                        expected: "i32, type or enum type in switch".into(),
+                        got: format!("{}", src_type),
+                    })
+                }
+            }
+            let wasm_src_type = src_type.wasm();
+
+            translate_expr(out, sink, lscope, ReturnType::Value(src_type), src)?;
+            let srcvar = lscope.helper_unique("switchtmp", src_type);
+            sink.local_set(&srcvar);
+
+            let break_label = lscope.new_label_id();
+            sink.start_block(break_label, match etype {
+                ReturnType::Value(etype) => Some(etype.wasm()),
+                ReturnType::NoReturn | ReturnType::Void => None,
+            });
+
+            for (cvals, body) in pairs {
+                // check if any of the cvals match
+                for cval in cvals {
+                    sink.local_get(&srcvar);
+                    translate_constval_i32(out, sink, lscope, cval)?;
+                    sink.writeln(format!("{}.eq", wasm_src_type));
+                    sink.writeln("if (result i32)");
+                    sink.i32_const(1);
+                    sink.writeln("else");
+                }
+                sink.i32_const(0);
+                for _ in cvals {
+                    sink.writeln("end");
+                }
+
+                // if it matches, drop the src value, run the body
+                // and break out of the entire switch statement
+                sink.writeln(format!("if {}", match etype {
+                    ReturnType::Value(etype) => format!("(result {})", etype.wasm()),
+                    ReturnType::NoReturn | ReturnType::Void => "".to_owned(),
+                }));
+                translate_expr(out, sink, lscope, etype, body)?;
+                // release(lscope, sink, src_type, DropPolicy::Drop);
+                sink.br(break_label);
+
+                // otherwise, set up else for the alternative
+                sink.writeln("else");
+            }
+            if let Some(other) = other {
+                translate_expr(out, sink, lscope, etype, other)?;
+            } else {
+                sink.call("$f___WAC_no_matching_alternatives");
+                sink.writeln("unreachable");
+            }
+            for _ in pairs {
+                sink.writeln("end");
+            }
+            sink.end_block();
         }
         Expr::Binop(span, op, left, right) => {
             // == binops ==
@@ -644,4 +728,15 @@ pub(super) fn cast_to_id(sink: &Rc<Sink>, tag: i32) {
     sink.i64_const(32);
     sink.writeln("i64.shl");
     sink.writeln("i64.or");
+}
+
+/// translate a constval whose result is a primitive i32 wasm type
+/// (i.e. i32, enum or type)
+pub(super) fn translate_constval_i32(_out: &mut Out, sink: &Rc<Sink>, _lscope: &mut LocalScope, cval: &ConstValue) -> Result<(), Error> {
+    match cval {
+        ConstValue::I32(value) => sink.i32_const(*value),
+        ConstValue::Type(type_) => sink.i32_const(type_.tag()),
+        ConstValue::Enum(_, value) => sink.i32_const(*value),
+    }
+    Ok(())
 }

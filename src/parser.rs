@@ -8,13 +8,16 @@ use crate::Source;
 use crate::Span;
 use crate::Token;
 use crate::Type;
+use crate::ConstValue;
 use std::collections::HashSet;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 /// Special names not allowed for use as variable or function names
 pub const RESERVED_NAMES: &'static [&'static str] = &[
     "fn", "trait", "impl", "record", "enum", "import", "var", "const", "true", "false", "nil",
     "and", "or", "is", "not", "in", "if", "else", "for", "while", "break", "continue", "return",
+    "switch",
 ];
 
 pub struct Parser<'a> {
@@ -36,6 +39,8 @@ pub struct Parser<'a> {
     pub(crate) strict_about_user_defined_types: bool,
 
     reserved: HashSet<&'static str>,
+
+    pub(crate) constants_map: HashMap<Rc<str>, ConstValue>,
 }
 
 impl<'a> Parser<'a> {
@@ -50,6 +55,7 @@ impl<'a> Parser<'a> {
             tokens_and_spans,
             strict_about_user_defined_types,
             reserved: RESERVED_NAMES.iter().map(|s| *s).collect(),
+            constants_map: HashMap::new(),
         })
     }
     pub fn peek(&self) -> Token<'a> {

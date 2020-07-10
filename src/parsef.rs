@@ -4,8 +4,7 @@ use crate::ParseError;
 use crate::Parser;
 use crate::Pattern;
 use crate::Token;
-use std::collections::HashMap;
-use std::rc::Rc;
+use crate::get_enum_value_from_name;
 
 const PREC_POSTFIX: u32 = 1000;
 const PREC_UNARY: u32 = 900;
@@ -48,7 +47,6 @@ pub fn parse_file(parser: &mut Parser) -> Result<File, ParseError> {
     let mut enums = Vec::new();
     let mut records = Vec::new();
     let mut constants = Vec::new();
-    let mut constants_map = HashMap::new();
     consume_delim(parser);
     while !parser.at(Token::EOF) {
         match parser.peek() {
@@ -58,7 +56,7 @@ pub fn parse_file(parser: &mut Parser) -> Result<File, ParseError> {
             Token::Name("enum") => enums.push(parse_enum(parser)?),
             Token::Name("record") => records.push(parse_record(parser)?),
             Token::Name("var") => globalvars.push(parse_globalvar(parser)?),
-            Token::Name("const") => constants.push(parse_constant(parser, &mut constants_map)?),
+            Token::Name("const") => constants.push(parse_constant(parser)?),
             _ => {
                 return Err(ParseError::InvalidToken {
                     span: parser.span(),
@@ -83,25 +81,31 @@ pub fn parse_file(parser: &mut Parser) -> Result<File, ParseError> {
 
 fn parse_constant(
     parser: &mut Parser,
-    map: &mut HashMap<Rc<str>, ConstValue>,
 ) -> Result<Constant, ParseError> {
     let span = parser.span();
     parser.expect(Token::Name("const"))?;
     let name = parser.expect_name()?;
     parser.expect(Token::Eq)?;
     let expr = parse_expr(parser, 0)?;
-    let value = eval_constexpr(&expr, map)?;
+    let value = eval_constexpr(&expr, parser)?;
     let span = span.upto(&parser.span());
     Ok(Constant { span, name, value })
 }
 
+fn parse_constval(
+    parser: &mut Parser,
+) -> Result<ConstValue, ParseError> {
+    let expr = parse_expr(parser, 0)?;
+    eval_constexpr(&expr, parser)
+}
+
 fn eval_constexpr(
     expr: &Expr,
-    map: &mut HashMap<Rc<str>, ConstValue>,
+    parser: &mut Parser,
 ) -> Result<ConstValue, ParseError> {
     match expr {
         Expr::Int(_, value) => Ok(ConstValue::I32(*value as i32)),
-        Expr::GetVar(span, name) => match map.get(name) {
+        Expr::GetVar(span, name) => match parser.constants_map.get(name) {
             Some(value) => Ok(value.clone()),
             None => Err(ParseError::InvalidToken {
                 span: span.clone(),
@@ -109,6 +113,34 @@ fn eval_constexpr(
                 got: "NotFound".into(),
             }),
         },
+        Expr::GetAttr(_span, owner, member) => if parser.strict_about_user_defined_types {
+            let opt = match &**owner {
+                Expr::GetVar(_span, type_name) => match Type::from_name(type_name) {
+                    Some(type_) => match type_ {
+                        Type::Enum(_) => {
+                            match get_enum_value_from_name(type_, member) {
+                                Some(value) => Some((type_, value)),
+                                None => None,
+                            }
+                        }
+                        _ => None,
+                    }
+                    None => None,
+                }
+                _ => None,
+            };
+            match opt {
+                Some((type_, value)) => Ok(ConstValue::Enum(type_, value)),
+                None => Err(ParseError::InvalidToken {
+                    span: expr.span().clone(),
+                    expected: "constexpr".into(),
+                    got: "non-const expression".into(),
+                })
+            }
+        } else {
+            // otherwise, just assume it is some enum value
+            Ok(ConstValue::Enum(Type::Enum(0), 0))
+        }
         _ => Err(ParseError::InvalidToken {
             span: expr.span().clone(),
             expected: "constexpr".into(),
@@ -334,6 +366,39 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
             let setexpr = parse_expr(parser, 0)?;
             let span = span.upto(&parser.span());
             Ok(Expr::DeclVar(span, name, type_, setexpr.into()))
+        }
+        Token::Name("switch") => {
+            parser.gettok();
+            let src = parse_expr(parser, 0)?.into();
+            parser.expect(Token::LBrace)?;
+            let mut other = None;
+            let mut pairs = Vec::<(Vec<ConstValue>, Expr)>::new();
+            while !parser.consume(Token::RBrace) {
+                consume_delim(parser);
+                if parser.consume(Token::Name("_")) {
+                    parser.expect(Token::Arrow)?;
+                    other = Some(parse_expr(parser, 0)?.into());
+                    consume_delim(parser);
+                    parser.expect(Token::RBrace)?;
+                    break;
+                } else {
+                    let mut cvals = vec![parse_constval(parser)?];
+                    while parser.consume(Token::VerticalBar) {
+                        cvals.push(parse_constval(parser)?);
+                    }
+                    parser.expect(Token::Arrow)?;
+                    let body = parse_expr(parser, 0)?;
+                    pairs.push((cvals, body));
+                    consume_delim(parser);
+                }
+            }
+            let span = span.upto(&parser.span());
+            Ok(Expr::Switch(
+                span,
+                src,
+                pairs,
+                other,
+            ))
         }
         Token::Name(_) => {
             let name = parser.expect_name()?;

@@ -2,7 +2,7 @@
 
 fn __WAC_stack_overflow[notrace]() noreturn {
     __WAC_eprint_stack()
-    __eprint0_cstr($cstr("stackoverflow"))
+    __eprint0_cstr($cstr("stackoverflow\n"))
     $asm([], noreturn, "unreachable")
 }
 
@@ -19,4 +19,10 @@ fn __WAC_eprint_stack[notrace]() {
 
         i = i + 8
     }
+}
+
+fn __WAC_no_matching_alternatives[notrace]() noreturn {
+    __WAC_eprint_stack()
+    __eprint0_cstr($cstr("non-exhaustive switch\n"))
+    $asm([], noreturn, "unreachable")
 }

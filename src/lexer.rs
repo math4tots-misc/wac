@@ -28,6 +28,7 @@ pub enum Token<'a> {
     Caret,
     Ampersand,
     VerticalBar,
+    Arrow,
     Dot,
     Dot2,
     Lt,
@@ -273,6 +274,7 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
                     ('<', '<') => ret.push((Token::Lt2, chars.span(i - 1, i + 1))),
                     ('>', '>') => ret.push((Token::Gt2, chars.span(i - 1, i + 1))),
                     ('.', '.') => ret.push((Token::Dot2, chars.span(i - 1, i + 1))),
+                    ('=', '>') => ret.push((Token::Arrow, chars.span(i - 1, i + 1))),
                     _ => {
                         // the first character on its own can be a token,
                         // but doesn't combine with the second one

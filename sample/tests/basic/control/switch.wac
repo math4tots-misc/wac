@@ -1,0 +1,42 @@
+fn __test_switch_i32() {
+    var x = __for_test_switch_i32_get(1)
+    AssertEq(x, 'one')
+    x = __for_test_switch_i32_get(2)
+    AssertEq(x, 'two')
+    x = __for_test_switch_i32_get(3)
+    AssertEq(x, 'three')
+    x = __for_test_switch_i32_get(4)
+    AssertEq(x, 'other')
+}
+
+fn __for_test_switch_i32_get(i i32) str {
+    switch i {
+        1 => "one"
+        2 => "two"
+        3 => "three"
+        _ => "other"
+    }
+}
+
+fn __test_switch_enum() {
+    var x = __for_test_switch_enum_get(ForTestSwitchEnum.A)
+    AssertEq(x, "first")
+    x = __for_test_switch_enum_get(ForTestSwitchEnum.B)
+    AssertEq(x, "second")
+    x = __for_test_switch_enum_get(ForTestSwitchEnum.C)
+    AssertEq(x, "third")
+}
+
+fn __for_test_switch_enum_get(e ForTestSwitchEnum) str {
+    switch e {
+        ForTestSwitchEnum.A => "first"
+        ForTestSwitchEnum.B => "second"
+        ForTestSwitchEnum.C => "third"
+    }
+}
+
+enum ForTestSwitchEnum {
+    A,
+    B,
+    C,
+}

@@ -82,6 +82,16 @@ pub(super) fn guess_return_type(lscope: &mut LocalScope, expr: &Expr) -> Result<
         },
         Expr::GetItem(..) => Ok(ReturnType::Value(Type::Id)),
         Expr::SetItem(..) => Ok(ReturnType::Void),
+        Expr::Switch(_span, _, pairs, other) => {
+            let mut ret = ReturnType::NoReturn;
+            for (_, body) in pairs {
+                ret = best_union_return_type(ret, guess_return_type(lscope, body)?);
+            }
+            if let Some(other) = other {
+                ret = best_union_return_type(ret, guess_return_type(lscope, other)?);
+            }
+            Ok(ret)
+        }
         Expr::Binop(_span, op, left, right) => Ok(ReturnType::Value(match op {
             // == binops ==
             // equality ops
