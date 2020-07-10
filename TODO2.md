@@ -20,3 +20,10 @@ at some point.
     TODO: avoid the call when argument types are known and
     direct instructions can be used (i.e. for primitives)
     or functions (e.g. for str -> __str_eq, list -> __list_eq)
+* refactor to use an llir layer for manipulating wasm instructions
+    WIP see llir.rs, and sink.rs
+* Make '__read/__write' into intrinsics instead of function calls
+    Maybe $read/$write?
+* function calls by keyword parameters
+    This is part of the reason why a function's type
+    includes the parameters' names

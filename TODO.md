@@ -2,18 +2,8 @@
 
 * char type
 * chars type (buffer of chars)
-* refactor to use an llir layer for manipulating wasm instructions
-    WIP see llir.rs, and sink.rs
 * floating point math (log, sin, cos, pow, etc)
 * simplify the imported print functions
-* some kind of for loops
-    Specialized to just integer ranges
-* Format function for formatted strings
-* auto impl enums for 'trait str' (maybe also records?)
-* Make '__read/__write' into intrinsics in stead of function calls
-    Maybe $read/$write?
-* Forbid at least some special identifiers from being used as variable/function names
-    Maybe hook into parser's 'expect_name'?
 * Syntax highlighting VSCode plugin
 
 * record type
@@ -29,13 +19,6 @@
 * control flow (break, continue)
 * refrence counted map type
 * refrence counted set type
-* some sort of switch or match (may depend on first
-    having some sort of global constants mechanism
-    to be useful)
-* function calls by keyword parameters
-    This is part of the reason why a function's type
-    includes the parameters' names
-* type assertion/ascription syntax
 
 # DONE
 
@@ -80,5 +63,16 @@
     to keep things simple, they should be dumb structs
     behind reference counted pointers
 * enum types
+* auto impl enums for 'trait str' (maybe also records?)
+* Format function for formatted strings
+    SEE 'trait F(fmt str, args list) str'
+* some kind of for loops
+    Specialized to just integer ranges
+* Forbid at least some special identifiers from being used as variable/function names
+    Maybe hook into parser's 'expect_name'?
+* type assertion/ascription syntax
 * Call trait funcs directly when receiver type is known
 * 0.0.1 version on crates.io
+* some sort of switch or match (may depend on first
+    having some sort of global constants mechanism
+    to be useful)
