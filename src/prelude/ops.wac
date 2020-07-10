@@ -76,10 +76,6 @@ impl i32 for repr(self) str {
     __i32_str(self)
 }
 
-impl str for repr(self) str {
-    __str_repr(self)
-}
-
 impl id for repr(self) str {
     Join("", [
         "<",
