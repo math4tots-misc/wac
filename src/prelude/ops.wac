@@ -44,18 +44,6 @@ impl list for Eq(self, other id) bool {
 ##############################################################################
 trait str(self) str
 
-impl bool for str(self) str {
-    if self {
-        "true"
-    } else {
-        "false"
-    }
-}
-
-impl i32 for str(self) str {
-    __i32_str(self)
-}
-
 impl str for str(self) str {
     self
 }
@@ -65,11 +53,7 @@ impl type for str(self) str {
 }
 
 impl id for str(self) str {
-    Join("", [
-        "<",
-        str(type(self)),
-        " value>",
-    ])
+    repr(self)
 }
 
 ##############################################################################
@@ -79,6 +63,30 @@ impl id for str(self) str {
 #
 ##############################################################################
 trait repr(self) str
+
+impl bool for repr(self) str {
+    if self {
+        "true"
+    } else {
+        "false"
+    }
+}
+
+impl i32 for repr(self) str {
+    __i32_str(self)
+}
+
+impl str for repr(self) str {
+    __str_repr(self)
+}
+
+impl id for repr(self) str {
+    Join("", [
+        "<",
+        str(type(self)),
+        " value>",
+    ])
+}
 
 ##############################################################################
 # SizeOf
