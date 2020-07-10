@@ -45,3 +45,12 @@ fn __test_str_slice() {
     Assert(Slice("hello world", 0, 4) == "hell")
     Assert(Slice("hello world", 0, -1) == "hello worl")
 }
+
+fn __test_size_of_unicode() {
+    # note, SizeOf for str counts number of bytes
+    AssertEq(SizeOf('世界'), 6)
+
+    var s = Join("😊", ['한글', 'Россия'])
+    AssertEq(s, '한글😊Россия')
+    AssertEq(SizeOf(s), 22)
+}

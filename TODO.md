@@ -35,6 +35,7 @@
 * function calls by keyword parameters
     This is part of the reason why a function's type
     includes the parameters' names
+* type assertion/ascription syntax
 
 # DONE
 
