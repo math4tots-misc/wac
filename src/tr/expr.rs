@@ -238,19 +238,57 @@ pub(super) fn translate_expr(
             lscope.break_labels.push(break_label);
             lscope.continue_labels.push(continue_label);
 
-            sink.writeln(format!(
-                "(block $lbl_{} (loop $lbl_{}",
-                break_label, continue_label
-            ));
+            sink.start_loop(break_label, continue_label);
             translate_expr(out, sink, lscope, ReturnType::Value(Type::Bool), cond)?;
-            sink.writeln("i32.eqz");
-            sink.writeln(format!("br_if $lbl_{}", break_label));
+            sink.i32_eqz();
+            sink.br_if(break_label);
             translate_expr(out, sink, lscope, ReturnType::Void, body)?;
-            sink.writeln(format!("br $lbl_{}", continue_label));
-            sink.writeln("))");
+            sink.br(continue_label);
+            sink.end_loop();
 
             lscope.break_labels.pop();
             lscope.continue_labels.pop();
+
+            auto_cast(sink, span, lscope, ReturnType::Void, etype)?;
+        }
+        Expr::For(span, name, start, end, body) => {
+            let start_var = lscope.helper_unique("forstart", Type::I32);
+            let end_var = lscope.helper_unique("forend", Type::I32);
+            translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), start)?;
+            sink.local_set(&start_var);
+            translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), end)?;
+            sink.local_set(&end_var);
+
+            lscope.push();
+            let var_info = lscope.decl(span.clone(), name.clone(), Type::I32);
+
+            let break_label = lscope.new_label_id();
+            let continue_label = lscope.new_label_id();
+            lscope.break_labels.push(break_label);
+            lscope.continue_labels.push(continue_label);
+
+            sink.start_loop(break_label, continue_label);
+
+            sink.local_get(&start_var);
+            sink.local_get(&end_var);
+            sink.writeln("i32.ge_s");
+            sink.br_if(break_label);
+            sink.local_get(&start_var);
+            sink.local_set(&var_info.wasm_name);
+
+            translate_expr(out, sink, lscope, ReturnType::Void, body)?;
+
+            // increment the start variable
+            sink.local_get(&start_var);
+            sink.i32_const(1);
+            sink.i32_add();
+            sink.local_set(&start_var);
+            sink.br(continue_label);
+            sink.end_loop();
+
+            lscope.break_labels.pop();
+            lscope.continue_labels.pop();
+            lscope.pop();
 
             auto_cast(sink, span, lscope, ReturnType::Void, etype)?;
         }

@@ -29,6 +29,7 @@ pub enum Token<'a> {
     Ampersand,
     VerticalBar,
     Dot,
+    Dot2,
     Lt,
     Le,
     Gt,
@@ -249,8 +250,7 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
                 '^' => ret.push((Token::Caret, chars.span(i, i + 1))),
                 '&' => ret.push((Token::Ampersand, chars.span(i, i + 1))),
                 '|' => ret.push((Token::VerticalBar, chars.span(i, i + 1))),
-                '.' => ret.push((Token::Dot, chars.span(i, i + 1))),
-                '=' | '!' | '<' | '>' | '/' => state = State::Combine(c),
+                '=' | '!' | '<' | '>' | '/' | '.' => state = State::Combine(c),
                 _ => {
                     return Err(LexError::Unrecognized {
                         span: chars.span(i, i + 1),
@@ -272,6 +272,7 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
                     ('>', '=') => ret.push((Token::Ge, chars.span(i - 1, i + 1))),
                     ('<', '<') => ret.push((Token::Lt2, chars.span(i - 1, i + 1))),
                     ('>', '>') => ret.push((Token::Gt2, chars.span(i - 1, i + 1))),
+                    ('.', '.') => ret.push((Token::Dot2, chars.span(i - 1, i + 1))),
                     _ => {
                         // the first character on its own can be a token,
                         // but doesn't combine with the second one
@@ -282,6 +283,7 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
                             '>' => Token::Gt,
                             '/' => Token::Slash,
                             '!' => Token::Exclamation,
+                            '.' => Token::Dot,
                             _ => {
                                 return Err(LexError::Unrecognized {
                                     span: chars.span(i, i + 2),
@@ -295,7 +297,7 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
                 state = State::Normal;
             }
             State::Digits(start) => match c {
-                '.' => {
+                '.' if chars.peek() != Some('.') => {
                     state = State::DigitsAfterDot(start);
                 }
                 _ if c.is_ascii_digit() => {}

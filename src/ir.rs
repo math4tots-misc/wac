@@ -108,6 +108,7 @@ pub enum Expr {
     FunctionCall(SSpan, Rc<str>, Vec<Expr>),
     If(SSpan, Vec<(Expr, Expr)>, Box<Expr>),
     While(SSpan, Box<Expr>, Box<Expr>),
+    For(SSpan, Rc<str>, Box<Expr>, Box<Expr>, Box<Expr>),
 
     GetAttr(SSpan, Box<Expr>, Rc<str>),
     GetItem(SSpan, Box<Expr>, Box<Expr>),
@@ -138,6 +139,7 @@ impl Expr {
             Expr::FunctionCall(span, ..) => span,
             Expr::If(span, ..) => span,
             Expr::While(span, ..) => span,
+            Expr::For(span, ..) => span,
             Expr::GetAttr(span, ..) => span,
             Expr::GetItem(span, ..) => span,
             Expr::SetItem(span, ..) => span,

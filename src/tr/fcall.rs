@@ -38,7 +38,7 @@ pub(super) fn translate_fcall(
                         // for the actual call later
                         assert_eq!(*ptype, Type::Id);
 
-                        let varname = lscope.helper_unique(Type::I32);
+                        let varname = lscope.helper_unique("tcall", Type::I32);
 
                         raw_dup(lscope, sink, WasmType::I64);
 

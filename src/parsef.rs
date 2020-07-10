@@ -321,6 +321,7 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
         }
         Token::Name("if") => parse_if(parser),
         Token::Name("while") => parse_while(parser),
+        Token::Name("for") => parse_for(parser),
         Token::Name("var") => {
             parser.gettok();
             let name = parser.expect_name()?;
@@ -334,9 +335,9 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
             let span = span.upto(&parser.span());
             Ok(Expr::DeclVar(span, name, type_, setexpr.into()))
         }
-        Token::Name(name) => {
-            parser.gettok();
-            Ok(Expr::GetVar(span, name.into()))
+        Token::Name(_) => {
+            let name = parser.expect_name()?;
+            Ok(Expr::GetVar(span, name))
         }
         Token::Minus | Token::Plus | Token::Exclamation => {
             let op = match parser.peek() {
@@ -453,6 +454,19 @@ fn parse_while(parser: &mut Parser) -> Result<Expr, ParseError> {
     let body = parse_block(parser)?;
     let span = span.upto(&parser.span());
     Ok(Expr::While(span, cond.into(), body.into()))
+}
+
+fn parse_for(parser: &mut Parser) -> Result<Expr, ParseError> {
+    let span = parser.span();
+    parser.expect(Token::Name("for"))?;
+    let name = parser.expect_name()?;
+    parser.expect(Token::Name("in"))?;
+    let start = parse_expr(parser, 0)?;
+    parser.expect(Token::Dot2)?;
+    let end = parse_expr(parser, 0)?;
+    let body = parse_block(parser)?;
+    let span = span.upto(&parser.span());
+    Ok(Expr::For(span, name, start.into(), end.into(), body.into()))
 }
 
 /// parse any infix expressions with given precedence or higher

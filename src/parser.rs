@@ -30,6 +30,7 @@ pub const RESERVED_NAMES: &'static [&'static str] = &[
     "or",
     "is",
     "not",
+    "in",
 
     "if",
     "else",

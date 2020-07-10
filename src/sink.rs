@@ -76,6 +76,10 @@ impl Sink {
         self.writeln(format!("(global {} (mut {}) ({}.const {}))", name, type_, type_, value));
     }
 
+    pub fn i32_add(&self) {
+        self.writeln("i32.add");
+    }
+
     pub fn i32_sub(&self) {
         self.writeln("i32.sub");
     }
@@ -120,6 +124,10 @@ impl Sink {
         self.writeln("i32.reinterpret_f32")
     }
 
+    pub fn i32_eqz(&self) {
+        self.writeln("i32.eqz")
+    }
+
     pub fn i32_trunc_f32_s(&self) {
         self.writeln("i32.trunc_f32_s")
     }
@@ -161,5 +169,21 @@ impl Sink {
 
     pub fn global_tee(&self, name: &str) {
         self.writeln(format!("global.tee {}", name))
+    }
+
+    pub fn start_loop(&self, break_label: u32, continue_label: u32) {
+        self.writeln(format!("(block $lbl_{} (loop $lbl_{}", break_label, continue_label));
+    }
+
+    pub fn br(&self, label: u32) {
+        self.writeln(format!("br $lbl_{}", label));
+    }
+
+    pub fn br_if(&self, label: u32) {
+        self.writeln(format!("br_if $lbl_{}", label));
+    }
+
+    pub fn end_loop(&self) {
+        self.writeln("))")
     }
 }

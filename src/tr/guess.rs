@@ -64,6 +64,7 @@ pub(super) fn guess_return_type(lscope: &mut LocalScope, expr: &Expr) -> Result<
             Ok(ret)
         }
         Expr::While(..) => Ok(ReturnType::Void),
+        Expr::For(..) => Ok(ReturnType::Void),
         Expr::GetAttr(_span, owner, _field) => match get_type_from_expr(lscope, owner) {
             Some(type_) => match type_ {
                 Type::Enum(_) => Ok(ReturnType::Value(type_)),
