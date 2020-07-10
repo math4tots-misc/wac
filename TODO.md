@@ -2,6 +2,8 @@
 
 * char type
 * chars type (buffer of chars)
+* refactor to use an llir layer for manipulating wasm instructions
+    WIP see llir.rs, and sink.rs
 * floating point math (log, sin, cos, pow, etc)
 * simplify the imported print functions
 * some kind of for loops
@@ -13,7 +15,6 @@
 * Forbid at least some special identifiers from being used as variable/function names
     Maybe hook into parser's 'expect_name'?
 * Syntax highlighting VSCode plugin
-* 0.0.1 version on crates.io
 
 * record type
     While record types are kinda implemented
@@ -79,3 +80,4 @@
     behind reference counted pointers
 * enum types
 * Call trait funcs directly when receiver type is known
+* 0.0.1 version on crates.io
