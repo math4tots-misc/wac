@@ -63,6 +63,14 @@ impl type for str(self) str {
     __type_str(self)
 }
 
+impl id for str(self) str {
+    Join("", [
+        "<",
+        str(type(self)),
+        " value>",
+    ])
+}
+
 ################################################
 # SizeOf
 #
@@ -148,6 +156,24 @@ impl list for Reverse(self) {
 }
 
 ################################################
+# Reversed
+#
+# Like Reverse, but creates a new value
+#
+# == Implementation notes ==
+# the default implementation of Reversed will
+# use Clone and Reverse.
+#
+################################################
+trait Reversed(self) id
+
+impl id for Reversed(self) id {
+    var ret = Clone(self)
+    Reverse(ret)
+    ret
+}
+
+################################################
 # Clone
 #
 # Clone a value
@@ -179,8 +205,9 @@ impl list for Clone(self) id {
 ################################################
 # Join
 #
-# Get an item from a container with an index
-# (e.g. list or map)
+# Given a separator (self) and a list of items,
+# join them together based on the type of the
+# separator
 #
 ################################################
 trait Join(self, items list) id

@@ -1,46 +1,46 @@
 fn __test_list_pop() {
     var list = ['a', 'b', 'c']
     Assert(SizeOf(list) is 3)
-    Assert(Pop(list) == 'c')
+    AssertEq(Pop(list), 'c')
     Assert(SizeOf(list) is 2)
-    Assert(Pop(list) == 'b')
+    AssertEq(Pop(list), 'b')
     Assert(SizeOf(list) is 1)
-    Assert(Pop(list) == 'a')
+    AssertEq(Pop(list), 'a')
     Assert(SizeOf(list) is 0)
 }
 
 fn __test_list_get_and_set() {
     var list = ['xx', 'yy', 'zz']
-    Assert(list[0] == 'xx')
-    Assert(list[1] == 'yy')
-    Assert(list[2] == 'zz')
+    AssertEq(list[0], 'xx')
+    AssertEq(list[1], 'yy')
+    AssertEq(list[2], 'zz')
     Assert(SizeOf(list) is 3)
 
     list[0] = 'bb'
-    Assert(list[0] == 'bb')
-    Assert(list[1] == 'yy')
-    Assert(list[2] == 'zz')
+    AssertEq(list[0], 'bb')
+    AssertEq(list[1], 'yy')
+    AssertEq(list[2], 'zz')
     Assert(SizeOf(list) is 3)
 
     list[1] = 55
-    Assert(list[0] == 'bb')
-    Assert(list[1] == 55)
-    Assert(list[2] == 'zz')
+    AssertEq(list[0], 'bb')
+    AssertEq(list[1], 55)
+    AssertEq(list[2], 'zz')
     Assert(SizeOf(list) is 3)
 
     Push(list, 2.5)
-    Assert(list[0] == 'bb')
-    Assert(list[1] == 55)
-    Assert(list[2] == 'zz')
-    Assert(list[3] == 2.5)
+    AssertEq(list[0], 'bb')
+    AssertEq(list[1], 55)
+    AssertEq(list[2], 'zz')
+    AssertEq(list[3], 2.5)
     Assert(SizeOf(list) is 4)
 }
 
 fn __test_list_clone() {
     var list = [1, 2, 3]
     Assert(list is list)
-    Assert(list == list)
+    AssertEq(list, list)
     var clone = Clone(list)
     Assert(list is not clone)
-    Assert(list == clone)
+    AssertEq(list, clone)
 }
