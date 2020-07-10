@@ -238,13 +238,8 @@ pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
                 &gvar.init,
             )?;
             let info = gscope.decl_gvar(gvar.span.clone(), gvar.name.clone(), type_)?;
-            init_sink.writeln(format!("global.set {}", info.wasm_name));
-            out.gvars.writeln(format!(
-                "(global {} (mut {}) ({}.const 0))",
-                info.wasm_name,
-                translate_type(info.type_),
-                translate_type(info.type_),
-            ));
+            init_sink.global_set(&info.wasm_name);
+            out.gvars.global_mut(info.type_.wasm(), &info.wasm_name, 0);
         }
     }
 
