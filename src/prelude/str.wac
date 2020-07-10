@@ -149,3 +149,62 @@ fn __str_slice[notrace](s str, start i32, end i32) str {
         ""
     }
 }
+
+fn __str_format(fmt str, args list) str {
+    var fmt_len = __strlen(fmt)
+    var fmt_buf = __WAC_str_buffer(fmt)
+    var parts = []
+
+    var argc = __listlen(args)
+    var argi = 0
+    var next_part_start = 0
+    var i = 0
+    while i < fmt_len {
+        var ch = __read_u8(fmt_buf + i)
+
+        # 37 is '%'
+        if ch is 37 {
+            __list_push(parts, __str_slice(fmt, next_part_start, i))
+            next_part_start = i + 2
+
+            i = i + 1
+            if i >= fmt_len {
+                NoTracePanic("Format string ended with '%'")
+            }
+            ch = __read_u8(fmt_buf + i)
+
+            if ch is 37 {
+                # 37 is '%'
+                Push(parts, '%')
+            } else {
+                if argi >= argc {
+                    NoTracePanic("Not enough arguments in str format")
+                }
+                var arg = args[argi]
+                argi = argi + 1
+
+                if ch is 114 {
+                    # 114 is 'r'
+                    Push(parts, repr(arg))
+                } else if ch is 115 {
+                    # 115 is 's'
+                    Push(parts, str(arg))
+                } else {
+                    NoTracePanic("Unrecognized format char")
+                }
+            }
+        }
+
+        i = i + 1
+    }
+
+    if next_part_start < fmt_len {
+        __list_push(parts, __str_slice(fmt, next_part_start, fmt_len))
+    }
+
+    if argi < argc {
+        NoTracePanic("Too many arguments in str format")
+    }
+
+    __str_join("", parts)
+}

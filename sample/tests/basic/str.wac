@@ -54,3 +54,14 @@ fn __test_size_of_unicode() {
     AssertEq(s, '한글😊Россия')
     AssertEq(SizeOf(s), 22)
 }
+
+fn __test_str_format() {
+    var s = __str_format("Hello %s", ["world"])
+    AssertEq(s, "Hello world")
+
+    s = __str_format("before..%s..%safter", ['aaa', 'bbb'])
+    AssertEq(s, 'before..aaa..bbbafter')
+
+    s = __str_format("%sbefore..%s..after", ['aaa', 'bbb'])
+    AssertEq(s, 'aaabefore..bbb..after')
+}

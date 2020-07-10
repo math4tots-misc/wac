@@ -72,6 +72,14 @@ impl id for str(self) str {
 }
 
 ################################################
+# repr
+#
+# For a more 'quoted' representation of a value
+#
+################################################
+trait repr(self) str
+
+################################################
 # SizeOf
 #
 # Get the number of elements in a container
