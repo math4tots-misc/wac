@@ -276,14 +276,8 @@ pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
 
         let typestr_table_start = out.data(&typestr_table_bytes) as usize;
         let typestr_table_end = typestr_table_start + typestr_table_bytes.len();
-        out.gvars.writeln(format!(
-            "(global $rt_typestr_table_start i32 (i32.const {}))",
-            typestr_table_start,
-        ));
-        out.gvars.writeln(format!(
-            "(global $rt_typestr_table_end i32 (i32.const {}))",
-            typestr_table_end,
-        ));
+        out.gvars.global(WasmType::I32, "$rt_typestr_table_start", typestr_table_start as i64);
+        out.gvars.global(WasmType::I32, "$rt_typestr_table_end", typestr_table_end as i64);
     }
 
     // write out the itables for each type that needs it
@@ -332,14 +326,8 @@ pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
         let meta_itable_start = out.data(&meta_itable_bytes);
         let meta_itable_end = meta_itable_start + (meta_itable_bytes.len() as WasmPtr);
 
-        out.gvars.writeln(format!(
-            "(global $rt_meta_itable_start i32 (i32.const {}))",
-            meta_itable_start
-        ));
-        out.gvars.writeln(format!(
-            "(global $rt_meta_itable_end   i32 (i32.const {}))",
-            meta_itable_end
-        ));
+        out.gvars.global(WasmType::I32, "$rt_meta_itable_start", meta_itable_start as i64);
+        out.gvars.global(WasmType::I32, "$rt_meta_itable_end", meta_itable_end as i64);
     }
 
     // initialize the wasm table with all the impls so that they
