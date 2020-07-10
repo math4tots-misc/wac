@@ -567,7 +567,7 @@ pub(super) fn translate_expr(
                 auto_cast(sink, span, lscope, ReturnType::Value(Type::Bool), etype)?
             }
         },
-        Expr::AssertType(span, type_, expr) => {
+        Expr::AscribeType(span, expr, type_) => {
             translate_expr(out, sink, lscope, ReturnType::Value(*type_), expr)?;
             auto_cast(sink, span, lscope, ReturnType::Value(*type_), etype)?
         }

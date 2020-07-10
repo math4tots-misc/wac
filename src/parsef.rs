@@ -510,9 +510,15 @@ fn parse_infix(parser: &mut Parser, mut lhs: Expr, prec: u32) -> Result<Expr, Pa
                 }
                 let span = parser.span();
                 parser.gettok();
-                let name = parser.expect_name()?;
-                let span = span.join(&start).upto(&parser.span());
-                lhs = Expr::GetAttr(span, lhs.into(), name);
+                if parser.consume(Token::LParen) {
+                    let ascribed_type = parse_type(parser)?;
+                    parser.expect(Token::RParen)?;
+                    lhs = Expr::AscribeType(span, lhs.into(), ascribed_type);
+                } else {
+                    let name = parser.expect_name()?;
+                    let span = span.join(&start).upto(&parser.span());
+                    lhs = Expr::GetAttr(span, lhs.into(), name);
+                }
             }
             Token::Plus | Token::Minus => {
                 if prec > PREC_SUM {
@@ -601,7 +607,7 @@ fn parse_infix(parser: &mut Parser, mut lhs: Expr, prec: u32) -> Result<Expr, Pa
                 let span = span.join(&start).upto(&parser.span());
                 lhs = Expr::If(
                     span.clone(),
-                    vec![(lhs, Expr::AssertType(span.clone(), Type::Bool, rhs.into()))],
+                    vec![(lhs, Expr::AscribeType(span.clone(), rhs.into(), Type::Bool))],
                     Expr::Bool(span.clone(), false).into(),
                 )
             }

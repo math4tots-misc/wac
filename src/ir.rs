@@ -116,7 +116,7 @@ pub enum Expr {
     // builtin operators
     Binop(SSpan, Binop, Box<Expr>, Box<Expr>),
     Unop(SSpan, Unop, Box<Expr>),
-    AssertType(SSpan, Type, Box<Expr>),
+    AscribeType(SSpan, Box<Expr>, Type),
 
     // intrinsics
     CString(SSpan, Rc<str>),
@@ -143,7 +143,7 @@ impl Expr {
             Expr::SetItem(span, ..) => span,
             Expr::Binop(span, ..) => span,
             Expr::Unop(span, ..) => span,
-            Expr::AssertType(span, ..) => span,
+            Expr::AscribeType(span, ..) => span,
             Expr::CString(span, ..) => span,
             Expr::Asm(span, ..) => span,
         }

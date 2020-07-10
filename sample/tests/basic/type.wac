@@ -16,3 +16,15 @@ fn __test_type_str() {
 
 enum TestTypeStrType {
 }
+
+fn __test_type_ascription() {
+    # By default, a non-ascribed number without a decimal
+    # point is interpreted as an i32
+    var t = type(123)
+    AssertSame(t, i32)
+
+    # But the same token can also be interpreted as an f32
+    # You just need to manually ascribe the type in some way
+    var t = type((123).(f32))
+    AssertSame(t, f32)
+}
