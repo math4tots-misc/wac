@@ -1,12 +1,13 @@
 # Common traits and their impls
 
 
-################################################
+##############################################################################
 # Eq
 #
 # Check two values for equivalence
+# The '==' and '!=' operators use this function
 #
-################################################
+##############################################################################
 trait Eq(self, other id) bool
 
 impl bool for Eq(self, other id) bool {
@@ -35,12 +36,12 @@ impl list for Eq(self, other id) bool {
     }
 }
 
-################################################
+##############################################################################
 # str
 #
 # For converting values into str
 #
-################################################
+##############################################################################
 trait str(self) str
 
 impl bool for str(self) str {
@@ -71,15 +72,15 @@ impl id for str(self) str {
     ])
 }
 
-################################################
+##############################################################################
 # repr
 #
 # For a more 'quoted' representation of a value
 #
-################################################
+##############################################################################
 trait repr(self) str
 
-################################################
+##############################################################################
 # SizeOf
 #
 # Get the number of elements in a container
@@ -88,7 +89,7 @@ trait repr(self) str
 # For strings, this gives you the number
 # of bytes, not the number of chars!
 #
-################################################
+##############################################################################
 trait SizeOf(self) i32
 
 impl str for SizeOf(self) i32 {
@@ -99,71 +100,71 @@ impl list for SizeOf(self) i32 {
     __listlen(self)
 }
 
-################################################
+##############################################################################
 # Push
 #
 # Add an element to the end of a container
 # (e.g. list)
 #
-################################################
+##############################################################################
 trait Push(self, item id)
 
 impl list for Push(self, item id) {
     __list_push(self, item)
 }
 
-################################################
+##############################################################################
 # Pop
 #
 # Remove an element from the end of a container
 # (e.g. list)
 #
-################################################
+##############################################################################
 trait Pop(self) id
 
 impl list for Pop(self) id {
     __list_pop(self)
 }
 
-################################################
+##############################################################################
 # GetItem
 #
 # Get an item from a container with an index
 # (e.g. list or map)
 #
-################################################
+##############################################################################
 trait GetItem(self, index id) id
 
 impl list for GetItem(self, index id) id {
     __list_getitem(self, index)
 }
 
-################################################
+##############################################################################
 # SetItem
 #
 # Get an item from a container with an index
 # (e.g. list or map)
 #
-################################################
+##############################################################################
 trait SetItem(self, index id, value id)
 
 impl list for SetItem(self, index id, value id) {
     __list_setitem(self, index, value)
 }
 
-################################################
+##############################################################################
 # Reverse
 #
 # Reverse an ordered container
 #
-################################################
+##############################################################################
 trait Reverse(self)
 
 impl list for Reverse(self) {
     __list_reverse(self)
 }
 
-################################################
+##############################################################################
 # Reversed
 #
 # Like Reverse, but creates a new value
@@ -172,7 +173,7 @@ impl list for Reverse(self) {
 # the default implementation of Reversed will
 # use Clone and Reverse.
 #
-################################################
+##############################################################################
 trait Reversed(self) id
 
 impl id for Reversed(self) id {
@@ -181,12 +182,12 @@ impl id for Reversed(self) id {
     ret
 }
 
-################################################
+##############################################################################
 # Clone
 #
 # Clone a value
 #
-################################################
+##############################################################################
 trait Clone(self) id
 
 impl bool for Clone(self) id {
@@ -210,14 +211,14 @@ impl list for Clone(self) id {
     __list_clone(self)
 }
 
-################################################
+##############################################################################
 # Join
 #
 # Given a separator (self) and a list of items,
 # join them together based on the type of the
 # separator
 #
-################################################
+##############################################################################
 trait Join(self, items list) id
 
 impl str for Join(self, items list) id {
@@ -225,14 +226,46 @@ impl str for Join(self, items list) id {
 }
 
 
-################################################
-
+##############################################################################
+# Slice
+##############################################################################
 trait Slice(self, start i32, end i32) id
 
+impl str for Slice(self, start i32, end i32) id {
+    __str_slice(self, start, end)
+}
+
+##############################################################################
+# OpenSlice
+#
+# Like Slice, but allows you to omit the
+# 'end' index (the entire SizeOf(self) is
+# assumed)
+##############################################################################
 fn OpenSlice(self id, start i32) id {
     Slice(self, start, SizeOf(self))
 }
 
-impl str for Slice(self, start i32, end i32) id {
-    __str_slice(self, start, end)
+##############################################################################
+# F
+#
+# For creating formatted strings
+# e.g.:
+#   F("hello %s", [10])  # returns "hello 10"
+#   F("%s %s", ['space', 'pirate'])  # returns "space pirate"
+#
+# Use '%s' to apply 'str', '%r' to apply 'repr'
+# or '%%' if you actually just wanted a '%'.
+#
+# While I don't like the idea of having too
+# many (or even any) one character function
+# names, this is such an important feature that
+# I decided this was ok. Other alternatives considered
+# were special casing the '%' operator (which would
+# have been pretty ugly), and native format strings
+# (like f".." strings in Python, or `..` in JS; this
+# would have been a lot of work)
+##############################################################################
+fn F(fmt str, args list) str {
+    __str_format(fmt, args)
 }
