@@ -15,7 +15,7 @@ pub(super) fn retain(lscope: &mut LocalScope, sink: &Rc<Sink>, type_: Type, dp: 
                 DropPolicy::Keep => {}
             }
         }
-        Type::String | Type::List | Type::Record(_) => {
+        Type::Buffer | Type::String | Type::List | Type::Record(_) => {
             match dp {
                 DropPolicy::Drop => {}
                 DropPolicy::Keep => raw_dup(lscope, sink, WasmType::I32),
@@ -41,6 +41,13 @@ pub(super) fn release(lscope: &mut LocalScope, sink: &Rc<Sink>, type_: Type, dp:
                 DropPolicy::Drop => sink.drop_(),
                 DropPolicy::Keep => {}
             }
+        }
+        Type::Buffer => {
+            match dp {
+                DropPolicy::Drop => {}
+                DropPolicy::Keep => raw_dup(lscope, sink, WasmType::I32),
+            }
+            sink.call("$f___WAC_buffer_release");
         }
         Type::String => {
             match dp {
@@ -78,6 +85,10 @@ pub(super) fn release(lscope: &mut LocalScope, sink: &Rc<Sink>, type_: Type, dp:
 pub(super) fn release_var(sink: &Rc<Sink>, scope: Scope, wasm_name: &Rc<str>, type_: Type) {
     match type_ {
         Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Type | Type::Enum(_) => {
+        }
+        Type::Buffer => {
+            sink.var_get(scope, wasm_name);
+            sink.call("$f___WAC_buffer_release");
         }
         Type::String => {
             sink.var_get(scope, wasm_name);

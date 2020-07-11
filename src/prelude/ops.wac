@@ -80,6 +80,10 @@ impl i32 for repr(self) str {
     __i32_str(self)
 }
 
+impl buffer for repr(self) str {
+    __buffer_repr(self)
+}
+
 impl list for repr(self) str {
     __list_repr(self)
 }
@@ -110,6 +114,10 @@ impl id for repr(self) str {
 #
 ##############################################################################
 trait SizeOf(self) i32
+
+impl buffer for SizeOf(self) i32 {
+    __buffer_len(self)
+}
 
 impl str for SizeOf(self) i32 {
     __strlen(self)
@@ -154,6 +162,10 @@ impl list for Pop(self) id {
 ##############################################################################
 trait GetItem(self, index id) id
 
+impl buffer for GetItem(self, index id) id {
+    __buffer_getitem(self, index)
+}
+
 impl list for GetItem(self, index id) id {
     __list_getitem(self, index)
 }
@@ -166,6 +178,10 @@ impl list for GetItem(self, index id) id {
 #
 ##############################################################################
 trait SetItem(self, index id, value id)
+
+impl buffer for SetItem(self, index id, value id) {
+    __buffer_setitem(self, index, value)
+}
 
 impl list for SetItem(self, index id, value id) {
     __list_setitem(self, index, value)

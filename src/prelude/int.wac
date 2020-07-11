@@ -1,4 +1,4 @@
-fn __i32_str(i i32) str {
+fn __i32_str[notrace](i i32) str {
     if i is 0 {
         '0'
     } else {
@@ -29,14 +29,14 @@ fn __i32_str(i i32) str {
             }
 
             i = i // 10
-            Push(parts, ch)
+            __list_push(parts, ch)
         }
 
         if is_negative {
-            Push(parts, '-')
+            __list_push(parts, '-')
         }
 
-        Reverse(parts)
-        Join("", parts)
+        __list_reverse(parts)
+        __str_join("", parts)
     }
 }

@@ -1,0 +1,14 @@
+
+fn __test_buffer_misc() {
+    var buf = __new_buffer()
+    AssertEq(SizeOf(buf), 0)
+
+    __buffer_push(buf, 10)
+    AssertEq(SizeOf(buf), 1)
+
+    AssertEq(buf[0], 10)
+
+    __buffer_push(buf, 40)
+
+    AssertEq(str(buf), 'buffer[10, 40]')
+}

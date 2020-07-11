@@ -40,3 +40,4 @@ pub const BOOL: &'static str = include_str!("bool.wac");
 pub const INT: &'static str = include_str!("int.wac");
 pub const INDEX: &'static str = include_str!("index.wac");
 pub const RECORD: &'static str = include_str!("record.wac");
+pub const BUFFER: &'static str = include_str!("buffer.wac");

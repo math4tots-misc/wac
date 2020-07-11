@@ -21,7 +21,7 @@ fn __WAC_list_release[notrace](ptr i32) {
         }
 
         # free the buffer
-        __free(__read(ptr + 8), buf)
+        __free(__read(ptr + 8) * 8, buf)
 
         # free the info
         __free(16, ptr)

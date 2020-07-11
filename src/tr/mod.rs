@@ -112,6 +112,7 @@ fn parse_files0(
         ("[prelude:int]".into(), crate::prelude::INT.into()),
         ("[prelude:index]".into(), crate::prelude::INDEX.into()),
         ("[prelude:record]".into(), crate::prelude::RECORD.into()),
+        ("[prelude:buffer]".into(), crate::prelude::BUFFER.into()),
     ];
 
     sources.splice(0..0, prelude);

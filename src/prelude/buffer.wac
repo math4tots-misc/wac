@@ -1,0 +1,134 @@
+
+# buffers look like:
+#   [i32 refcnt][i32 nbytes][i32 capacity][i32 ptr]
+# (layout is similar to list)
+
+fn __WAC_buffer_release[notrace](ptr i32) {
+    var refcnt = __read(ptr) - 1
+    if refcnt > 0 {
+        __write(ptr, refcnt)
+    } else {
+        var len = __read(ptr + 4)
+        var buf = __read(ptr + 12)
+
+        # free the buffer
+        __free(__read(ptr + 8), buf)
+
+        # free the info
+        __free(16, ptr)
+    }
+}
+
+fn __new_buffer[notrace]() buffer {
+    var ptr = __malloc(16)
+
+    # refcnt
+    __write(ptr, 1)
+
+    # len (starts empty)
+    __write(ptr + 4, 0)
+
+    # capacity (starts with no allocation)
+    __write(ptr + 8, 0)
+
+    # ptr to buffer (starts as null)
+    __write(ptr + 12, 0)
+
+    $asm([], buffer, "local.get $l_0_ptr")
+}
+
+fn __buffer_resize[notrace](buf buffer, new_size i32) {
+    var old_size = __buffer_len(buf)
+
+    for _ in old_size..new_size {
+        __buffer_push(buf, 0)
+    }
+
+    var buf = $asm([], i32, "local.get $l_0_buf")
+    __write(buf + 4, new_size)
+}
+
+fn __buffer_len[notrace](buf buffer) i32 {
+    __read($asm([], i32, "local.get $l_0_buf") + 4)
+}
+
+# Get the byte at given index
+fn __buffer_getitem[notrace](buf buffer, i i32) i32 {
+    var buf = $asm([], i32, "local.get $l_0_buf")
+    __read_u8(__read(buf + 12) + i)
+}
+
+# Set the byte at given index
+fn __buffer_setitem[notrace](buf buffer, i i32, byte i32) {
+    var buf = $asm([], i32, "local.get $l_0_buf")
+    __write_u8(__read(buf + 12) + i, byte)
+}
+
+fn __buffer_push[notrace](buf buffer, byte i32) {
+    var raw_buffer = $asm([], i32, "local.get $l_0_buf")
+    __WAC_buffer_push_raw(raw_buffer, byte)
+}
+
+fn __WAC_buffer_push_raw[notrace](buf i32, byte i32) {
+
+    var len = __read(buf + 4)
+    var capacity = __read(buf + 8)
+
+    if capacity < len + 1 {
+        var new_capacity = if capacity is 0 {
+            2
+        } else {
+            capacity * 4
+        }
+
+        # Update the 'capacity' field
+        __write(buf + 8, new_capacity)
+
+        # Update with larger buffer
+        __write(
+            buf + 12,
+            __realloc(capacity, new_capacity, __read(buf + 12)),
+        )
+    }
+
+    # update the 'len' field
+    __write(buf + 4, len + 1)
+
+    var buffer_ptr = __read(buf + 12)
+
+    __write_u8(buffer_ptr + len, byte)
+}
+
+fn __buffer_pop[notrace](buf buffer) i32 {
+    # There's no need to release manually,
+    # we're just transferring the retain that this buffer had to the
+    # reference to the retain we would've needed to do for a
+    # return value
+    __WAC_buffer_pop_raw_no_release($asm([], i32, "local.get $l_0_buf"))
+}
+
+fn __WAC_buffer_pop_raw_no_release[notrace](buf i32) i32 {
+    var new_len = __read(buf + 4) - 1
+    if new_len < 0 {
+        NoTracePanic("Pop from empty buffer")
+    }
+    __write(buf + 4, new_len)
+
+    # buf[new_len]
+    __read_u8(__read(buf + 12) + new_len)
+}
+
+fn __buffer_repr[notrace](buf buffer) str {
+    var parts = ['buffer[']
+
+    for i in 0..__buffer_len(buf) {
+        if i is not 0 {
+            __list_push(parts, ', ')
+        }
+        __list_push(parts, __i32_str(__buffer_getitem(buf, i)))
+    }
+
+    __list_push(parts, ']')
+
+    __str_join('', parts)
+}
