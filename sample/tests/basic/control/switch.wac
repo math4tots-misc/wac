@@ -40,3 +40,39 @@ enum ForTestSwitchEnum {
     B,
     C,
 }
+
+fn __test_type_switch() {
+    var x = __for_test_type_switch_get(type)
+    AssertEq(x, 'got type')
+    x = __for_test_type_switch_get(i32)
+    AssertEq(x, 'got int type i32')
+    x = __for_test_type_switch_get(i64)
+    AssertEq(x, 'got int type i64')
+    x = __for_test_type_switch_get(ForTestSwitchEnum)
+    AssertEq(x, 'hey ForTestSwitchEnum')
+    x = __for_test_type_switch_get(f32)
+    AssertEq(x, 'some other type f32')
+}
+
+fn __for_test_type_switch_get(t type) str {
+    switch t {
+        i32 | i64 => F("got int type %s", [t])
+        type => "got type"
+        ForTestSwitchEnum => "hey ForTestSwitchEnum"
+        _ => F("some other type %s", [t])
+    }
+}
+
+fn __test_switch_with_ops() {
+    var result = switch 10 {
+        (5 + 5) => '10 -> 5 + 5'
+        _ => 'other'
+    }
+    AssertEq(result, '10 -> 5 + 5')
+
+    var result = switch -17 {
+        (-20 + 3) => 'aaaa'
+        _ => 'other'
+    }
+    AssertEq(result, 'aaaa')
+}

@@ -95,7 +95,7 @@ fn parse_constant(
 fn parse_constval(
     parser: &mut Parser,
 ) -> Result<ConstValue, ParseError> {
-    let expr = parse_expr(parser, 0)?;
+    let expr = parse_expr(parser, PREC_UNARY - 1)?;
     eval_constexpr(&expr, parser)
 }
 
@@ -107,11 +107,19 @@ fn eval_constexpr(
         Expr::Int(_, value) => Ok(ConstValue::I32(*value as i32)),
         Expr::GetVar(span, name) => match parser.constants_map.get(name) {
             Some(value) => Ok(value.clone()),
-            None => Err(ParseError::InvalidToken {
-                span: span.clone(),
-                expected: "named constant".into(),
-                got: "NotFound".into(),
-            }),
+            None => match Type::from_name(name) {
+                Some(type_) => Ok(ConstValue::Type(type_)),
+                _ => if parser.strict_about_user_defined_types {
+                    Err(ParseError::InvalidToken {
+                        span: span.clone(),
+                        expected: "named constant".into(),
+                        got: "NotFound".into(),
+                    })
+                } else {
+                    // If it's not strict mode, just return some dummy type
+                    Ok(ConstValue::Type(Type::Enum(0)))
+                }
+            },
         },
         Expr::GetAttr(_span, owner, member) => if parser.strict_about_user_defined_types {
             let opt = match &**owner {
@@ -140,6 +148,76 @@ fn eval_constexpr(
         } else {
             // otherwise, just assume it is some enum value
             Ok(ConstValue::Enum(Type::Enum(0), 0))
+        }
+        Expr::Unop(span, Unop::Minus, subexpr) => {
+            match eval_constexpr(subexpr, parser)? {
+                ConstValue::I32(i) => Ok(ConstValue::I32(-i)),
+                cval => Err(ParseError::InvalidToken {
+                    span: span.clone(),
+                    expected: "i32".into(),
+                    got: format!("{:?}", cval),
+                })
+            }
+        }
+        Expr::Unop(span, Unop::Plus, subexpr) => {
+            match eval_constexpr(subexpr, parser)? {
+                ConstValue::I32(i) => Ok(ConstValue::I32(i)),
+                cval => Err(ParseError::InvalidToken {
+                    span: span.clone(),
+                    expected: "i32".into(),
+                    got: format!("{:?}", cval),
+                })
+            }
+        }
+        Expr::Binop(span, Binop::Add, left, right) => {
+            match (eval_constexpr(left, parser)?, eval_constexpr(right, parser)?) {
+                (ConstValue::I32(a), ConstValue::I32(b)) => Ok(ConstValue::I32(a + b)),
+                (left, right) => Err(ParseError::InvalidToken {
+                    span: span.clone(),
+                    expected: "addable values".into(),
+                    got: format!("{:?}, {:?}", left, right),
+                })
+            }
+        }
+        Expr::Binop(span, Binop::Subtract, left, right) => {
+            match (eval_constexpr(left, parser)?, eval_constexpr(right, parser)?) {
+                (ConstValue::I32(a), ConstValue::I32(b)) => Ok(ConstValue::I32(a - b)),
+                (left, right) => Err(ParseError::InvalidToken {
+                    span: span.clone(),
+                    expected: "subtractable values".into(),
+                    got: format!("{:?}, {:?}", left, right),
+                })
+            }
+        }
+        Expr::Binop(span, Binop::Multiply, left, right) => {
+            match (eval_constexpr(left, parser)?, eval_constexpr(right, parser)?) {
+                (ConstValue::I32(a), ConstValue::I32(b)) => Ok(ConstValue::I32(a * b)),
+                (left, right) => Err(ParseError::InvalidToken {
+                    span: span.clone(),
+                    expected: "multiplicable values".into(),
+                    got: format!("{:?}, {:?}", left, right),
+                })
+            }
+        }
+        Expr::Binop(span, Binop::TruncDivide, left, right) => {
+            match (eval_constexpr(left, parser)?, eval_constexpr(right, parser)?) {
+                (ConstValue::I32(a), ConstValue::I32(b)) => Ok(ConstValue::I32(a / b)),
+                (left, right) => Err(ParseError::InvalidToken {
+                    span: span.clone(),
+                    expected: "trunc-dividable values".into(),
+                    got: format!("{:?}, {:?}", left, right),
+                })
+            }
+        }
+        Expr::Binop(span, Binop::Remainder, left, right) => {
+            match (eval_constexpr(left, parser)?, eval_constexpr(right, parser)?) {
+                (ConstValue::I32(a), ConstValue::I32(b)) => Ok(ConstValue::I32(a % b)),
+                (left, right) => Err(ParseError::InvalidToken {
+                    span: span.clone(),
+                    expected: "rem-able values".into(),
+                    got: format!("{:?}, {:?}", left, right),
+                })
+            }
         }
         _ => Err(ParseError::InvalidToken {
             span: expr.span().clone(),
