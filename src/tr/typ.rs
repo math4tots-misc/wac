@@ -68,8 +68,8 @@ pub(super) fn auto_cast(
                 Type::Type => {
                     cast_to_id(sink, TAG_TYPE);
                 }
-                Type::Buffer => {
-                    cast_to_id(sink, TAG_BUFFER);
+                Type::Bytes => {
+                    cast_to_id(sink, TAG_BYTES);
                 }
                 Type::String => {
                     cast_to_id(sink, TAG_STRING);
@@ -104,8 +104,8 @@ pub(super) fn auto_cast(
         (ReturnType::Value(Type::Id), ReturnType::Value(Type::Type)) => {
             sink.call("$f___WAC_raw_id_to_type");
         }
-        (ReturnType::Value(Type::Id), ReturnType::Value(Type::Buffer)) => {
-            sink.call("$f___WAC_raw_id_to_buffer");
+        (ReturnType::Value(Type::Id), ReturnType::Value(Type::Bytes)) => {
+            sink.call("$f___WAC_raw_id_to_bytes");
         }
         (ReturnType::Value(Type::Id), ReturnType::Value(Type::String)) => {
             sink.call("$f___WAC_raw_id_to_str");

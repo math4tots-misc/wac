@@ -211,7 +211,7 @@ pub const TAG_F32: i32 = 3;
 pub const TAG_F64: i32 = 4;
 pub const TAG_BOOL: i32 = 5;
 pub const TAG_TYPE: i32 = 6;
-pub const TAG_BUFFER: i32 = 7;
+pub const TAG_BYTES: i32 = 7;
 pub const TAG_STRING: i32 = 8;
 pub const TAG_LIST: i32 = 9;
 pub const TAG_ID: i32 = 10;
@@ -229,7 +229,7 @@ pub enum BuiltinType {
     /// a type (in practice, the type tag)
     Type = TAG_TYPE,
 
-    Buffer = TAG_BUFFER,
+    Bytes = TAG_BYTES,
 
     /// Reference counted str type
     /// i32 that points to:
@@ -261,7 +261,7 @@ pub enum Type {
     F64,
     Bool,
     Type,
-    Buffer,
+    Bytes,
     String,
     List,
     Id,
@@ -278,7 +278,7 @@ impl Type {
             "f64" => Some(Type::F64),
             "bool" => Some(Type::Bool),
             "type" => Some(Type::Type),
-            "buffer" => Some(Type::Buffer),
+            "bytes" => Some(Type::Bytes),
             "str" => Some(Type::String),
             "list" => Some(Type::List),
             "id" => Some(Type::Id),
@@ -293,7 +293,7 @@ impl Type {
             Type::F64 => TAG_F64,
             Type::Bool => TAG_BOOL,
             Type::Type => TAG_TYPE,
-            Type::Buffer => TAG_BUFFER,
+            Type::Bytes => TAG_BYTES,
             Type::String => TAG_STRING,
             Type::List => TAG_LIST,
             Type::Id => TAG_ID,
@@ -337,7 +337,7 @@ impl Type {
             Type::F64,
             Type::Bool,
             Type::Type,
-            Type::Buffer,
+            Type::Bytes,
             Type::String,
             Type::List,
             Type::Id,
@@ -358,7 +358,7 @@ impl Type {
             Type::F64 => "f64".into(),
             Type::Bool => "bool".into(),
             Type::Type => "type".into(),
-            Type::Buffer => "buffer".into(),
+            Type::Bytes => "bytes".into(),
             Type::String => "str".into(),
             Type::List => "list".into(),
             Type::Id => "id".into(),
@@ -375,7 +375,7 @@ impl Type {
             | Type::Bool
             | Type::Type
             | Type::Enum(_) => true,
-            Type::Buffer | Type::String | Type::List | Type::Id | Type::Record(_) => false,
+            Type::Bytes | Type::String | Type::List | Type::Id | Type::Record(_) => false,
         }
     }
     pub fn wasm(self) -> WasmType {
@@ -386,7 +386,7 @@ impl Type {
             Type::F64 => WasmType::F64,
             Type::Bool => WasmType::I32,
             Type::Type => WasmType::I32,
-            Type::Buffer => WasmType::I32,
+            Type::Bytes => WasmType::I32,
             Type::String => WasmType::I32,
             Type::List => WasmType::I32,
             Type::Id => WasmType::I64,
@@ -405,7 +405,7 @@ impl From<BuiltinType> for Type {
             BuiltinType::F64 => Self::F64,
             BuiltinType::Bool => Self::Bool,
             BuiltinType::Type => Self::Type,
-            BuiltinType::Buffer => Self::Buffer,
+            BuiltinType::Bytes => Self::Bytes,
             BuiltinType::String => Self::String,
             BuiltinType::List => Self::List,
             BuiltinType::Id => Self::Id,

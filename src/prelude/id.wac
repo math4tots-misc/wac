@@ -45,12 +45,12 @@ fn __WAC_raw_id_to_type[notrace](x i64) i32 {
     }
 }
 
-fn __WAC_raw_id_to_buffer[notrace](x i64) i32 {
+fn __WAC_raw_id_to_bytes[notrace](x i64) i32 {
     var typ = __WAC_typeof_raw(x)
-    if typ is buffer {
+    if typ is bytes {
         __WAC_id_value(x)
     } else {
-        NoTracePanic("Expected buffer")
+        NoTracePanic("Expected bytes")
     }
 }
 
@@ -87,8 +87,8 @@ fn __WAC_id_release[notrace](x i64) {
         tag is bool
     ) {
         # these are primitives, so nothing more to do here
-    } else if tag is buffer {
-        __WAC_buffer_release(val)
+    } else if tag is bytes {
+        __WAC_bytes_release(val)
     } else if tag is str {
         __WAC_str_release(val)
     } else if tag is list {
@@ -125,7 +125,7 @@ fn __WAC_id_retain[notrace](x i64) {
     ) {
         # these are primitives, so nothing more to do here
     } else if (
-        tag is buffer or
+        tag is bytes or
         tag is str or
         tag is list or
         __type_is_record($asm([tag], type, ""))

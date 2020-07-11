@@ -1,0 +1,14 @@
+
+fn __test_byts_misc() {
+    var bts = __new_bytes()
+    AssertEq(SizeOf(bts), 0)
+
+    __bytes_push(bts, 10)
+    AssertEq(SizeOf(bts), 1)
+
+    AssertEq(bts[0], 10)
+
+    __bytes_push(bts, 40)
+
+    AssertEq(str(bts), 'bytes[10, 40]')
+}

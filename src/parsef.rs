@@ -961,7 +961,7 @@ fn parse_type(parser: &mut Parser) -> Result<Type, ParseError> {
         Token::Name("f64") => Some(Type::F64),
         Token::Name("bool") => Some(Type::Bool),
         Token::Name("type") => Some(Type::Type),
-        Token::Name("buffer") => Some(Type::Buffer),
+        Token::Name("bytes") => Some(Type::Bytes),
         Token::Name("str") => Some(Type::String),
         Token::Name("list") => Some(Type::List),
         Token::Name("id") => Some(Type::Id),
