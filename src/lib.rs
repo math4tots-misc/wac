@@ -29,6 +29,10 @@ pub use tr::*;
 
 use tmap::*;
 
+/// enables stack traces even on 'notrace' functions
+/// to see where some kinds of errors are coming from
+const DEBUG_TRACE: bool = false;
+
 #[cfg(test)]
 mod tests {
     #[test]

@@ -13,6 +13,7 @@ use crate::Parser;
 use crate::SSpan;
 use crate::Sink;
 use crate::Source;
+use crate::DEBUG_TRACE;
 use std::cell::Cell;
 use std::collections::HashMap;
 // use std::collections::HashSet;

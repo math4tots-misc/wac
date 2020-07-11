@@ -67,6 +67,11 @@ fn __WAC_id_release[notrace](x i64) {
     var tag = __WAC_typeof_raw(x)
     var val = __WAC_id_value(x)
     if (
+        # In normal operation, users shouldn't be able
+        # to see cases where x = 0, however, in cases of
+        # unused local variables, it will be initialized to 0,
+        # but never actually set to a valid value
+        x is (0).(i64) or
         tag is i32 or
         tag is f32 or
         tag is type or
@@ -80,7 +85,13 @@ fn __WAC_id_release[notrace](x i64) {
     } else if __type_is_enum($asm([tag], type, "")) {
         # enum types don't allocate data
     } else {
-        NoTracePanic("id_release: unrecognized tag")
+        NoTracePanic(__str_join(
+            '',
+            [
+                "id_release: unrecognized tag: ",
+                __type_str(tag)
+            ],
+        ))
     }
 }
 
@@ -89,6 +100,11 @@ fn __WAC_id_retain[notrace](x i64) {
     var val = __WAC_id_value(x)
 
     if (
+        # In normal operation, users shouldn't be able
+        # to see cases where x = 0, however, in cases of
+        # unused local variables, it will be initialized to 0,
+        # but never actually set to a valid value
+        x is (0).(i64) or
         tag is i32 or
         tag is f32 or
         tag is type or

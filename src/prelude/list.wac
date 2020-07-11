@@ -196,3 +196,15 @@ fn __list_eq(a list, b list) bool {
         maybe_eq
     }
 }
+
+fn __list_repr(a list) str {
+    var parts = []
+    for i in 0..__listlen(a) {
+        __list_push(parts, repr(__list_getitem(a, i)))
+    }
+    __str_join('', [
+        '[',
+        __str_join(', ', parts),
+        ']',
+    ])
+}

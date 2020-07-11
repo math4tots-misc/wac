@@ -80,6 +80,10 @@ impl i32 for repr(self) str {
     __i32_str(self)
 }
 
+impl list for repr(self) str {
+    __list_repr(self)
+}
+
 impl id for repr(self) str {
     if __type_is_enum(type(self)) {
         Join('.', [

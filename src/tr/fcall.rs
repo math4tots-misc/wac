@@ -69,7 +69,7 @@ pub(super) fn translate_fcall(
         });
     }
 
-    if trace {
+    if DEBUG_TRACE || trace {
         // check for stack overflow
         sink.writeln("global.get $rt_stack_top");
         sink.writeln("global.get $rt_stack_end");
@@ -135,7 +135,7 @@ pub(super) fn translate_fcall(
         }
     }
 
-    if trace {
+    if DEBUG_TRACE || trace {
         // pop stack pointer
         sink.writeln("global.get $rt_stack_top");
         sink.writeln("i32.const -8");

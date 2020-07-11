@@ -36,6 +36,9 @@ fn __test_str_join() {
 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
 "#
     Assert(s == Join("", parts))
+
+    AssertEq(__str_join('', ['abc']), 'abc')
+    AssertEq(__str_join('abc', []), '')
 }
 
 fn __test_str_slice() {
@@ -64,4 +67,7 @@ fn __test_str_format() {
 
     s = F("%sbefore..%s..after", ['aaa', 'bbb'])
     AssertEq(s, 'aaabefore..bbb..after')
+
+    s = F("hello", [])
+    AssertEq(s, 'hello')
 }
