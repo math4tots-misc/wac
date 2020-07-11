@@ -1,14 +1,20 @@
 # TODO
 
+* record type
+    While record types are kinda implemented
+    There needs to be a corresponding 'constructor' function
+    And also field access
+* Cleaned up IO (reading/writing files/stdin/stdout/graphics etc)
+
 * char type
 * chars type (buffer of chars)
 * floating point math (log, sin, cos, pow, etc)
 * simplify the imported print functions
 * Syntax highlighting VSCode plugin
 
-* record type
-    While record types are kinda implemented
-    There needs to be a corresponding 'constructor' function
+* Allow disabling runtime type information
+    (i.e. type names, enum and record member names)
+
 * reference counted mstr type (or maybe call it 'buffer'?)
     A mutable buffer storing UCS4 data.
     Maybe also for storing a simple array of i32 values?
