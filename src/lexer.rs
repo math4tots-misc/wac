@@ -261,6 +261,7 @@ pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
             },
             State::Comment => {
                 if c == '\n' {
+                    chars.put_back(c);
                     state = State::Normal;
                 }
             }

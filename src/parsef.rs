@@ -292,11 +292,7 @@ fn parse_record(parser: &mut Parser) -> Result<Record, ParseError> {
         let member_name = parser.expect_name()?;
         let type_ = parse_type(parser)?;
         fields.push((member_name, type_));
-        if !parser.consume(Token::Comma) {
-            parser.expect(Token::RBrace)?;
-            break;
-        }
-        consume_delim(parser);
+        expect_delim(parser)?;
     }
     let span = span.upto(&parser.span());
     Ok(Record {
@@ -309,7 +305,7 @@ fn parse_record(parser: &mut Parser) -> Result<Record, ParseError> {
 fn consume_delim(parser: &mut Parser) {
     loop {
         match parser.peek() {
-            Token::Newline => {
+            Token::Newline | Token::Semicolon => {
                 parser.gettok();
             }
             _ => break,
@@ -317,9 +313,19 @@ fn consume_delim(parser: &mut Parser) {
     }
 }
 
+fn expect_delim(parser: &mut Parser) -> Result<(), ParseError> {
+    if !parser.at(Token::RBrace) && !parser.at(Token::EOF) {
+        if !parser.consume(Token::Semicolon) {
+            parser.expect(Token::Newline)?;
+        }
+    }
+    consume_delim(parser);
+    Ok(())
+}
+
 fn parse_stmt(parser: &mut Parser) -> Result<Expr, ParseError> {
     let expr = parse_expr(parser, 0)?;
-    consume_delim(parser);
+    expect_delim(parser)?;
     Ok(expr)
 }
 
