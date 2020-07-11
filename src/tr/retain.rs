@@ -15,7 +15,7 @@ pub(super) fn retain(lscope: &mut LocalScope, sink: &Rc<Sink>, type_: Type, dp: 
                 DropPolicy::Keep => {}
             }
         }
-        Type::String | Type::List => {
+        Type::String | Type::List | Type::Record(_) => {
             match dp {
                 DropPolicy::Drop => {}
                 DropPolicy::Keep => raw_dup(lscope, sink, WasmType::I32),
@@ -29,7 +29,6 @@ pub(super) fn retain(lscope: &mut LocalScope, sink: &Rc<Sink>, type_: Type, dp: 
             }
             sink.call("$f___WAC_id_retain");
         }
-        Type::Record(_) => panic!("TODO: retain record"),
     }
 }
 
@@ -64,7 +63,13 @@ pub(super) fn release(lscope: &mut LocalScope, sink: &Rc<Sink>, type_: Type, dp:
             }
             sink.call("$f___WAC_id_release");
         }
-        Type::Record(_) => panic!("TODO: release record"),
+        Type::Record(_) => {
+            match dp {
+                DropPolicy::Drop => {}
+                DropPolicy::Keep => raw_dup(lscope, sink, WasmType::I32),
+            }
+            sink.call("$f___WAC_record_release");
+        }
     }
 }
 
@@ -86,6 +91,9 @@ pub(super) fn release_var(sink: &Rc<Sink>, scope: Scope, wasm_name: &Rc<str>, ty
             sink.var_get(scope, wasm_name);
             sink.call("$f___WAC_id_release");
         }
-        Type::Record(_) => panic!("TODO: release_var record"),
+        Type::Record(_) => {
+            sink.var_get(scope, wasm_name);
+            sink.call("$f___WAC_record_release");
+        }
     }
 }

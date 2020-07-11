@@ -438,6 +438,22 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
         Token::Name("if") => parse_if(parser),
         Token::Name("while") => parse_while(parser),
         Token::Name("for") => parse_for(parser),
+        Token::Name("new") => {
+            let span = parser.span();
+            parser.gettok();
+            let type_ = parse_type(parser)?;
+            let mut args = Vec::new();
+            parser.expect(Token::LParen)?;
+            while !parser.consume(Token::RParen) {
+                args.push(parse_expr(parser, 0)?);
+                if !parser.consume(Token::Comma) {
+                    parser.expect(Token::RParen)?;
+                    break;
+                }
+            }
+            let span = span.upto(&parser.span());
+            Ok(Expr::New(span, type_, args))
+        }
         Token::Name("var") => {
             parser.gettok();
             let name = parser.expect_name()?;

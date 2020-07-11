@@ -118,6 +118,9 @@ pub enum Expr {
 
     Switch(SSpan, Box<Expr>, Vec<(Vec<ConstValue>, Expr)>, Option<Box<Expr>>),
 
+    // Create a new record value
+    New(SSpan, Type, Vec<Expr>),
+
     // builtin operators
     Binop(SSpan, Binop, Box<Expr>, Box<Expr>),
     Unop(SSpan, Unop, Box<Expr>),
@@ -148,6 +151,7 @@ impl Expr {
             Expr::GetItem(span, ..) => span,
             Expr::SetItem(span, ..) => span,
             Expr::Switch(span, ..) => span,
+            Expr::New(span, ..) => span,
             Expr::Binop(span, ..) => span,
             Expr::Unop(span, ..) => span,
             Expr::AscribeType(span, ..) => span,

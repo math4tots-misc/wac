@@ -92,6 +92,7 @@ pub(super) fn guess_return_type(lscope: &mut LocalScope, expr: &Expr) -> Result<
             }
             Ok(ret)
         }
+        Expr::New(_span, type_, _) => Ok(ReturnType::Value(*type_)),
         Expr::Binop(_span, op, left, right) => Ok(ReturnType::Value(match op {
             // == binops ==
             // equality ops

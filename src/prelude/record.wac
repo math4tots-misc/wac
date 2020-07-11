@@ -1,0 +1,24 @@
+
+# Record objects look like:
+#
+#   [i32 refcnt][i32 #fields][i64(id) field1]...
+
+# Allocates a reference counted block of memory for a record
+# given the number of fields it has.
+# Not meant to be called manually
+fn __WAC_record_alloc[notrace](nfields i32) i32 {
+    var ptr = __malloc(8 + 8 * nfields)
+    __write(ptr, 1)
+    __write(ptr + 4, nfields)
+    ptr
+}
+
+fn __WAC_record_release[notrace](ptr i32) {
+    var refcnt = __read(ptr) - 1
+    if refcnt > 0 {
+        __write(ptr, refcnt)
+    } else {
+        var nfields = __read(ptr + 4)
+        __free(8 + 8 * nfields, ptr)
+    }
+}

@@ -17,7 +17,7 @@ use std::rc::Rc;
 pub const RESERVED_NAMES: &'static [&'static str] = &[
     "fn", "trait", "impl", "record", "enum", "import", "var", "const", "true", "false", "nil",
     "and", "or", "is", "not", "in", "if", "else", "for", "while", "break", "continue", "return",
-    "switch",
+    "switch", "new",
 ];
 
 pub struct Parser<'a> {

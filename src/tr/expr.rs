@@ -318,11 +318,43 @@ pub(super) fn translate_expr(
                     })
                 }
             },
-            None => {
-                return Err(Error::Type {
+            None => match guess_type(lscope, owner)? {
+                owner_type if owner_type.is_record() => {
+                    let fields = &lscope.g.record_fields[&owner_type.name()];
+                    let mut index = None;
+                    for (i, (field_name, field_type)) in fields.iter().enumerate() {
+                        if field == field_name {
+                            index = Some((i, *field_type));
+                            break;
+                        }
+                    }
+                    if index.is_none() {
+                        return Err(Error::Type {
+                            span: owner.span().clone(),
+                            expected: format!("field for {}", owner_type.name()),
+                            got: format!("unrecognized field {}", field),
+                        })
+                    }
+                    let (index, field_type) = index.unwrap();
+
+                    let owner_var = lscope.helper_unique("getattr", Type::I32);
+
+                    translate_expr(out, sink, lscope, ReturnType::Value(owner_type), owner)?;
+                    raw_dup(lscope, sink, WasmType::I32);
+                    sink.local_set(&owner_var);
+                    sink.i32_const((8 + 8 * index) as i32);
+                    sink.writeln("i32.add");
+                    sink.writeln("i64.load");
+                    auto_cast(sink, span, lscope, ReturnType::Value(Type::Id), ReturnType::Value(field_type))?;
+                    auto_cast(sink, span, lscope, ReturnType::Value(field_type), etype)?;
+
+                    // make sure to free the owner value
+                    release_var(sink, Scope::Local, &owner_var, owner_type);
+                }
+                owner_type => return Err(Error::Type {
                     span: owner.span().clone(),
-                    expected: "enum".into(),
-                    got: format!("{} expression", guess_type(lscope, expr)?),
+                    expected: "enum type or record expression".into(),
+                    got: format!("{} expression", owner_type),
                 })
             }
         },
@@ -412,7 +444,6 @@ pub(super) fn translate_expr(
                     ReturnType::NoReturn | ReturnType::Void => "".to_owned(),
                 }));
                 translate_expr(out, sink, lscope, etype, body)?;
-                // release(lscope, sink, src_type, DropPolicy::Drop);
                 sink.br(break_label);
 
                 // otherwise, set up else for the alternative
@@ -428,6 +459,50 @@ pub(super) fn translate_expr(
                 sink.writeln("end");
             }
             sink.end_block();
+        }
+        Expr::New(span, type_, args) => {
+            let name = match type_ {
+                Type::Record(_) => { type_.name() }
+                _ => {
+                    return Err(Error::Type {
+                        span: span.clone(),
+                        expected: "record type".into(),
+                        got: format!("{}", type_),
+                    })
+                }
+            };
+            let fields = lscope.g.record_fields[&name].clone();
+            let len = lscope.g.record_fields[&name].len();
+            if len != args.len() {
+                return Err(Error::Type {
+                    span: span.clone(),
+                    expected: format!("{} args", len),
+                    got: format!("{} args", args.len()),
+                })
+            }
+
+            // First allocate memory for the record
+            sink.i32_const(len as i32);
+            sink.call("$f___WAC_record_alloc");
+
+            // copy over field values
+            // since we're popping from the stack, there's
+            // no need for explicit retains
+            for (i, (field, argexpr)) in fields.into_iter().zip(args).enumerate() {
+                // compute the memory location that will store this next field
+                raw_dup(lscope, sink, WasmType::I32);
+                sink.i32_const((8 + 8 * i) as i32);
+                sink.writeln("i32.add");
+
+                translate_expr(out, sink, lscope, ReturnType::Value(field.1), argexpr)?;
+
+                // we need to cast to 'id' because each field is actually stored as an id value
+                auto_cast(sink, span, lscope, ReturnType::Value(field.1), ReturnType::Value(Type::Id))?;
+
+                sink.writeln("i64.store");
+            }
+
+            auto_cast(sink, span, lscope, ReturnType::Value(*type_), etype)?;
         }
         Expr::Binop(span, op, left, right) => {
             // == binops ==

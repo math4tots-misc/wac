@@ -21,6 +21,8 @@ var __WAC_freelist_67108864 = 0
 var __WAC_freelist_268435456 = 0
 var __WAC_freelist_1073741824 = 0
 
+var __WAC_alloc_count = 0
+
 fn __WAC_alloc[notrace](len i32) i32 {
     # TODO: just assert len % 16 == 0
     # align to 16-bytes
@@ -78,6 +80,10 @@ fn __WAC_malloc_adjusted_len[notrace](len i32) i32 {
 }
 
 fn __malloc[notrace](len i32) i32 {
+    if len is not 0 {
+        __WAC_alloc_count = __WAC_alloc_count + 1
+    }
+
     if len is 0 {
         # special case -- no need to even dealloc anything
         0
@@ -144,6 +150,13 @@ fn __WAC_memcpy[notrace](dst i32, src i32, len i32) {
 }
 
 fn __free[notrace](len i32, ptr i32) {
+    if __WAC_alloc_count <= 0 {
+        NoTracePanic("invalid free (no allocations)")
+    }
+    if len is not 0 and ptr is not 0 {
+        __WAC_alloc_count = __WAC_alloc_count - 1
+    }
+
     if len is 0 or ptr is 0 {
         # nothing to do since no alloc was made in the first place
     } else if len <= 16 {

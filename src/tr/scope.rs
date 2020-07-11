@@ -26,6 +26,9 @@ pub(super) struct GlobalScope {
 
     /// all impls declared in this scope
     pub(super) impls: Vec<Rc<ImplInfo>>,
+
+    /// all fields for every record
+    pub(super) record_fields: HashMap<Rc<str>, Vec<(Rc<str>, Type)>>,
 }
 
 impl GlobalScope {
@@ -40,6 +43,7 @@ impl GlobalScope {
             traits_by_id,
             impls_map: HashMap::new(),
             impls: Vec::new(),
+            record_fields: HashMap::new(),
         }
     }
 

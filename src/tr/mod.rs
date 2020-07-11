@@ -111,6 +111,7 @@ fn parse_files0(
         ("[prelude:bool]".into(), crate::prelude::BOOL.into()),
         ("[prelude:int]".into(), crate::prelude::INT.into()),
         ("[prelude:index]".into(), crate::prelude::INDEX.into()),
+        ("[prelude:record]".into(), crate::prelude::RECORD.into()),
     ];
 
     sources.splice(0..0, prelude);
@@ -172,6 +173,15 @@ pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
         }
     }
     let mut gscope = GlobalScope::new(functions, traits_by_id);
+
+    // For each record type, store in gscope all the fields it has
+    let mut record_fields = HashMap::<Rc<str>, Vec<(Rc<str>, Type)>>::new();
+    for (_, file) in &files {
+        for record in &file.records {
+            record_fields.insert(record.name.clone(), record.fields.clone());
+        }
+    }
+    gscope.record_fields = record_fields;
 
     // [just take the first span in prelude:lang imports, and use that
     // for any builtin thing with no good corresponding location in wac source]

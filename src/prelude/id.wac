@@ -84,6 +84,8 @@ fn __WAC_id_release[notrace](x i64) {
         __WAC_list_release(val)
     } else if __type_is_enum($asm([tag], type, "")) {
         # enum types don't allocate data
+    } else if __type_is_record($asm([tag], type, "")) {
+        __WAC_record_release(val)
     } else {
         NoTracePanic(__str_join(
             '',
@@ -111,7 +113,7 @@ fn __WAC_id_retain[notrace](x i64) {
         tag is bool
     ) {
         # these are primitives, so nothing more to do here
-    } else if tag is str or tag is list {
+    } else if tag is str or tag is list or __type_is_record($asm([tag], type, "")) {
         __WAC_ptr_retain(val)
     } else if __type_is_enum($asm([tag], type, "")) {
         # enum types don't allocate data
