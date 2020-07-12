@@ -9,6 +9,17 @@ record Chip8 {
     registers list
 }
 
+fn Chip8() Chip8 {
+    var memory = [0] * 4096
+    var registers = [0] * 16
+
+    new Chip8(
+        memory,
+        registers,
+    )
+}
+
 fn Main() {
     var chip8 = Chip8()
+    Print(chip8.registers)
 }
