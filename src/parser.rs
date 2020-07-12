@@ -61,6 +61,9 @@ impl<'a> Parser<'a> {
     pub fn peek(&self) -> Token<'a> {
         self.tokens_and_spans[self.i].0
     }
+    pub fn lookahaed(&self, n: usize) -> Option<Token<'a>> {
+        self.tokens_and_spans.get(self.i + n).map(|pair| pair.0)
+    }
     pub fn span(&self) -> SSpan {
         let span = self.tokens_and_spans[self.i].1;
         SSpan {

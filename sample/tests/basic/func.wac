@@ -1,0 +1,14 @@
+
+
+record AssocFuncRecord {}
+
+
+fn AssocFuncRecord.Foo(self) str {
+    "Inside AssocFuncRecord.Foo"
+}
+
+
+fn __test_associated_functions() {
+    var rec = new AssocFuncRecord()
+    AssertEq(rec.Foo(), 'Inside AssocFuncRecord.Foo')
+}

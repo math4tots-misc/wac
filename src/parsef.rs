@@ -258,8 +258,32 @@ fn parse_func(parser: &mut Parser) -> Result<Function, ParseError> {
             }
         }
     }
-    let name = parser.expect_name()?;
-    let type_ = parse_function_type(parser, false)?;
+    // we split out the receiver_name, because when we're running
+    // the parse the first time, the receiver_type will be a dummy
+    // value, so we can't get the original name back from it
+    let (receiver_type, receiver_name, short_name) = if parser.lookahaed(1) == Some(Token::Dot) {
+        let receiver_name = parser.expect_name()?;
+        let receiver_type = type_from_name(parser, &receiver_name)?;
+        parser.expect(Token::Dot)?;
+        let short_name = parser.expect_name()?;
+        (Some(receiver_type), Some(receiver_name), short_name)
+    } else {
+        (None, None, parser.expect_name()?)
+    };
+    let type_ = if let Some(receiver_type) = receiver_type {
+        // if we have a receiver_type, we expect a 'self'
+        // parameter, and the type should be the receiver type
+        let mut type_ = parse_function_type(parser, true)?;
+        type_.parameters[0].1 = receiver_type;
+        type_
+    } else {
+        parse_function_type(parser, false)?
+    };
+    let name = if let Some(receiver_name) = receiver_name {
+        format!("{}.{}", receiver_name, short_name).into()
+    } else {
+        short_name
+    };
     let body = parse_block(parser)?;
     let span = span.upto(&parser.span());
     Ok(Function {
@@ -660,6 +684,19 @@ fn parse_infix(parser: &mut Parser, mut lhs: Expr, prec: u32) -> Result<Expr, Pa
                         let span = span.join(&start).upto(&end);
                         lhs = Expr::FunctionCall(span, name, args);
                     }
+                    Expr::GetAttr(_, owner, name) => {
+                        let mut args = Vec::new();
+                        while !parser.consume(Token::RParen) {
+                            args.push(parse_expr(parser, 0)?);
+                            if !parser.consume(Token::Comma) {
+                                parser.expect(Token::RParen)?;
+                                break;
+                            }
+                        }
+                        let end = parser.span();
+                        let span = span.join(&start).upto(&end);
+                        lhs = Expr::AssociatedFunctionCall(span, owner.into(), name, args);
+                    }
                     _ => {
                         return Err(ParseError::InvalidToken {
                             span,
@@ -956,17 +993,7 @@ fn parse_return_type(parser: &mut Parser) -> Result<ReturnType, ParseError> {
 
 fn parse_type(parser: &mut Parser) -> Result<Type, ParseError> {
     let opt = match parser.peek() {
-        Token::Name("i32") => Some(Type::I32),
-        Token::Name("i64") => Some(Type::I64),
-        Token::Name("f32") => Some(Type::F32),
-        Token::Name("f64") => Some(Type::F64),
-        Token::Name("bool") => Some(Type::Bool),
-        Token::Name("type") => Some(Type::Type),
-        Token::Name("bytes") => Some(Type::Bytes),
-        Token::Name("str") => Some(Type::String),
-        Token::Name("list") => Some(Type::List),
-        Token::Name("id") => Some(Type::Id),
-        Token::Name(name) => Some(parser.get_user_defined_type(&parser.span(), &name.into())?),
+        Token::Name(name) => Some(type_from_name(parser, name)?),
         _ => None,
     };
     if let Some(t) = opt {
@@ -979,4 +1006,20 @@ fn parse_type(parser: &mut Parser) -> Result<Type, ParseError> {
             got: format!("{:?}", parser.peek()),
         })
     }
+}
+
+fn type_from_name(parser: &mut Parser, name: &str) -> Result<Type, ParseError> {
+    Ok(match name {
+        "i32" => Type::I32,
+        "i64" => Type::I64,
+        "f32" => Type::F32,
+        "f64" => Type::F64,
+        "bool" => Type::Bool,
+        "type" => Type::Type,
+        "bytes" => Type::Bytes,
+        "str" => Type::String,
+        "list" => Type::List,
+        "id" => Type::Id,
+        name => parser.get_user_defined_type(&parser.span(), &name.into())?,
+    })
 }

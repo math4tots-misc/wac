@@ -222,6 +222,21 @@ pub(super) fn translate_expr(
                 &argexprs.iter().collect(),
             )?;
         }
+        Expr::AssociatedFunctionCall(span, owner, fname_part, argexprs) => {
+            let owner_type = guess_type(lscope, owner)?;
+            let fname = format!("{}.{}", owner_type, fname_part);
+            let mut args = vec![&**owner];
+            args.extend(argexprs.iter());
+            translate_fcall(
+                out,
+                lscope,
+                sink,
+                etype,
+                span,
+                &fname.into(),
+                &args,
+            )?;
+        }
         Expr::If(_span, pairs, other) => {
             for (cond, body) in pairs {
                 translate_expr(out, sink, lscope, ReturnType::Value(Type::Bool), cond)?;
