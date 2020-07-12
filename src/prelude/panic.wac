@@ -7,9 +7,9 @@ fn Panic(s str) noreturn {
 fn NoTracePanic[notrace](s str) noreturn {
     __WAC_eprint_stack()
 
-    __eprint0_cstr($cstr("PANIC: "))
+    __eprint0_str("PANIC: ")
     __eprint0_str(s)
-    __eprint0_cstr($cstr("\n"))
+    __eprint0_str("\n")
 
     $asm([], noreturn, "unreachable")
 }

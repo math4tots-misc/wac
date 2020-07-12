@@ -1,54 +1,15 @@
 pub fn make_import_object() -> wr::ImportObject {
     wr::imports! {
         "lang" => {
-            "hello" => wr::func!(|ctx: &mut wr::Ctx, cstr: i32, i: i32| {
-                let memory = ctx.memory(0);
-                let cstr = read_cstr(memory, cstr);
-                println!("hello {}: {}", cstr, i);
-            }),
-            "print_i32" => wr::func!(|_: &mut wr::Ctx, i: i32| {
-                println!("{}", i);
-            }),
-            "eprint0_i32" => wr::func!(|_: &mut wr::Ctx, i: i32| {
-                eprint!("{}", i);
-            }),
-            "print_f32" => wr::func!(|_: &mut wr::Ctx, i: f32| {
-                println!("{}", i);
-            }),
-            "print_cstr" => wr::func!(|ctx: &mut wr::Ctx, ptr: i32| {
-                let memory = ctx.memory(0);
-                let s = read_cstr(memory, ptr);
-                println!("{}", s);
-            }),
-            "eprint0_cstr" => wr::func!(|ctx: &mut wr::Ctx, ptr: i32| {
-                let memory = ctx.memory(0);
-                let s = read_cstr(memory, ptr);
-                eprint!("{}", s);
-            }),
-            "print_str_raw" => wr::func!(|ctx: &mut wr::Ctx, len: i32, ptr: i32| {
-                let memory = ctx.memory(0);
-                let s = read_str(memory, len, ptr);
-                println!("{}", s);
-            }),
             "print0_str_raw" => wr::func!(|ctx: &mut wr::Ctx, len: i32, ptr: i32| {
                 let memory = ctx.memory(0);
                 let s = read_str(memory, len, ptr);
                 print!("{}", s);
             }),
-            "eprint_str_raw" => wr::func!(|ctx: &mut wr::Ctx, len: i32, ptr: i32| {
-                let memory = ctx.memory(0);
-                let s = read_str(memory, len, ptr);
-                eprintln!("{}", s);
-            }),
             "eprint0_str_raw" => wr::func!(|ctx: &mut wr::Ctx, len: i32, ptr: i32| {
                 let memory = ctx.memory(0);
                 let s = read_str(memory, len, ptr);
                 eprint!("{}", s);
-            }),
-            "panic_raw" => wr::func!(|ctx: &mut wr::Ctx, len: i32, ptr: i32| {
-                let memory = ctx.memory(0);
-                let s = read_str(memory, len, ptr);
-                panic!("{}", s);
             }),
         }
     }
@@ -62,11 +23,11 @@ pub fn make_import_object() -> wr::ImportObject {
 //     wr::WasmPtr::<i32>::new(ptr as u32).deref(memory).unwrap().get()
 // }
 
-fn read_cstr(memory: &wr::Memory, ptr: i32) -> &str {
-    wr::WasmPtr::<i32, wr::Array>::new(ptr as u32)
-        .get_utf8_string_with_nul(memory)
-        .unwrap()
-}
+// fn read_cstr(memory: &wr::Memory, ptr: i32) -> &str {
+//     wr::WasmPtr::<i32, wr::Array>::new(ptr as u32)
+//         .get_utf8_string_with_nul(memory)
+//         .unwrap()
+// }
 
 fn read_str(memory: &wr::Memory, len: i32, ptr: i32) -> &str {
     wr::WasmPtr::<i32, wr::Array>::new(ptr as u32)

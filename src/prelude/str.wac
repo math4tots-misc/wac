@@ -104,19 +104,48 @@ fn __str_eq(a str, b str) bool {
     }
 }
 
-fn __print_str[notrace](s str) {
-    var ptr = __WAC_UNSAFE_strptr(s)
-    __print_str_raw(__read(ptr + 4), ptr + 8)
+fn __cstrlen[notrace](cstr i32) i32 {
+    if cstr is 0 {
+        0
+    } else {
+        var i = 0
+        while __read_u8(cstr + i) is not 0 {
+            i = i + 1
+        }
+        i
+    }
 }
 
-fn __eprint_str[notrace](s str) {
+fn __eprint0_cstr[notrace](cstr i32) {
+    __eprint0_str_raw(__cstrlen(cstr), cstr)
+}
+
+fn __eprint0_i32[notrace](x i32) {
+    __eprint0_str(__i32_str(x))
+}
+
+fn __print0_cstr[notrace](cstr i32) {
+    __print0_str_raw(__cstrlen(cstr), cstr)
+}
+
+fn __print0_str[notrace](s str) {
     var ptr = __WAC_UNSAFE_strptr(s)
-    __eprint_str_raw(__read(ptr + 4), ptr + 8)
+    __print0_str_raw(__read(ptr + 4), ptr + 8)
+}
+
+fn __print_str[notrace](s str) {
+    __print0_str(s)
+    __print0_str('\n')
 }
 
 fn __eprint0_str[notrace](s str) {
     var ptr = __WAC_UNSAFE_strptr(s)
     __eprint0_str_raw(__read(ptr + 4), ptr + 8)
+}
+
+fn __eprint_str[notrace](s str) {
+    __eprint0_str(s)
+    __eprint0_str('\n')
 }
 
 fn __strlen[notrace](s str) i32 {
