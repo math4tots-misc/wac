@@ -340,7 +340,7 @@ pub(super) fn translate_expr(
                             span: owner.span().clone(),
                             expected: format!("field for {}", owner_type.name()),
                             got: format!("unrecognized field {}", field),
-                        })
+                        });
                     }
                     let (index, field_type) = index.unwrap();
 
@@ -352,18 +352,26 @@ pub(super) fn translate_expr(
                     sink.i32_const((8 + 8 * index) as i32);
                     sink.writeln("i32.add");
                     sink.writeln("i64.load");
-                    auto_cast(sink, span, lscope, ReturnType::Value(Type::Id), ReturnType::Value(field_type))?;
+                    auto_cast(
+                        sink,
+                        span,
+                        lscope,
+                        ReturnType::Value(Type::Id),
+                        ReturnType::Value(field_type),
+                    )?;
                     auto_cast(sink, span, lscope, ReturnType::Value(field_type), etype)?;
 
                     // make sure to free the owner value
                     release_var(sink, Scope::Local, &owner_var, owner_type);
                 }
-                owner_type => return Err(Error::Type {
-                    span: owner.span().clone(),
-                    expected: "enum type or record expression".into(),
-                    got: format!("{} expression", owner_type),
-                })
-            }
+                owner_type => {
+                    return Err(Error::Type {
+                        span: owner.span().clone(),
+                        expected: "enum type or record expression".into(),
+                        got: format!("{} expression", owner_type),
+                    })
+                }
+            },
         },
         Expr::GetItem(span, owner, index) => {
             translate_fcall(
@@ -394,10 +402,8 @@ pub(super) fn translate_expr(
                 let mut src_type = ReturnType::NoReturn;
                 for (cvals, _) in pairs {
                     for cval in cvals {
-                        src_type = best_union_return_type(
-                            src_type,
-                            ReturnType::Value(cval.type_()),
-                        );
+                        src_type =
+                            best_union_return_type(src_type, ReturnType::Value(cval.type_()));
                     }
                 }
                 match src_type {
@@ -424,10 +430,13 @@ pub(super) fn translate_expr(
             sink.local_set(&srcvar);
 
             let break_label = lscope.new_label_id();
-            sink.start_block(break_label, match etype {
-                ReturnType::Value(etype) => Some(etype.wasm()),
-                ReturnType::NoReturn | ReturnType::Void => None,
-            });
+            sink.start_block(
+                break_label,
+                match etype {
+                    ReturnType::Value(etype) => Some(etype.wasm()),
+                    ReturnType::NoReturn | ReturnType::Void => None,
+                },
+            );
 
             for (cvals, body) in pairs {
                 // check if any of the cvals match
@@ -446,10 +455,13 @@ pub(super) fn translate_expr(
 
                 // if it matches, drop the src value, run the body
                 // and break out of the entire switch statement
-                sink.writeln(format!("if {}", match etype {
-                    ReturnType::Value(etype) => format!("(result {})", etype.wasm()),
-                    ReturnType::NoReturn | ReturnType::Void => "".to_owned(),
-                }));
+                sink.writeln(format!(
+                    "if {}",
+                    match etype {
+                        ReturnType::Value(etype) => format!("(result {})", etype.wasm()),
+                        ReturnType::NoReturn | ReturnType::Void => "".to_owned(),
+                    }
+                ));
                 translate_expr(out, sink, lscope, etype, body)?;
                 sink.br(break_label);
 
@@ -469,7 +481,7 @@ pub(super) fn translate_expr(
         }
         Expr::New(span, type_, args) => {
             let name = match type_ {
-                Type::Record(_) => { type_.name() }
+                Type::Record(_) => type_.name(),
                 _ => {
                     return Err(Error::Type {
                         span: span.clone(),
@@ -485,7 +497,7 @@ pub(super) fn translate_expr(
                     span: span.clone(),
                     expected: format!("{} args for {} constructor", len, type_),
                     got: format!("{} args", args.len()),
-                })
+                });
             }
 
             // First allocate memory for the record
@@ -504,7 +516,13 @@ pub(super) fn translate_expr(
                 translate_expr(out, sink, lscope, ReturnType::Value(field.1), argexpr)?;
 
                 // we need to cast to 'id' because each field is actually stored as an id value
-                auto_cast(sink, span, lscope, ReturnType::Value(field.1), ReturnType::Value(Type::Id))?;
+                auto_cast(
+                    sink,
+                    span,
+                    lscope,
+                    ReturnType::Value(field.1),
+                    ReturnType::Value(Type::Id),
+                )?;
 
                 sink.writeln("i64.store");
             }
@@ -833,7 +851,12 @@ pub(super) fn cast_to_id(sink: &Rc<Sink>, tag: i32) {
 
 /// translate a constval whose result is a primitive i32 wasm type
 /// (i.e. i32, enum or type)
-pub(super) fn translate_constval_i32(_out: &mut Out, sink: &Rc<Sink>, _lscope: &mut LocalScope, cval: &ConstValue) -> Result<(), Error> {
+pub(super) fn translate_constval_i32(
+    _out: &mut Out,
+    sink: &Rc<Sink>,
+    _lscope: &mut LocalScope,
+    cval: &ConstValue,
+) -> Result<(), Error> {
     match cval {
         ConstValue::I32(value) => sink.i32_const(*value),
         ConstValue::Type(type_) => sink.i32_const(type_.tag()),

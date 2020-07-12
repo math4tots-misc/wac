@@ -92,30 +92,9 @@ pub fn parse_files(sources: Vec<(Rc<str>, Rc<str>)>) -> Result<Vec<(Rc<str>, Fil
 }
 
 fn parse_files0(
-    mut sources: Vec<(Rc<str>, Rc<str>)>,
+    sources: Vec<(Rc<str>, Rc<str>)>,
     strict_about_user_defined_types: bool,
 ) -> Result<Vec<(Rc<str>, File)>, Error> {
-    let prelude = vec![
-        ("[prelude:lang]".into(), crate::prelude::LANG.into()),
-        ("[prelude:malloc]".into(), crate::prelude::MALLOC.into()),
-        ("[prelude:str]".into(), crate::prelude::STR.into()),
-        ("[prelude:id]".into(), crate::prelude::ID.into()),
-        ("[prelude:list]".into(), crate::prelude::LIST.into()),
-        ("[prelude:type]".into(), crate::prelude::TYPE.into()),
-        ("[prelude:assert]".into(), crate::prelude::ASSERT.into()),
-        ("[prelude:panic]".into(), crate::prelude::PANIC.into()),
-        ("[prelude:stack]".into(), crate::prelude::STACK.into()),
-        ("[prelude:ops]".into(), crate::prelude::OPS.into()),
-        ("[prelude:trait]".into(), crate::prelude::TRAIT.into()),
-        ("[prelude:print]".into(), crate::prelude::PRINT.into()),
-        ("[prelude:bool]".into(), crate::prelude::BOOL.into()),
-        ("[prelude:int]".into(), crate::prelude::INT.into()),
-        ("[prelude:index]".into(), crate::prelude::INDEX.into()),
-        ("[prelude:record]".into(), crate::prelude::RECORD.into()),
-        ("[prelude:bytes]".into(), crate::prelude::BYTES.into()),
-    ];
-
-    sources.splice(0..0, prelude);
     let mut files = Vec::new();
     for (filename, data) in sources {
         let source = Rc::new(Source {
@@ -184,9 +163,17 @@ pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
     }
     gscope.record_fields = record_fields;
 
+    // just take the first import declaration we can find
+    //
     // [just take the first span in prelude:lang imports, and use that
     // for any builtin thing with no good corresponding location in wac source]
-    let void_span = files[0].1.imports[0].span().clone();
+    let void_span = SSpan {
+        source: Rc::new(Source {
+            name: "[builtin]".into(),
+            data: "".into(),
+        }),
+        span: crate::Span::new(0, 0, 0, 1),
+    };
 
     // prepare the special type constants
     // these could be in the source directly, but it would make it harder to keep

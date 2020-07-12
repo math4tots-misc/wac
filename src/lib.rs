@@ -5,7 +5,6 @@ mod lexer;
 mod llir;
 mod parsef;
 mod parser;
-mod prelude;
 mod rn;
 mod sink;
 mod start;

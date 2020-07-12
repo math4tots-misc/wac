@@ -2,15 +2,15 @@
 //! for grammer stuff, see parsef.rs
 use crate::get_user_defined_type_from_name;
 use crate::lex;
+use crate::ConstValue;
 use crate::LexError;
 use crate::SSpan;
 use crate::Source;
 use crate::Span;
 use crate::Token;
 use crate::Type;
-use crate::ConstValue;
-use std::collections::HashSet;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::rc::Rc;
 
 /// Special names not allowed for use as variable or function names

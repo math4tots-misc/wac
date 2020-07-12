@@ -116,7 +116,12 @@ pub enum Expr {
     GetItem(SSpan, Box<Expr>, Box<Expr>),
     SetItem(SSpan, Box<Expr>, Box<Expr>, Box<Expr>),
 
-    Switch(SSpan, Box<Expr>, Vec<(Vec<ConstValue>, Expr)>, Option<Box<Expr>>),
+    Switch(
+        SSpan,
+        Box<Expr>,
+        Vec<(Vec<ConstValue>, Expr)>,
+        Option<Box<Expr>>,
+    ),
 
     // Create a new record value
     New(SSpan, Type, Vec<Expr>),
@@ -368,13 +373,13 @@ impl Type {
     }
     pub fn builtin_primitive(self) -> bool {
         match self {
-            Type::I32
-            | Type::I64
-            | Type::F32
-            | Type::F64
-            | Type::Bool
-            | Type::Type => true,
-            Type::Bytes | Type::String | Type::List | Type::Id | Type::Enum(_) | Type::Record(_) => false,
+            Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Bool | Type::Type => true,
+            Type::Bytes
+            | Type::String
+            | Type::List
+            | Type::Id
+            | Type::Enum(_)
+            | Type::Record(_) => false,
         }
     }
     pub fn primitive(self) -> bool {

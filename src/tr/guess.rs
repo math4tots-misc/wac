@@ -149,7 +149,7 @@ pub(super) fn guess_return_type(lscope: &mut LocalScope, expr: &Expr) -> Result<
                 } else {
                     Type::F32
                 }
-            },
+            }
             Binop::TruncDivide => {
                 let ltype = guess_type(lscope, left)?;
                 if !ltype.builtin_primitive() {
@@ -157,7 +157,7 @@ pub(super) fn guess_return_type(lscope: &mut LocalScope, expr: &Expr) -> Result<
                 } else {
                     Type::I32
                 }
-            },
+            }
 
             // bitwise
             Binop::BitwiseAnd
