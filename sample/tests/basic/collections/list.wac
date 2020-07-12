@@ -44,3 +44,7 @@ fn __test_list_clone() {
     Assert(list is not clone)
     AssertEq(list, clone)
 }
+
+fn __test_list_multiply() {
+    AssertEq([1, 2, 3] * 3, [1, 2, 3, 1, 2, 3, 1, 2, 3])
+}
