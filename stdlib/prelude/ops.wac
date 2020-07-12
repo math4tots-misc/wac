@@ -316,25 +316,23 @@ fn OpenSlice(self id, start i32) id {
 }
 
 ##############################################################################
-# F
+# Remainder
+#
+#   Allows overriding the '%' operator
+##############################################################################
+trait Remainder(self, other id) id
+
+##############################################################################
+# str for Remainder
 #
 # For creating formatted strings
 # e.g.:
-#   F("hello %s", [10])  # returns "hello 10"
-#   F("%s %s", ['space', 'pirate'])  # returns "space pirate"
+#   "hello %s" % [10]  # returns "hello 10"
+#   "%s %s" % ['space', 'pirate']  # returns "space pirate"
 #
 # Use '%s' to apply 'str', '%r' to apply 'repr'
 # or '%%' if you actually just wanted a '%'.
-#
-# While I don't like the idea of having too
-# many (or even any) one character function
-# names, this is such an important feature that
-# I decided this was ok. Other alternatives considered
-# were special casing the '%' operator (which would
-# have been pretty ugly), and native format strings
-# (like f".." strings in Python, or `..` in JS; this
-# would have been a lot of work)
 ##############################################################################
-fn F(fmt str, args list) str {
-    __str_format(fmt, args)
+impl str for Remainder(self, other id) id {
+    __str_format(self, other)
 }

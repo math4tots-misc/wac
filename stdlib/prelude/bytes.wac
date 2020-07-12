@@ -61,6 +61,16 @@ fn __bytes_getitem[notrace](bts bytes, i i32) i32 {
 # Set the byte at given index
 fn __bytes_setitem[notrace](bts bytes, i i32, byte i32) {
     var bts = $asm([], i32, "local.get $l_0_bts")
+    if byte < 0 or byte > 0xFF {
+        NoTracePanic(__str_join(
+            '',
+            [
+                'Byte value outside (0, 0xFF) (',
+                __i32_str(byte),
+                ')',
+            ]
+        ))
+    }
     __write_u8(__read(bts + 12) + i, byte)
 }
 
@@ -96,6 +106,16 @@ fn __WAC_bytes_push_raw[notrace](btsptr i32, byte i32) {
 
     var buffer = __read(btsptr + 12)
 
+    if byte < 0 or byte > 0xFF {
+        NoTracePanic(__str_join(
+            '',
+            [
+                'Byte value outside (0, 0xFF) (',
+                __i32_str(byte),
+                ')',
+            ]
+        ))
+    }
     __write_u8(buffer + len, byte)
 }
 
@@ -134,6 +154,7 @@ fn __bytes_repr[notrace](bts bytes) str {
 }
 
 fn __bytes_str[notrace](bts bytes) str {
+    # TODO: Check that the generated string is valid UTF-8
     var len = __bytes_len(bts)
     var ret = __WAC_str_alloc(len)
     var strbuf = __WAC_str_buffer(ret)

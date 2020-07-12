@@ -59,15 +59,15 @@ fn __test_size_of_unicode() {
 }
 
 fn __test_str_format() {
-    var s = F("Hello %s", ["world"])
+    var s = "Hello %s" % ["world"]
     AssertEq(s, "Hello world")
 
-    s = F("before..%s..%safter", ['aaa', 'bbb'])
+    s = "before..%s..%safter" % ['aaa', 'bbb']
     AssertEq(s, 'before..aaa..bbbafter')
 
-    s = F("%sbefore..%s..after", ['aaa', 'bbb'])
+    s = "%sbefore..%s..after" % ['aaa', 'bbb']
     AssertEq(s, 'aaabefore..bbb..after')
 
-    s = F("hello", [])
+    s = "hello" % []
     AssertEq(s, 'hello')
 }
