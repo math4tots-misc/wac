@@ -199,8 +199,15 @@ pub(super) fn translate_expr(
             // on the stack already has a retain on it. By popping from the
             // stack, we're transferring the retain on the stack into the
             // variable itself.
+            //
+            // however, the old value still has to be released
+            // normally the old value would be just '0', but a variable
+            // may be declared more than once if it's part of a loop
             translate_expr(out, sink, lscope, ReturnType::Value(type_), setexpr)?;
+
             let info = lscope.decl(span.clone(), name.clone(), type_);
+            release_var(sink, Scope::Local, &info.wasm_name, type_);
+
             sink.local_set(&info.wasm_name);
             auto_cast(sink, span, lscope, ReturnType::Void, etype)?;
         }
@@ -476,7 +483,7 @@ pub(super) fn translate_expr(
             if len != args.len() {
                 return Err(Error::Type {
                     span: span.clone(),
-                    expected: format!("{} args", len),
+                    expected: format!("{} args for {} constructor", len, type_),
                     got: format!("{} args", args.len()),
                 })
             }
