@@ -128,6 +128,40 @@ impl list for SizeOf(self) i32 {
 }
 
 ##############################################################################
+# Multiply
+#
+# Add an element to the end of a container
+# (e.g. list)
+#
+##############################################################################
+trait Multiply(self, other id) id
+
+impl list for Multiply(self, other id) id {
+    var n i32 = other
+    var ret = []
+    for _ in 0..other {
+        Extend(ret, self)
+    }
+    ret
+}
+
+##############################################################################
+# Extend
+#
+# Push the values in other to self
+#
+##############################################################################
+trait Extend(self, other id)
+
+impl list for Extend(self, other id) {
+    var other list = other
+    var len = __listlen(other)
+    for i in 0..len {
+        __list_push(self, __list_getitem(other, i))
+    }
+}
+
+##############################################################################
 # Push
 #
 # Add an element to the end of a container

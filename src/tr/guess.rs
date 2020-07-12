@@ -129,15 +129,35 @@ pub(super) fn guess_return_type(lscope: &mut LocalScope, expr: &Expr) -> Result<
 
             // arithmetic ops
             Binop::Add | Binop::Subtract | Binop::Multiply | Binop::Remainder => {
-                match (guess_type(lscope, left)?, guess_type(lscope, right)?) {
-                    (Type::I32, Type::I32) => Type::I32,
-                    _ => Type::F32,
+                let ltype = guess_type(lscope, left)?;
+                if !ltype.builtin_primitive() {
+                    Type::Id
+                } else {
+                    let rtype = guess_type(lscope, right)?;
+                    match (ltype, rtype) {
+                        (Type::I32, Type::I32) => Type::I32,
+                        _ => Type::F32,
+                    }
                 }
             }
 
             // division ops
-            Binop::Divide => Type::F32,
-            Binop::TruncDivide => Type::I32,
+            Binop::Divide => {
+                let ltype = guess_type(lscope, left)?;
+                if !ltype.builtin_primitive() {
+                    Type::Id
+                } else {
+                    Type::F32
+                }
+            },
+            Binop::TruncDivide => {
+                let ltype = guess_type(lscope, left)?;
+                if !ltype.builtin_primitive() {
+                    Type::Id
+                } else {
+                    Type::I32
+                }
+            },
 
             // bitwise
             Binop::BitwiseAnd

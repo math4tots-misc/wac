@@ -633,39 +633,58 @@ pub(super) fn translate_expr(
                 }
                 Binop::Add | Binop::Subtract | Binop::Multiply | Binop::Remainder => {
                     let ltype = guess_type(lscope, left)?;
-                    let rtype = guess_type(lscope, right)?;
-                    let union_type = match best_union_type(ltype, rtype) {
-                        Type::I32 => Type::I32,
-                        _ => Type::F32,
-                    };
-                    translate_expr(out, sink, lscope, ReturnType::Value(union_type), left)?;
-                    translate_expr(out, sink, lscope, ReturnType::Value(union_type), right)?;
-                    let code = match (op, union_type) {
-                        (Binop::Add, Type::I32) => "i32.add",
-                        (Binop::Add, Type::F32) => "f32.add",
+                    if !ltype.builtin_primitive() {
+                        let opname = match op {
+                            Binop::Add => "Add",
+                            Binop::Subtract => "Subtract",
+                            Binop::Multiply => "Multiply",
+                            Binop::Remainder => "Remainder",
+                            _ => panic!("impossible binop: {:?}", op),
+                        };
+                        translate_fcall(
+                            out,
+                            lscope,
+                            sink,
+                            etype,
+                            span,
+                            &opname.into(),
+                            &vec![left, right],
+                        )?;
+                    } else {
+                        let rtype = guess_type(lscope, right)?;
+                        let union_type = match best_union_type(ltype, rtype) {
+                            Type::I32 => Type::I32,
+                            _ => Type::F32,
+                        };
+                        translate_expr(out, sink, lscope, ReturnType::Value(union_type), left)?;
+                        translate_expr(out, sink, lscope, ReturnType::Value(union_type), right)?;
+                        let code = match (op, union_type) {
+                            (Binop::Add, Type::I32) => "i32.add",
+                            (Binop::Add, Type::F32) => "f32.add",
 
-                        (Binop::Subtract, Type::I32) => "i32.sub",
-                        (Binop::Subtract, Type::F32) => "f32.sub",
+                            (Binop::Subtract, Type::I32) => "i32.sub",
+                            (Binop::Subtract, Type::F32) => "f32.sub",
 
-                        (Binop::Multiply, Type::I32) => "i32.mul",
-                        (Binop::Multiply, Type::F32) => "f32.mul",
+                            (Binop::Multiply, Type::I32) => "i32.mul",
+                            (Binop::Multiply, Type::F32) => "f32.mul",
 
-                        (Binop::Remainder, Type::I32) => "i32.rem_s",
-                        (Binop::Remainder, Type::F32) => panic!("f32 % not yet implemented"),
+                            (Binop::Remainder, Type::I32) => "i32.rem_s",
+                            (Binop::Remainder, Type::F32) => panic!("f32 % not yet implemented"),
 
-                        (Binop::Add, _)
-                        | (Binop::Subtract, _)
-                        | (Binop::Multiply, _)
-                        | (Binop::Remainder, _) => Err(Error::Type {
-                            span: span.clone(),
-                            expected: "numeric values".into(),
-                            got: format!("{:?}, {:?}", ltype, rtype),
-                        })?,
+                            (Binop::Add, _)
+                            | (Binop::Subtract, _)
+                            | (Binop::Multiply, _)
+                            | (Binop::Remainder, _) => Err(Error::Type {
+                                span: span.clone(),
+                                expected: "numeric values".into(),
+                                got: format!("{:?}, {:?}", ltype, rtype),
+                            })?,
 
-                        _ => panic!("impossible arithmetic op {:?}", op),
-                    };
-                    sink.writeln(code);
-                    auto_cast(sink, span, lscope, ReturnType::Value(union_type), etype)?;
+                            _ => panic!("impossible arithmetic op {:?}", op),
+                        };
+                        sink.writeln(code);
+                        auto_cast(sink, span, lscope, ReturnType::Value(union_type), etype)?;
+                    }
                 }
                 Binop::Divide => {
                     let ltype = guess_type(lscope, left)?;

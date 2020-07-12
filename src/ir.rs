@@ -366,6 +366,17 @@ impl Type {
             Type::Record(offset) => get_name_for_record_type_with_offset(*offset),
         }
     }
+    pub fn builtin_primitive(self) -> bool {
+        match self {
+            Type::I32
+            | Type::I64
+            | Type::F32
+            | Type::F64
+            | Type::Bool
+            | Type::Type => true,
+            Type::Bytes | Type::String | Type::List | Type::Id | Type::Enum(_) | Type::Record(_) => false,
+        }
+    }
     pub fn primitive(self) -> bool {
         match self {
             Type::I32
