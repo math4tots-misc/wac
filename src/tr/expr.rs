@@ -8,7 +8,7 @@ pub(super) fn translate_expr(
     expr: &Expr,
 ) -> Result<(), Error> {
     match expr {
-        Expr::Bool(span, x) => {
+        Expr::Bool(span, _, x) => {
             match etype {
                 ReturnType::Value(Type::Bool) => {
                     sink.i32_const(if *x { 1 } else { 0 });
@@ -36,7 +36,7 @@ pub(super) fn translate_expr(
                 }
             }
         }
-        Expr::Int(span, x) => {
+        Expr::Int(span, _, x) => {
             match etype {
                 ReturnType::Value(Type::I32) => {
                     sink.i32_const(*x as i32);
@@ -73,7 +73,7 @@ pub(super) fn translate_expr(
                 }
             }
         }
-        Expr::Float(span, x) => {
+        Expr::Float(span, _, x) => {
             match etype {
                 ReturnType::Value(Type::F32) => {
                     sink.f32_const(*x as f32);
@@ -105,13 +105,13 @@ pub(super) fn translate_expr(
                 }
             }
         }
-        Expr::String(span, value) => {
+        Expr::String(span, _, value) => {
             let ptr = out.intern_str(value);
             sink.i32_const(ptr);
             retain(lscope, sink, Type::String, DropPolicy::Keep);
             auto_cast(sink, span, lscope, ReturnType::Value(Type::String), etype)?;
         }
-        Expr::List(span, exprs) => {
+        Expr::List(span, _, exprs) => {
             sink.call("$f___new_list");
             for expr in exprs {
                 raw_dup(lscope, sink, WasmType::I32);
@@ -120,7 +120,7 @@ pub(super) fn translate_expr(
             }
             auto_cast(sink, span, lscope, ReturnType::Value(Type::List), etype)?;
         }
-        Expr::Block(span, exprs) => {
+        Expr::Block(span, _, exprs) => {
             if let Some(last) = exprs.last() {
                 lscope.push();
 
@@ -134,7 +134,7 @@ pub(super) fn translate_expr(
                 auto_cast(sink, span, lscope, ReturnType::Void, etype)?;
             }
         }
-        Expr::GetVar(span, name) => {
+        Expr::GetVar(span, _, name) => {
             let entry = lscope.get_or_err(span.clone(), name)?;
             let gtype = entry.type_();
             match entry {
@@ -160,7 +160,7 @@ pub(super) fn translate_expr(
             }
             auto_cast(sink, span, lscope, ReturnType::Value(gtype), etype)?;
         }
-        Expr::SetVar(span, name, setexpr) => {
+        Expr::SetVar(span, _, name, setexpr) => {
             let entry = lscope.get_or_err(span.clone(), name)?;
 
             // There's no need to retain here, because anything that's currently
@@ -190,7 +190,7 @@ pub(super) fn translate_expr(
             }
             auto_cast(sink, span, lscope, ReturnType::Void, etype)?;
         }
-        Expr::DeclVar(span, name, type_, setexpr) => {
+        Expr::DeclVar(span, _, name, type_, setexpr) => {
             let type_ = match type_ {
                 Some(t) => *t,
                 None => guess_type(lscope, setexpr)?,
@@ -211,7 +211,7 @@ pub(super) fn translate_expr(
             sink.local_set(&info.wasm_name);
             auto_cast(sink, span, lscope, ReturnType::Void, etype)?;
         }
-        Expr::FunctionCall(span, fname, argexprs) => {
+        Expr::FunctionCall(span, _, fname, argexprs) => {
             translate_fcall(
                 out,
                 lscope,
@@ -222,14 +222,14 @@ pub(super) fn translate_expr(
                 &argexprs.iter().collect(),
             )?;
         }
-        Expr::AssociatedFunctionCall(span, owner, fname_part, argexprs) => {
+        Expr::AssociatedFunctionCall(span, _, owner, fname_part, argexprs) => {
             let owner_type = guess_type(lscope, owner)?;
             let fname = format!("{}.{}", owner_type, fname_part);
             let mut args = vec![&**owner];
             args.extend(argexprs.iter());
             translate_fcall(out, lscope, sink, etype, span, &fname.into(), &args)?;
         }
-        Expr::If(_span, pairs, other) => {
+        Expr::If(_span, _, pairs, other) => {
             for (cond, body) in pairs {
                 translate_expr(out, sink, lscope, ReturnType::Value(Type::Bool), cond)?;
                 sink.writeln("if");
@@ -249,7 +249,7 @@ pub(super) fn translate_expr(
                 sink.writeln("end");
             }
         }
-        Expr::While(span, cond, body) => {
+        Expr::While(span, _, cond, body) => {
             let break_label = lscope.new_label_id();
             let continue_label = lscope.new_label_id();
             lscope.break_labels.push(break_label);
@@ -268,7 +268,7 @@ pub(super) fn translate_expr(
 
             auto_cast(sink, span, lscope, ReturnType::Void, etype)?;
         }
-        Expr::For(span, name, start, end, body) => {
+        Expr::For(span, _, name, start, end, body) => {
             let start_var = lscope.helper_unique("forstart", Type::I32);
             let end_var = lscope.helper_unique("forend", Type::I32);
             translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), start)?;
@@ -309,7 +309,7 @@ pub(super) fn translate_expr(
 
             auto_cast(sink, span, lscope, ReturnType::Void, etype)?;
         }
-        Expr::GetAttr(span, owner, field) => match get_type_from_expr(lscope, owner) {
+        Expr::GetAttr(span, _, owner, field) => match get_type_from_expr(lscope, owner) {
             Some(type_) => match type_ {
                 Type::Enum(_) => match get_enum_value_from_name(type_, field) {
                     Some(value) => {
@@ -380,7 +380,7 @@ pub(super) fn translate_expr(
                 }
             },
         },
-        Expr::GetItem(span, owner, index) => {
+        Expr::GetItem(span, _, owner, index) => {
             translate_fcall(
                 out,
                 lscope,
@@ -391,7 +391,7 @@ pub(super) fn translate_expr(
                 &vec![owner, index],
             )?;
         }
-        Expr::SetItem(span, owner, index, setexpr) => {
+        Expr::SetItem(span, _, owner, index, setexpr) => {
             translate_fcall(
                 out,
                 lscope,
@@ -402,7 +402,7 @@ pub(super) fn translate_expr(
                 &vec![owner, index, setexpr],
             )?;
         }
-        Expr::Switch(span, src, pairs, other) => {
+        Expr::Switch(span, _, src, pairs, other) => {
             // TODO: use br_table
 
             let src_type = {
@@ -486,7 +486,7 @@ pub(super) fn translate_expr(
             }
             sink.end_block();
         }
-        Expr::New(span, type_, args) => {
+        Expr::New(span, _, type_, args) => {
             let name = match type_ {
                 Type::Record(_) => type_.name(),
                 _ => {
@@ -536,7 +536,7 @@ pub(super) fn translate_expr(
 
             auto_cast(sink, span, lscope, ReturnType::Value(*type_), etype)?;
         }
-        Expr::Binop(span, op, left, right) => {
+        Expr::Binop(span, _, op, left, right) => {
             // == binops ==
             // identity ops
             //   is, is not
@@ -770,11 +770,13 @@ pub(super) fn translate_expr(
                     let union_type = match (ltype, rtype) {
                         (Type::I32, Type::I32) => Type::I32,
                         (Type::I64, Type::I64) => Type::I64,
-                        _ => return Err(Error::Type {
-                            span: expr.span().clone(),
-                            expected: "bitwise operands (i32xi32 or i64xi64)".into(),
-                            got: format!("{}, {}", ltype, rtype),
-                        })
+                        _ => {
+                            return Err(Error::Type {
+                                span: expr.span().clone(),
+                                expected: "bitwise operands (i32xi32 or i64xi64)".into(),
+                                got: format!("{}, {}", ltype, rtype),
+                            })
+                        }
                     };
                     translate_expr(out, sink, lscope, ReturnType::Value(union_type), left)?;
                     translate_expr(out, sink, lscope, ReturnType::Value(union_type), right)?;
@@ -791,7 +793,7 @@ pub(super) fn translate_expr(
                 }
             }
         }
-        Expr::Unop(span, op, expr) => match op {
+        Expr::Unop(span, _, op, expr) => match op {
             // == unops ==
             // sign ops
             //   +, -
@@ -828,16 +830,16 @@ pub(super) fn translate_expr(
                 auto_cast(sink, span, lscope, ReturnType::Value(Type::Bool), etype)?
             }
         },
-        Expr::AscribeType(span, expr, type_) => {
+        Expr::AscribeType(span, _, expr, type_) => {
             translate_expr(out, sink, lscope, ReturnType::Value(*type_), expr)?;
             auto_cast(sink, span, lscope, ReturnType::Value(*type_), etype)?
         }
-        Expr::CString(span, value) => {
+        Expr::CString(span, _, value) => {
             let ptr = out.intern_cstr(value);
             sink.i32_const(ptr);
             auto_cast(sink, span, lscope, ReturnType::Value(Type::I32), etype)?
         }
-        Expr::Asm(span, args, type_, asm_code) => {
+        Expr::Asm(span, _, args, type_, asm_code) => {
             for arg in args {
                 let argtype = guess_type(lscope, arg)?;
                 translate_expr(out, sink, lscope, ReturnType::Value(argtype), arg)?;
@@ -845,7 +847,7 @@ pub(super) fn translate_expr(
             sink.writeln(asm_code);
             auto_cast(sink, span, lscope, *type_, etype)?;
         }
-        Expr::Read1(_, subexpr, offset) => {
+        Expr::Read1(_, _, subexpr, offset) => {
             translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), subexpr)?;
             sink.write("i32.load8_u");
             if *offset > 0 {
@@ -853,7 +855,7 @@ pub(super) fn translate_expr(
             }
             sink.writeln("");
         }
-        Expr::Read2(_, subexpr, offset) => {
+        Expr::Read2(_, _, subexpr, offset) => {
             translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), subexpr)?;
             sink.write("i32.load16_u");
             if *offset > 0 {
@@ -861,7 +863,7 @@ pub(super) fn translate_expr(
             }
             sink.writeln("");
         }
-        Expr::Read4(_, subexpr, offset) => {
+        Expr::Read4(_, _, subexpr, offset) => {
             translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), subexpr)?;
             sink.write("i32.load");
             if *offset > 0 {
@@ -869,7 +871,7 @@ pub(super) fn translate_expr(
             }
             sink.writeln("");
         }
-        Expr::Read8(_, subexpr, offset) => {
+        Expr::Read8(_, _, subexpr, offset) => {
             translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), subexpr)?;
             sink.write("i64.load");
             if *offset > 0 {
@@ -877,7 +879,7 @@ pub(super) fn translate_expr(
             }
             sink.writeln("");
         }
-        Expr::Write1(_, addr, val, offset) => {
+        Expr::Write1(_, _, addr, val, offset) => {
             translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), addr)?;
             translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), val)?;
             sink.write("i32.store8");
@@ -886,7 +888,7 @@ pub(super) fn translate_expr(
             }
             sink.writeln("");
         }
-        Expr::Write2(_, addr, val, offset) => {
+        Expr::Write2(_, _, addr, val, offset) => {
             translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), addr)?;
             translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), val)?;
             sink.write("i32.store16");
@@ -895,7 +897,7 @@ pub(super) fn translate_expr(
             }
             sink.writeln("");
         }
-        Expr::Write4(_, addr, val, offset) => {
+        Expr::Write4(_, _, addr, val, offset) => {
             translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), addr)?;
             translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), val)?;
             sink.write("i32.store");
@@ -904,7 +906,7 @@ pub(super) fn translate_expr(
             }
             sink.writeln("");
         }
-        Expr::Write8(_, addr, val, offset) => {
+        Expr::Write8(_, _, addr, val, offset) => {
             translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), addr)?;
             translate_expr(out, sink, lscope, ReturnType::Value(Type::I64), val)?;
             sink.write("i64.store");

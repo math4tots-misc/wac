@@ -5,6 +5,7 @@ use crate::ParseError;
 use crate::Parser;
 use crate::Pattern;
 use crate::Token;
+use std::cell::Cell;
 
 const PREC_POSTFIX: u32 = 1000;
 const PREC_UNARY: u32 = 900;
@@ -98,8 +99,8 @@ fn parse_constval(parser: &mut Parser) -> Result<ConstValue, ParseError> {
 
 fn eval_constexpr(expr: &Expr, parser: &mut Parser) -> Result<ConstValue, ParseError> {
     match expr {
-        Expr::Int(_, value) => Ok(ConstValue::I32(*value as i32)),
-        Expr::GetVar(span, name) => match parser.constants_map.get(name) {
+        Expr::Int(_, _, value) => Ok(ConstValue::I32(*value as i32)),
+        Expr::GetVar(span, _, name) => match parser.constants_map.get(name) {
             Some(value) => Ok(value.clone()),
             None => match Type::from_name(name) {
                 Some(type_) => Ok(ConstValue::Type(type_)),
@@ -117,10 +118,10 @@ fn eval_constexpr(expr: &Expr, parser: &mut Parser) -> Result<ConstValue, ParseE
                 }
             },
         },
-        Expr::GetAttr(_span, owner, member) => {
+        Expr::GetAttr(_span, _, owner, member) => {
             if parser.strict_about_user_defined_types {
                 let opt = match &**owner {
-                    Expr::GetVar(_span, type_name) => match Type::from_name(type_name) {
+                    Expr::GetVar(_span, _, type_name) => match Type::from_name(type_name) {
                         Some(type_) => match type_ {
                             Type::Enum(_) => match get_enum_value_from_name(type_, member) {
                                 Some(value) => Some((type_, value)),
@@ -145,7 +146,7 @@ fn eval_constexpr(expr: &Expr, parser: &mut Parser) -> Result<ConstValue, ParseE
                 Ok(ConstValue::Enum(Type::Enum(0), 0))
             }
         }
-        Expr::Unop(span, Unop::Minus, subexpr) => match eval_constexpr(subexpr, parser)? {
+        Expr::Unop(span, _, Unop::Minus, subexpr) => match eval_constexpr(subexpr, parser)? {
             ConstValue::I32(i) => Ok(ConstValue::I32(-i)),
             cval => Err(ParseError::InvalidToken {
                 span: span.clone(),
@@ -153,7 +154,7 @@ fn eval_constexpr(expr: &Expr, parser: &mut Parser) -> Result<ConstValue, ParseE
                 got: format!("{:?}", cval),
             }),
         },
-        Expr::Unop(span, Unop::Plus, subexpr) => match eval_constexpr(subexpr, parser)? {
+        Expr::Unop(span, _, Unop::Plus, subexpr) => match eval_constexpr(subexpr, parser)? {
             ConstValue::I32(i) => Ok(ConstValue::I32(i)),
             cval => Err(ParseError::InvalidToken {
                 span: span.clone(),
@@ -161,7 +162,7 @@ fn eval_constexpr(expr: &Expr, parser: &mut Parser) -> Result<ConstValue, ParseE
                 got: format!("{:?}", cval),
             }),
         },
-        Expr::Binop(span, Binop::Add, left, right) => {
+        Expr::Binop(span, _, Binop::Add, left, right) => {
             match (
                 eval_constexpr(left, parser)?,
                 eval_constexpr(right, parser)?,
@@ -174,7 +175,7 @@ fn eval_constexpr(expr: &Expr, parser: &mut Parser) -> Result<ConstValue, ParseE
                 }),
             }
         }
-        Expr::Binop(span, Binop::Subtract, left, right) => {
+        Expr::Binop(span, _, Binop::Subtract, left, right) => {
             match (
                 eval_constexpr(left, parser)?,
                 eval_constexpr(right, parser)?,
@@ -187,7 +188,7 @@ fn eval_constexpr(expr: &Expr, parser: &mut Parser) -> Result<ConstValue, ParseE
                 }),
             }
         }
-        Expr::Binop(span, Binop::Multiply, left, right) => {
+        Expr::Binop(span, _, Binop::Multiply, left, right) => {
             match (
                 eval_constexpr(left, parser)?,
                 eval_constexpr(right, parser)?,
@@ -200,7 +201,7 @@ fn eval_constexpr(expr: &Expr, parser: &mut Parser) -> Result<ConstValue, ParseE
                 }),
             }
         }
-        Expr::Binop(span, Binop::TruncDivide, left, right) => {
+        Expr::Binop(span, _, Binop::TruncDivide, left, right) => {
             match (
                 eval_constexpr(left, parser)?,
                 eval_constexpr(right, parser)?,
@@ -213,7 +214,7 @@ fn eval_constexpr(expr: &Expr, parser: &mut Parser) -> Result<ConstValue, ParseE
                 }),
             }
         }
-        Expr::Binop(span, Binop::Remainder, left, right) => {
+        Expr::Binop(span, _, Binop::Remainder, left, right) => {
             match (
                 eval_constexpr(left, parser)?,
                 eval_constexpr(right, parser)?,
@@ -461,23 +462,23 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
     match parser.peek() {
         Token::Int(x) => {
             parser.gettok();
-            Ok(Expr::Int(span, x))
+            Ok(Expr::Int(span, Cell::new(None), x))
         }
         Token::Float(x) => {
             parser.gettok();
-            Ok(Expr::Float(span, x))
+            Ok(Expr::Float(span, Cell::new(None), x))
         }
         Token::NormalString(_) | Token::RawString(_) => {
             let s = parser.expect_string()?;
-            Ok(Expr::String(span, s))
+            Ok(Expr::String(span, Cell::new(None), s))
         }
         Token::Name("true") => {
             parser.gettok();
-            Ok(Expr::Bool(span, true))
+            Ok(Expr::Bool(span, Cell::new(None), true))
         }
         Token::Name("false") => {
             parser.gettok();
-            Ok(Expr::Bool(span, false))
+            Ok(Expr::Bool(span, Cell::new(None), false))
         }
         Token::Name("if") => parse_if(parser),
         Token::Name("while") => parse_while(parser),
@@ -496,7 +497,7 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
                 }
             }
             let span = span.upto(&parser.span());
-            Ok(Expr::New(span, type_, args))
+            Ok(Expr::New(span, Cell::new(None), type_, args))
         }
         Token::Name("var") => {
             parser.gettok();
@@ -509,7 +510,13 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
             parser.expect(Token::Eq)?;
             let setexpr = parse_expr(parser, 0)?;
             let span = span.upto(&parser.span());
-            Ok(Expr::DeclVar(span, name, type_, setexpr.into()))
+            Ok(Expr::DeclVar(
+                span,
+                Cell::new(None),
+                name,
+                type_,
+                setexpr.into(),
+            ))
         }
         Token::Name("switch") => {
             parser.gettok();
@@ -537,11 +544,11 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
                 }
             }
             let span = span.upto(&parser.span());
-            Ok(Expr::Switch(span, src, pairs, other))
+            Ok(Expr::Switch(span, Cell::new(None), src, pairs, other))
         }
         Token::Name(_) => {
             let name = parser.expect_name()?;
-            Ok(Expr::GetVar(span, name))
+            Ok(Expr::GetVar(span, Cell::new(None), name))
         }
         Token::Minus | Token::Plus | Token::Exclamation => {
             let op = match parser.peek() {
@@ -552,7 +559,7 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
             };
             parser.gettok();
             let expr = parse_expr(parser, PREC_UNARY)?;
-            Ok(Expr::Unop(span, op, expr.into()))
+            Ok(Expr::Unop(span, Cell::new(None), op, expr.into()))
         }
         Token::Dollar => {
             parser.gettok();
@@ -563,7 +570,7 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
                     let string = parser.expect_string()?;
                     parser.expect(Token::RParen)?;
                     let span = span.upto(&parser.span());
-                    Ok(Expr::CString(span, string))
+                    Ok(Expr::CString(span, Cell::new(None), string))
                 }
                 Token::Name("asm") => {
                     parser.gettok();
@@ -583,7 +590,7 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
                     let asm_code = parser.expect_string()?;
                     parser.consume(Token::Comma);
                     parser.expect(Token::RParen)?;
-                    Ok(Expr::Asm(span, args, type_, asm_code))
+                    Ok(Expr::Asm(span, Cell::new(None), args, type_, asm_code))
                 }
                 Token::Name("read1")
                 | Token::Name("read2")
@@ -604,10 +611,10 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
                     parser.expect(Token::RParen)?;
                     let span = span.upto(&parser.span());
                     Ok(match name {
-                        "read1" => Expr::Read1(span, expr.into(), offset),
-                        "read2" => Expr::Read2(span, expr.into(), offset),
-                        "read4" => Expr::Read4(span, expr.into(), offset),
-                        "read8" => Expr::Read8(span, expr.into(), offset),
+                        "read1" => Expr::Read1(span, Cell::new(None), expr.into(), offset),
+                        "read2" => Expr::Read2(span, Cell::new(None), expr.into(), offset),
+                        "read4" => Expr::Read4(span, Cell::new(None), expr.into(), offset),
+                        "read8" => Expr::Read8(span, Cell::new(None), expr.into(), offset),
                         _ => panic!("Impossible read* name: {}", name),
                     })
                 }
@@ -632,10 +639,18 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
                     parser.expect(Token::RParen)?;
                     let span = span.upto(&parser.span());
                     Ok(match name {
-                        "write1" => Expr::Write1(span, addr.into(), val.into(), offset),
-                        "write2" => Expr::Write2(span, addr.into(), val.into(), offset),
-                        "write4" => Expr::Write4(span, addr.into(), val.into(), offset),
-                        "write8" => Expr::Write8(span, addr.into(), val.into(), offset),
+                        "write1" => {
+                            Expr::Write1(span, Cell::new(None), addr.into(), val.into(), offset)
+                        }
+                        "write2" => {
+                            Expr::Write2(span, Cell::new(None), addr.into(), val.into(), offset)
+                        }
+                        "write4" => {
+                            Expr::Write4(span, Cell::new(None), addr.into(), val.into(), offset)
+                        }
+                        "write8" => {
+                            Expr::Write8(span, Cell::new(None), addr.into(), val.into(), offset)
+                        }
                         _ => panic!("Impossible write* name: {}", name),
                     })
                 }
@@ -656,7 +671,7 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
                     break;
                 }
             }
-            Ok(Expr::List(span, exprs))
+            Ok(Expr::List(span, Cell::new(None), exprs))
         }
         Token::LParen => {
             parser.gettok();
@@ -679,7 +694,7 @@ fn parse_if(parser: &mut Parser) -> Result<Expr, ParseError> {
     let cond = parse_expr(parser, 0)?;
     let body = parse_block(parser)?;
     let mut pairs = vec![(cond, body)];
-    let mut other = Expr::Block(span.clone(), vec![]);
+    let mut other = Expr::Block(span.clone(), Cell::new(None), vec![]);
 
     while parser.consume(Token::Name("else")) {
         match parser.peek() {
@@ -702,7 +717,7 @@ fn parse_if(parser: &mut Parser) -> Result<Expr, ParseError> {
         }
     }
     let span = span.upto(&parser.span());
-    Ok(Expr::If(span, pairs, other.into()))
+    Ok(Expr::If(span, Cell::new(None), pairs, other.into()))
 }
 
 fn parse_while(parser: &mut Parser) -> Result<Expr, ParseError> {
@@ -711,7 +726,7 @@ fn parse_while(parser: &mut Parser) -> Result<Expr, ParseError> {
     let cond = parse_expr(parser, 0)?;
     let body = parse_block(parser)?;
     let span = span.upto(&parser.span());
-    Ok(Expr::While(span, cond.into(), body.into()))
+    Ok(Expr::While(span, Cell::new(None), cond.into(), body.into()))
 }
 
 fn parse_for(parser: &mut Parser) -> Result<Expr, ParseError> {
@@ -724,7 +739,14 @@ fn parse_for(parser: &mut Parser) -> Result<Expr, ParseError> {
     let end = parse_expr(parser, 0)?;
     let body = parse_block(parser)?;
     let span = span.upto(&parser.span());
-    Ok(Expr::For(span, name, start.into(), end.into(), body.into()))
+    Ok(Expr::For(
+        span,
+        Cell::new(None),
+        name,
+        start.into(),
+        end.into(),
+        body.into(),
+    ))
 }
 
 /// parse any infix expressions with given precedence or higher
@@ -739,7 +761,7 @@ fn parse_infix(parser: &mut Parser, mut lhs: Expr, prec: u32) -> Result<Expr, Pa
                 let span = parser.span();
                 parser.gettok();
                 match lhs {
-                    Expr::GetVar(_, name) => {
+                    Expr::GetVar(_, _, name) => {
                         let mut args = Vec::new();
                         while !parser.consume(Token::RParen) {
                             args.push(parse_expr(parser, 0)?);
@@ -750,9 +772,9 @@ fn parse_infix(parser: &mut Parser, mut lhs: Expr, prec: u32) -> Result<Expr, Pa
                         }
                         let end = parser.span();
                         let span = span.join(&start).upto(&end);
-                        lhs = Expr::FunctionCall(span, name, args);
+                        lhs = Expr::FunctionCall(span, Cell::new(None), name, args);
                     }
-                    Expr::GetAttr(_, owner, name) => {
+                    Expr::GetAttr(_, _, owner, name) => {
                         let mut args = Vec::new();
                         while !parser.consume(Token::RParen) {
                             args.push(parse_expr(parser, 0)?);
@@ -763,7 +785,13 @@ fn parse_infix(parser: &mut Parser, mut lhs: Expr, prec: u32) -> Result<Expr, Pa
                         }
                         let end = parser.span();
                         let span = span.join(&start).upto(&end);
-                        lhs = Expr::AssociatedFunctionCall(span, owner.into(), name, args);
+                        lhs = Expr::AssociatedFunctionCall(
+                            span,
+                            Cell::new(None),
+                            owner.into(),
+                            name,
+                            args,
+                        );
                     }
                     _ => {
                         return Err(ParseError::InvalidToken {
@@ -783,7 +811,7 @@ fn parse_infix(parser: &mut Parser, mut lhs: Expr, prec: u32) -> Result<Expr, Pa
                 let index = parse_expr(parser, 0)?;
                 parser.expect(Token::RBracket)?;
                 let span = span.upto(&parser.span());
-                lhs = Expr::GetItem(span, lhs.into(), index.into());
+                lhs = Expr::GetItem(span, Cell::new(None), lhs.into(), index.into());
             }
             Token::Dot => {
                 if prec > PREC_POSTFIX {
@@ -794,11 +822,11 @@ fn parse_infix(parser: &mut Parser, mut lhs: Expr, prec: u32) -> Result<Expr, Pa
                 if parser.consume(Token::LParen) {
                     let ascribed_type = parse_type(parser)?;
                     parser.expect(Token::RParen)?;
-                    lhs = Expr::AscribeType(span, lhs.into(), ascribed_type);
+                    lhs = Expr::AscribeType(span, Cell::new(None), lhs.into(), ascribed_type);
                 } else {
                     let name = parser.expect_name()?;
                     let span = span.join(&start).upto(&parser.span());
-                    lhs = Expr::GetAttr(span, lhs.into(), name);
+                    lhs = Expr::GetAttr(span, Cell::new(None), lhs.into(), name);
                 }
             }
             Token::Plus | Token::Minus => {
@@ -814,7 +842,7 @@ fn parse_infix(parser: &mut Parser, mut lhs: Expr, prec: u32) -> Result<Expr, Pa
                 parser.gettok();
                 let right = parse_expr(parser, PREC_SUM + 1)?;
                 let span = span.join(&start).upto(&parser.span());
-                lhs = Expr::Binop(span, op, lhs.into(), right.into());
+                lhs = Expr::Binop(span, Cell::new(None), op, lhs.into(), right.into());
             }
             Token::Star | Token::Slash | Token::Slash2 | Token::Percent => {
                 if prec > PREC_PRODUCT {
@@ -831,7 +859,7 @@ fn parse_infix(parser: &mut Parser, mut lhs: Expr, prec: u32) -> Result<Expr, Pa
                 parser.gettok();
                 let right = parse_expr(parser, PREC_PRODUCT + 1)?;
                 let span = span.join(&start).upto(&parser.span());
-                lhs = Expr::Binop(span, op, lhs.into(), right.into());
+                lhs = Expr::Binop(span, Cell::new(None), op, lhs.into(), right.into());
             }
             Token::Caret => {
                 if prec > PREC_BITWISE_XOR {
@@ -841,7 +869,13 @@ fn parse_infix(parser: &mut Parser, mut lhs: Expr, prec: u32) -> Result<Expr, Pa
                 parser.gettok();
                 let rhs = parse_expr(parser, PREC_BITWISE_XOR + 1)?;
                 let span = span.join(&start).upto(&parser.span());
-                lhs = Expr::Binop(span, Binop::BitwiseXor, lhs.into(), rhs.into());
+                lhs = Expr::Binop(
+                    span,
+                    Cell::new(None),
+                    Binop::BitwiseXor,
+                    lhs.into(),
+                    rhs.into(),
+                );
             }
             Token::Ampersand => {
                 if prec > PREC_BITWISE_AND {
@@ -851,7 +885,13 @@ fn parse_infix(parser: &mut Parser, mut lhs: Expr, prec: u32) -> Result<Expr, Pa
                 parser.gettok();
                 let rhs = parse_expr(parser, PREC_BITWISE_AND + 1)?;
                 let span = span.join(&start).upto(&parser.span());
-                lhs = Expr::Binop(span, Binop::BitwiseAnd, lhs.into(), rhs.into());
+                lhs = Expr::Binop(
+                    span,
+                    Cell::new(None),
+                    Binop::BitwiseAnd,
+                    lhs.into(),
+                    rhs.into(),
+                );
             }
             Token::VerticalBar => {
                 if prec > PREC_BITWISE_OR {
@@ -861,7 +901,13 @@ fn parse_infix(parser: &mut Parser, mut lhs: Expr, prec: u32) -> Result<Expr, Pa
                 parser.gettok();
                 let rhs = parse_expr(parser, PREC_BITWISE_OR + 1)?;
                 let span = span.join(&start).upto(&parser.span());
-                lhs = Expr::Binop(span, Binop::BitwiseOr, lhs.into(), rhs.into());
+                lhs = Expr::Binop(
+                    span,
+                    Cell::new(None),
+                    Binop::BitwiseOr,
+                    lhs.into(),
+                    rhs.into(),
+                );
             }
             Token::Lt2 | Token::Gt2 => {
                 if prec > PREC_SHIFT {
@@ -876,7 +922,7 @@ fn parse_infix(parser: &mut Parser, mut lhs: Expr, prec: u32) -> Result<Expr, Pa
                 parser.gettok();
                 let rhs = parse_expr(parser, PREC_SHIFT + 1)?;
                 let span = span.join(&start).upto(&parser.span());
-                lhs = Expr::Binop(span, op, lhs.into(), rhs.into());
+                lhs = Expr::Binop(span, Cell::new(None), op, lhs.into(), rhs.into());
             }
             Token::Name("and") => {
                 if prec > PREC_LOGICAL_AND {
@@ -888,8 +934,12 @@ fn parse_infix(parser: &mut Parser, mut lhs: Expr, prec: u32) -> Result<Expr, Pa
                 let span = span.join(&start).upto(&parser.span());
                 lhs = Expr::If(
                     span.clone(),
-                    vec![(lhs, Expr::AscribeType(span.clone(), rhs.into(), Type::Bool))],
-                    Expr::Bool(span.clone(), false).into(),
+                    Cell::new(None),
+                    vec![(
+                        lhs,
+                        Expr::AscribeType(span.clone(), Cell::new(None), rhs.into(), Type::Bool),
+                    )],
+                    Expr::Bool(span.clone(), Cell::new(None), false).into(),
                 )
             }
             Token::Name("or") => {
@@ -902,7 +952,8 @@ fn parse_infix(parser: &mut Parser, mut lhs: Expr, prec: u32) -> Result<Expr, Pa
                 let span = span.join(&start).upto(&parser.span());
                 lhs = Expr::If(
                     span.clone(),
-                    vec![(lhs, Expr::Bool(span.clone(), true))],
+                    Cell::new(None),
+                    vec![(lhs, Expr::Bool(span.clone(), Cell::new(None), true))],
                     rhs.into(),
                 )
             }
@@ -935,7 +986,7 @@ fn parse_infix(parser: &mut Parser, mut lhs: Expr, prec: u32) -> Result<Expr, Pa
                 }
                 let right = parse_expr(parser, PREC_CMP + 1)?;
                 let span = span.join(&start).upto(&parser.span());
-                lhs = Expr::Binop(span, op, lhs.into(), right.into());
+                lhs = Expr::Binop(span, Cell::new(None), op, lhs.into(), right.into());
             }
             Token::Eq => {
                 if prec > PREC_ASSIGN {
@@ -944,13 +995,20 @@ fn parse_infix(parser: &mut Parser, mut lhs: Expr, prec: u32) -> Result<Expr, Pa
                 let span = parser.span();
                 parser.gettok();
                 match lhs {
-                    Expr::GetVar(_, name) => {
+                    Expr::GetVar(_, _, name) => {
                         let setexpr = parse_expr(parser, 0)?;
-                        lhs = Expr::SetVar(span.join(&start), name, setexpr.into());
+                        lhs =
+                            Expr::SetVar(span.join(&start), Cell::new(None), name, setexpr.into());
                     }
-                    Expr::GetItem(getitem_span, owner, index) => {
+                    Expr::GetItem(getitem_span, _, owner, index) => {
                         let setexpr = parse_expr(parser, 0)?;
-                        lhs = Expr::SetItem(span.join(&getitem_span), owner, index, setexpr.into())
+                        lhs = Expr::SetItem(
+                            span.join(&getitem_span),
+                            Cell::new(None),
+                            owner,
+                            index,
+                            setexpr.into(),
+                        )
                     }
                     _ => {
                         return Err(ParseError::InvalidToken {
@@ -976,7 +1034,7 @@ fn parse_block(parser: &mut Parser) -> Result<Expr, ParseError> {
         exprs.push(parse_stmt(parser)?);
     }
     let span = span.upto(&parser.span());
-    Ok(Expr::Block(span, exprs))
+    Ok(Expr::Block(span, Cell::new(None), exprs))
 }
 
 fn parse_function_type(parser: &mut Parser, has_self: bool) -> Result<FunctionType, ParseError> {

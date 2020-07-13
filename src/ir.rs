@@ -5,6 +5,7 @@ use crate::list_all_enum_types;
 use crate::list_all_record_types;
 use crate::llir::*;
 use crate::SSpan;
+use std::cell::Cell;
 use std::fmt;
 use std::rc::Rc;
 
@@ -98,54 +99,91 @@ pub struct GlobalVariable {
 }
 
 pub enum Expr {
-    Bool(SSpan, bool),
-    Int(SSpan, i64),
-    Float(SSpan, f64),
-    String(SSpan, Rc<str>),
-    List(SSpan, Vec<Expr>),
-    GetVar(SSpan, Rc<str>),
-    SetVar(SSpan, Rc<str>, Box<Expr>),
-    DeclVar(SSpan, Rc<str>, Option<Type>, Box<Expr>),
-    Block(SSpan, Vec<Expr>),
-    FunctionCall(SSpan, Rc<str>, Vec<Expr>),
-    AssociatedFunctionCall(SSpan, Box<Expr>, Rc<str>, Vec<Expr>),
-    If(SSpan, Vec<(Expr, Expr)>, Box<Expr>),
-    While(SSpan, Box<Expr>, Box<Expr>),
-    For(SSpan, Rc<str>, Box<Expr>, Box<Expr>, Box<Expr>),
+    Bool(SSpan, Cell<Option<ReturnType>>, bool),
+    Int(SSpan, Cell<Option<ReturnType>>, i64),
+    Float(SSpan, Cell<Option<ReturnType>>, f64),
+    String(SSpan, Cell<Option<ReturnType>>, Rc<str>),
+    List(SSpan, Cell<Option<ReturnType>>, Vec<Expr>),
+    GetVar(SSpan, Cell<Option<ReturnType>>, Rc<str>),
+    SetVar(SSpan, Cell<Option<ReturnType>>, Rc<str>, Box<Expr>),
+    DeclVar(
+        SSpan,
+        Cell<Option<ReturnType>>,
+        Rc<str>,
+        Option<Type>,
+        Box<Expr>,
+    ),
+    Block(SSpan, Cell<Option<ReturnType>>, Vec<Expr>),
+    FunctionCall(SSpan, Cell<Option<ReturnType>>, Rc<str>, Vec<Expr>),
+    AssociatedFunctionCall(
+        SSpan,
+        Cell<Option<ReturnType>>,
+        Box<Expr>,
+        Rc<str>,
+        Vec<Expr>,
+    ),
+    If(
+        SSpan,
+        Cell<Option<ReturnType>>,
+        Vec<(Expr, Expr)>,
+        Box<Expr>,
+    ),
+    While(SSpan, Cell<Option<ReturnType>>, Box<Expr>, Box<Expr>),
+    For(
+        SSpan,
+        Cell<Option<ReturnType>>,
+        Rc<str>,
+        Box<Expr>,
+        Box<Expr>,
+        Box<Expr>,
+    ),
 
-    GetAttr(SSpan, Box<Expr>, Rc<str>),
-    GetItem(SSpan, Box<Expr>, Box<Expr>),
-    SetItem(SSpan, Box<Expr>, Box<Expr>, Box<Expr>),
+    GetAttr(SSpan, Cell<Option<ReturnType>>, Box<Expr>, Rc<str>),
+    GetItem(SSpan, Cell<Option<ReturnType>>, Box<Expr>, Box<Expr>),
+    SetItem(
+        SSpan,
+        Cell<Option<ReturnType>>,
+        Box<Expr>,
+        Box<Expr>,
+        Box<Expr>,
+    ),
 
     Switch(
         SSpan,
+        Cell<Option<ReturnType>>,
         Box<Expr>,
         Vec<(Vec<ConstValue>, Expr)>,
         Option<Box<Expr>>,
     ),
 
     // Create a new record value
-    New(SSpan, Type, Vec<Expr>),
+    New(SSpan, Cell<Option<ReturnType>>, Type, Vec<Expr>),
 
     // builtin operators
-    Binop(SSpan, Binop, Box<Expr>, Box<Expr>),
-    Unop(SSpan, Unop, Box<Expr>),
-    AscribeType(SSpan, Box<Expr>, Type),
+    Binop(SSpan, Cell<Option<ReturnType>>, Binop, Box<Expr>, Box<Expr>),
+    Unop(SSpan, Cell<Option<ReturnType>>, Unop, Box<Expr>),
+    AscribeType(SSpan, Cell<Option<ReturnType>>, Box<Expr>, Type),
 
     // intrinsics
-    CString(SSpan, Rc<str>),
-    Asm(SSpan, Vec<Expr>, ReturnType, Rc<str>),
+    CString(SSpan, Cell<Option<ReturnType>>, Rc<str>),
+    Asm(
+        SSpan,
+        Cell<Option<ReturnType>>,
+        Vec<Expr>,
+        ReturnType,
+        Rc<str>,
+    ),
 
     // memory reading intrinsics
     // reads/writes the number of bytes as specified in their names
-    Read1(SSpan, Box<Expr>, u32),
-    Read2(SSpan, Box<Expr>, u32),
-    Read4(SSpan, Box<Expr>, u32),
-    Read8(SSpan, Box<Expr>, u32),
-    Write1(SSpan, Box<Expr>, Box<Expr>, u32),
-    Write2(SSpan, Box<Expr>, Box<Expr>, u32),
-    Write4(SSpan, Box<Expr>, Box<Expr>, u32),
-    Write8(SSpan, Box<Expr>, Box<Expr>, u32),
+    Read1(SSpan, Cell<Option<ReturnType>>, Box<Expr>, u32),
+    Read2(SSpan, Cell<Option<ReturnType>>, Box<Expr>, u32),
+    Read4(SSpan, Cell<Option<ReturnType>>, Box<Expr>, u32),
+    Read8(SSpan, Cell<Option<ReturnType>>, Box<Expr>, u32),
+    Write1(SSpan, Cell<Option<ReturnType>>, Box<Expr>, Box<Expr>, u32),
+    Write2(SSpan, Cell<Option<ReturnType>>, Box<Expr>, Box<Expr>, u32),
+    Write4(SSpan, Cell<Option<ReturnType>>, Box<Expr>, Box<Expr>, u32),
+    Write8(SSpan, Cell<Option<ReturnType>>, Box<Expr>, Box<Expr>, u32),
 }
 
 impl Expr {
@@ -183,6 +221,43 @@ impl Expr {
             Expr::Write2(span, ..) => span,
             Expr::Write4(span, ..) => span,
             Expr::Write8(span, ..) => span,
+        }
+    }
+
+    pub fn type_cell(&self) -> &Cell<Option<ReturnType>> {
+        match self {
+            Expr::Bool(_, cell, ..) => cell,
+            Expr::Int(_, cell, ..) => cell,
+            Expr::Float(_, cell, ..) => cell,
+            Expr::String(_, cell, ..) => cell,
+            Expr::List(_, cell, ..) => cell,
+            Expr::GetVar(_, cell, ..) => cell,
+            Expr::SetVar(_, cell, ..) => cell,
+            Expr::DeclVar(_, cell, ..) => cell,
+            Expr::Block(_, cell, ..) => cell,
+            Expr::FunctionCall(_, cell, ..) => cell,
+            Expr::AssociatedFunctionCall(_, cell, ..) => cell,
+            Expr::If(_, cell, ..) => cell,
+            Expr::While(_, cell, ..) => cell,
+            Expr::For(_, cell, ..) => cell,
+            Expr::GetAttr(_, cell, ..) => cell,
+            Expr::GetItem(_, cell, ..) => cell,
+            Expr::SetItem(_, cell, ..) => cell,
+            Expr::Switch(_, cell, ..) => cell,
+            Expr::New(_, cell, ..) => cell,
+            Expr::Binop(_, cell, ..) => cell,
+            Expr::Unop(_, cell, ..) => cell,
+            Expr::AscribeType(_, cell, ..) => cell,
+            Expr::CString(_, cell, ..) => cell,
+            Expr::Asm(_, cell, ..) => cell,
+            Expr::Read1(_, cell, ..) => cell,
+            Expr::Read2(_, cell, ..) => cell,
+            Expr::Read4(_, cell, ..) => cell,
+            Expr::Read8(_, cell, ..) => cell,
+            Expr::Write1(_, cell, ..) => cell,
+            Expr::Write2(_, cell, ..) => cell,
+            Expr::Write4(_, cell, ..) => cell,
+            Expr::Write8(_, cell, ..) => cell,
         }
     }
 }

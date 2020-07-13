@@ -51,12 +51,14 @@ pub(super) fn translate_impl(
     ftype.parameters[0].0 = "__WAC_self".into();
     let body = Expr::Block(
         imp.span.clone(),
+        Cell::new(None),
         vec![
             Expr::DeclVar(
                 imp.span.clone(),
+                Cell::new(None),
                 "self".into(),
                 Some(imp.receiver_type),
-                Expr::GetVar(imp.span.clone(), "__WAC_self".into()).into(),
+                Expr::GetVar(imp.span.clone(), Cell::new(None), "__WAC_self".into()).into(),
             ),
             imp.body,
         ],
