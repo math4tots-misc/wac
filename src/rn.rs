@@ -79,6 +79,11 @@ pub fn run_tests(sources: Vec<(Rc<str>, Rc<str>)>, test_prefix: &str) -> Result<
         f.call()?;
         println!("ok");
     }
+    print!("  releasing global vars... ");
+    // releasing
+    let f: wr::Func<(), ()> = instance.exports.get("rt_release_globals")?;
+    f.call()?;
+    println!("ok");
     let exec_time = start.elapsed().as_secs_f64();
 
     println!("All tests passed");

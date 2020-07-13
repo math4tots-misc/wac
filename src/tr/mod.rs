@@ -250,6 +250,11 @@ pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
                 init_sink.global_set(&info.wasm_name);
                 out.gvars.global_mut(info.type_.wasm(), &info.wasm_name, 0);
 
+                // store releasing globals in a callable function at the end
+                // this is for debugging purposes -- ensuring malloc/free
+                // works and is being called as intended
+                release_var(&out.release_globals, Scope::Global, &info.wasm_name, type_);
+
                 init_lscope.pop();
             }
         }

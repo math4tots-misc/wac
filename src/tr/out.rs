@@ -7,6 +7,7 @@ pub(super) struct Out {
     pub(super) data: Rc<Sink>,
     pub(super) gvars: Rc<Sink>,
     pub(super) funcs: Rc<Sink>,
+    pub(super) release_globals: Rc<Sink>,
     pub(super) startlocals: Rc<Sink>,
     pub(super) start: Rc<Sink>,
     pub(super) table: Rc<Sink>,
@@ -29,6 +30,9 @@ impl Out {
         let gvars = main.spawn();
         let funcs = main.spawn();
         main.write(crate::wfs::CODE);
+        main.writeln("(func $rt_release_globals");
+        let release_globals = main.spawn();
+        main.writeln(")");
         main.writeln("(func $__rt_start");
         let startlocals = main.spawn();
         let start = main.spawn();
@@ -36,6 +40,7 @@ impl Out {
         main.writeln("(start $__rt_start)");
         let table = main.spawn();
         let exports = main.spawn();
+        exports.writeln("(export \"rt_release_globals\" (func $rt_release_globals))");
         Self {
             main,
             imports,
@@ -43,6 +48,7 @@ impl Out {
             data,
             gvars,
             funcs,
+            release_globals,
             startlocals,
             start,
             table,
