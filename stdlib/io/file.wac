@@ -4,6 +4,6 @@ record File {
     fd i32
 }
 
-# var STDIN = new File(0)
-# var STDOUT = new File(1)
-# var STDERR = new File(2)
+var STDIN = new File(0)
+var STDOUT = new File(1)
+var STDERR = new File(2)

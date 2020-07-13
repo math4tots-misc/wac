@@ -82,10 +82,16 @@ fn add_sources_rec(
         .to_owned();
     let base: &str = &format!("{}/{}", base, file_name);
     if path.is_dir() {
+        // ensure that the order in which we read the sources
+        // is deterministic
+        let mut subpaths = Vec::new();
         for entry in path.read_dir()? {
             let entry = entry?;
-            let file_path = entry.path();
-            add_sources_rec(out, base, &file_path)?;
+            subpaths.push(entry.path());
+        }
+        subpaths.sort();
+        for subpath in subpaths {
+            add_sources_rec(out, base, &subpath)?;
         }
     } else if path.is_file() {
         if file_name.ends_with(".wac") {
