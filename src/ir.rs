@@ -135,6 +135,17 @@ pub enum Expr {
     // intrinsics
     CString(SSpan, Rc<str>),
     Asm(SSpan, Vec<Expr>, ReturnType, Rc<str>),
+
+    // memory reading intrinsics
+    // reads/writes the number of bytes as specified in their names
+    Read1(SSpan, Box<Expr>),
+    Read2(SSpan, Box<Expr>),
+    Read4(SSpan, Box<Expr>),
+    Read8(SSpan, Box<Expr>),
+    Write1(SSpan, Box<Expr>, Box<Expr>),
+    Write2(SSpan, Box<Expr>, Box<Expr>),
+    Write4(SSpan, Box<Expr>, Box<Expr>),
+    Write8(SSpan, Box<Expr>, Box<Expr>),
 }
 
 impl Expr {
@@ -164,6 +175,14 @@ impl Expr {
             Expr::AscribeType(span, ..) => span,
             Expr::CString(span, ..) => span,
             Expr::Asm(span, ..) => span,
+            Expr::Read1(span, ..) => span,
+            Expr::Read2(span, ..) => span,
+            Expr::Read4(span, ..) => span,
+            Expr::Read8(span, ..) => span,
+            Expr::Write1(span, ..) => span,
+            Expr::Write2(span, ..) => span,
+            Expr::Write4(span, ..) => span,
+            Expr::Write8(span, ..) => span,
         }
     }
 }

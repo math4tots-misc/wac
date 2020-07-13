@@ -20,7 +20,7 @@ fn __type_str[notrace](t type) str {
     var raw_type = $asm([t], i32, "")
 
     # ptr to the str value
-    var ptr = __read(
+    var ptr = $read4(
         $asm([], i32, "global.get $rt_typestr_table_start") +
         raw_type * 4
     )
@@ -50,7 +50,7 @@ fn __type_enum_value_name[notrace](value id) str {
     var enum_type_offset = (
         ($asm([value_type], i32, "") - $asm([id], i32, "")) // 2
     )
-    var info_ptr = __read(
+    var info_ptr = $read4(
         $asm([], i32, "global.get $rt_enum_meta_buffer_start") +
         enum_type_offset * 4,
     )
@@ -58,7 +58,7 @@ fn __type_enum_value_name[notrace](value id) str {
         local.get $l_0_value
         i32.wrap_i64
     "#)
-    var str_ptr = __read(info_ptr + 4 + raw_value * 4)
+    var str_ptr = $read4(info_ptr + 4 + raw_value * 4)
     __WAC_ptr_retain(str_ptr)
     $asm([str_ptr], str, "")
 }

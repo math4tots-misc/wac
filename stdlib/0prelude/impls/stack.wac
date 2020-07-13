@@ -12,9 +12,9 @@ fn __WAC_eprint_stack[notrace]() {
     var end = $asm([], i32, "global.get $rt_stack_top")
     while i < end {
         __eprint0_str("  ")
-        __eprint0_cstr(__read(i))
+        __eprint0_cstr($read4(i))
         __eprint0_str(": ")
-        __eprint0_i32(__read(i + 4))
+        __eprint0_i32($read4(i + 4))
         __eprint0_str("\n")
 
         i = i + 8

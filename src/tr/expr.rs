@@ -834,6 +834,42 @@ pub(super) fn translate_expr(
             sink.writeln(asm_code);
             auto_cast(sink, span, lscope, *type_, etype)?;
         }
+        Expr::Read1(_, subexpr) => {
+            translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), subexpr)?;
+            sink.writeln("i32.load8_u");
+        }
+        Expr::Read2(_, subexpr) => {
+            translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), subexpr)?;
+            sink.writeln("i32.load16_u")
+        }
+        Expr::Read4(_, subexpr) => {
+            translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), subexpr)?;
+            sink.writeln("i32.load")
+        }
+        Expr::Read8(_, subexpr) => {
+            translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), subexpr)?;
+            sink.writeln("i64.load")
+        }
+        Expr::Write1(_, addr, val) => {
+            translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), addr)?;
+            translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), val)?;
+            sink.writeln("i32.store8");
+        }
+        Expr::Write2(_, addr, val) => {
+            translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), addr)?;
+            translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), val)?;
+            sink.writeln("i32.store16");
+        }
+        Expr::Write4(_, addr, val) => {
+            translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), addr)?;
+            translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), val)?;
+            sink.writeln("i32.store");
+        }
+        Expr::Write8(_, addr, val) => {
+            translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), addr)?;
+            translate_expr(out, sink, lscope, ReturnType::Value(Type::I64), val)?;
+            sink.writeln("i64.store");
+        }
     }
     Ok(())
 }

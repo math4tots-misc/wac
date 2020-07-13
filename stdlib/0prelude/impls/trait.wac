@@ -4,15 +4,15 @@
 fn __WAC_find_funcptr[notrace](type_tag i32, trait_id i32) i32 {
     # Find the itable for the given type_tag
     var meta_itable_entry = $asm([], i32, "global.get $rt_meta_itable_start") + (type_tag * 8)
-    var itable_start = __read(meta_itable_entry)
-    var itable_end = __read(meta_itable_entry + 4)
+    var itable_start = $read4(meta_itable_entry)
+    var itable_end = $read4(meta_itable_entry + 4)
 
     var looking = true
     var i = itable_start
     var result = 0
     while looking and i < itable_end {
-        if __read(i) is trait_id {
-            result = __read(i + 4)
+        if $read4(i) is trait_id {
+            result = $read4(i + 4)
             looking = false
         }
         i = i + 8
@@ -25,13 +25,13 @@ fn __WAC_find_funcptr[notrace](type_tag i32, trait_id i32) i32 {
             $asm([], i32, "global.get $rt_meta_itable_start") +
             ($asm([id], i32, "") * 8)
         )
-        itable_start = __read(meta_itable_entry)
-        itable_end = __read(meta_itable_entry + 4)
+        itable_start = $read4(meta_itable_entry)
+        itable_end = $read4(meta_itable_entry + 4)
         i = itable_start
 
         while looking and i < itable_end {
-            if __read(i) is trait_id {
-                result = __read(i + 4)
+            if $read4(i) is trait_id {
+                result = $read4(i + 4)
                 looking = false
             }
             i = i + 8

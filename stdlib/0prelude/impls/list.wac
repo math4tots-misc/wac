@@ -5,23 +5,23 @@
 # The actual buffer is an array of i64 'id' objects
 #
 fn __WAC_list_release[notrace](ptr i32) {
-    var refcnt = __read(ptr) - 1
+    var refcnt = $read4(ptr) - 1
     if refcnt > 0 {
-        __write(ptr, refcnt)
+        $write4(ptr, refcnt)
     } else {
 
-        var len = __read(ptr + 4)
-        var buf = __read(ptr + 12)
+        var len = $read4(ptr + 4)
+        var buf = $read4(ptr + 12)
 
         # release each of the entries in this list
         var i = 0
         while i < len {
-            __WAC_id_release(__read_i64(buf + 8 * i))
+            __WAC_id_release($read8(buf + 8 * i))
             i = i + 1
         }
 
         # free the buffer
-        __free(__read(ptr + 8) * 8, buf)
+        __free($read4(ptr + 8) * 8, buf)
 
         # free the info
         __free(16, ptr)
@@ -31,7 +31,7 @@ fn __WAC_list_release[notrace](ptr i32) {
 fn __listlen[notrace](s list) i32 {
     # Gets the length of the given list
     var ptr = $asm([], i32, "local.get $l_0_s")
-    __read(ptr + 4)
+    $read4(ptr + 4)
 }
 
 fn __WAC_UNSAFE_listptr[notrace](s list) i32 {
@@ -45,16 +45,16 @@ fn __new_list[notrace]() list {
     var ptr = __malloc(16)
 
     # refcnt
-    __write(ptr, 1)
+    $write4(ptr, 1)
 
     # len (starts empty)
-    __write(ptr + 4, 0)
+    $write4(ptr + 4, 0)
 
     # capacity (starts with no allocation)
-    __write(ptr + 8, 0)
+    $write4(ptr + 8, 0)
 
     # ptr to buffer (starts as null)
-    __write(ptr + 12, 0)
+    $write4(ptr + 12, 0)
 
     $asm([], list, "local.get $l_0_ptr")
 }
@@ -68,8 +68,8 @@ fn __list_push[notrace](list list, item id) {
 
 fn __WAC_list_push_raw_no_retain[notrace](list i32, item i64) {
 
-    var len = __read(list + 4)
-    var capacity = __read(list + 8)
+    var len = $read4(list + 4)
+    var capacity = $read4(list + 8)
 
     if capacity < len + 1 {
         var new_capacity = if capacity is 0 {
@@ -79,21 +79,21 @@ fn __WAC_list_push_raw_no_retain[notrace](list i32, item i64) {
         }
 
         # Update the 'capacity' field
-        __write(list + 8, new_capacity)
+        $write4(list + 8, new_capacity)
 
         # Update with larger buffer
-        __write(
+        $write4(
             list + 12,
-            __realloc(8 * capacity, 8 * new_capacity, __read(list + 12)),
+            __realloc(8 * capacity, 8 * new_capacity, $read4(list + 12)),
         )
     }
 
     # update the 'len' field
-    __write(list + 4, len + 1)
+    $write4(list + 4, len + 1)
 
-    var buffer = __read(list + 12)
+    var buffer = $read4(list + 12)
 
-    __write_i64(buffer + 8 * len, item)
+    $write8(buffer + 8 * len, item)
 }
 
 fn __list_pop[notrace](list list) id {
@@ -107,14 +107,14 @@ fn __list_pop[notrace](list list) id {
 }
 
 fn __WAC_list_pop_raw_no_release[notrace](list i32) i64 {
-    var new_len = __read(list + 4) - 1
+    var new_len = $read4(list + 4) - 1
     if new_len < 0 {
         NoTracePanic("Pop from empty list")
     }
-    __write(list + 4, new_len)
+    $write4(list + 4, new_len)
 
     # buffer[new_len]
-    __read_i64(__read(list + 12) + 8 * new_len)
+    $read8($read4(list + 12) + 8 * new_len)
 }
 
 fn __list_getitem[notrace](list list, index i32) id {
@@ -122,7 +122,7 @@ fn __list_getitem[notrace](list list, index i32) id {
     var index = __index(index, len)
 
     var buffer = __list_buffer(list)
-    var raw_item = __read_i64(buffer + index * 8)
+    var raw_item = $read8(buffer + index * 8)
 
     # We have to retain for the return
     __WAC_id_retain(raw_item)
@@ -141,15 +141,15 @@ fn __list_setitem[notrace](list list, index i32, value id) {
     __WAC_id_retain($asm([], i64, "local.get $l_2_value"))
 
     # Release the old item
-    __WAC_id_release(__read_i64(item_ptr))
+    __WAC_id_release($read8(item_ptr))
 
     # Actually replace the value
-    __write_i64(item_ptr, $asm([], i64, "local.get $l_2_value"))
+    $write8(item_ptr, $asm([], i64, "local.get $l_2_value"))
 }
 
 # Get a pointer to the list's buffer
 fn __list_buffer[notrace](list list) i32 {
-    __read($asm([], i32, "local.get $l_0_list") + 12)
+    $read4($asm([], i32, "local.get $l_0_list") + 12)
 }
 
 fn __list_reverse[notrace](items list) {
@@ -160,9 +160,9 @@ fn __list_reverse[notrace](items list) {
     while i + i < len {
         var ptr1 = buffer + 8 * i
         var ptr2 = buffer + 8 * (len - 1 - i)
-        var tmp = __read_i64(ptr1)
-        __write_i64(ptr1, __read_i64(ptr2))
-        __write_i64(ptr2, tmp)
+        var tmp = $read8(ptr1)
+        $write8(ptr1, $read8(ptr2))
+        $write8(ptr2, tmp)
         i = i + 1
     }
 }

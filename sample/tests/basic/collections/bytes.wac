@@ -1,5 +1,5 @@
 
-fn __test_byts_misc() {
+fn __test_bytes_misc() {
     var bts = __new_bytes()
     AssertEq(SizeOf(bts), 0)
 

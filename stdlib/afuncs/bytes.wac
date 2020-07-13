@@ -1,0 +1,3 @@
+# bytes layout look like:
+#   [i32 refcnt][i32 nbytes][i32 capacity][i32 ptr]
+# (layout is similar to list)

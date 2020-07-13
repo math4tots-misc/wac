@@ -4,7 +4,7 @@ fn SomeFunc(s str) {
     var ptr = __WAC_UNSAFE_strptr(s)
     __print_str("Hello world!")
     __hello($cstr("STRPTR inside"), ptr)
-    __hello($cstr("REFCNT inside"), __read(ptr))
+    __hello($cstr("REFCNT inside"), $read4(ptr))
 }
 
 fn SomeOtherFunc() i32 {
@@ -13,11 +13,11 @@ fn SomeOtherFunc() i32 {
     __hello($cstr("STRPTR == split a =="), 0)
     var ptr = __WAC_UNSAFE_strptr(s)
     __hello($cstr("STRPTR before"), ptr)
-    __hello($cstr("REFCNT before"), __read(ptr))
+    __hello($cstr("REFCNT before"), $read4(ptr))
     __hello($cstr("STRPTR == split b =="), 0)
     SomeFunc(s)
     __hello($cstr("STRPTR after"), ptr)
-    __hello($cstr("REFCNT after"), __read(ptr))
+    __hello($cstr("REFCNT after"), $read4(ptr))
     ptr
 }
 
@@ -39,7 +39,7 @@ fn Main() {
     StringStuff()
     var ptr = SomeOtherFunc()
     __hello($cstr("STRPTR outside"), ptr)
-    __hello($cstr("REFCNT outside"), __read(ptr))
+    __hello($cstr("REFCNT outside"), $read4(ptr))
 
     # OldMain()
 }

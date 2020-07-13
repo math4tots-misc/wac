@@ -20,10 +20,8 @@ pub const CODE: &'static str = r###"
 
     ;; record the line number of the function call
     global.get $rt_stack_top
-    i32.const 4
-    i32.add
     local.get $lineno
-    i32.store
+    i32.store offset=4
 
     ;; increment the stack pointer
     global.get $rt_stack_top

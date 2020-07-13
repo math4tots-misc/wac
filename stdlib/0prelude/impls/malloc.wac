@@ -169,12 +169,12 @@ fn __realloc[notrace](old_len i32, new_len i32, ptr i32) i32 {
 fn __WAC_memcpy[notrace](dst i32, src i32, len i32) {
     var end = src + len
     while src + 4 < end {
-        __write(dst, __read(src))
+        $write4(dst, $read4(src))
         src = src + 4
         dst = dst + 4
     }
     while src < end {
-        __write_u8(dst, __read_u8(src))
+        $write1(dst, $read1(src))
         src = src + 1
         dst = dst + 1
     }
@@ -253,13 +253,13 @@ fn __malloc_16[notrace]() i32 {
         __WAC_alloc(16)
     } else {
         var ret = __WAC_freelist_16
-        __WAC_freelist_16 = __read(ret)
+        __WAC_freelist_16 = $read4(ret)
         ret
     }
 }
 
 fn __free_16[notrace](ptr i32) {
-    __write(ptr, __WAC_freelist_16)
+    $write4(ptr, __WAC_freelist_16)
     __WAC_freelist_16 = ptr
 }
 
@@ -268,13 +268,13 @@ fn __malloc_64[notrace]() i32 {
         __WAC_alloc(64)
     } else {
         var ret = __WAC_freelist_64
-        __WAC_freelist_64 = __read(ret)
+        __WAC_freelist_64 = $read4(ret)
         ret
     }
 }
 
 fn __free_64[notrace](ptr i32) {
-    __write(ptr, __WAC_freelist_64)
+    $write4(ptr, __WAC_freelist_64)
     __WAC_freelist_64 = ptr
 }
 
@@ -283,13 +283,13 @@ fn __malloc_256[notrace]() i32 {
         __WAC_alloc(256)
     } else {
         var ret = __WAC_freelist_256
-        __WAC_freelist_256 = __read(ret)
+        __WAC_freelist_256 = $read4(ret)
         ret
     }
 }
 
 fn __free_256[notrace](ptr i32) {
-    __write(ptr, __WAC_freelist_256)
+    $write4(ptr, __WAC_freelist_256)
     __WAC_freelist_256 = ptr
 }
 
@@ -298,13 +298,13 @@ fn __malloc_1024[notrace]() i32 {
         __WAC_alloc(1024)
     } else {
         var ret = __WAC_freelist_1024
-        __WAC_freelist_1024 = __read(ret)
+        __WAC_freelist_1024 = $read4(ret)
         ret
     }
 }
 
 fn __free_1024[notrace](ptr i32) {
-    __write(ptr, __WAC_freelist_1024)
+    $write4(ptr, __WAC_freelist_1024)
     __WAC_freelist_1024 = ptr
 }
 
@@ -313,13 +313,13 @@ fn __malloc_4096[notrace]() i32 {
         __WAC_alloc(4096)
     } else {
         var ret = __WAC_freelist_4096
-        __WAC_freelist_4096 = __read(ret)
+        __WAC_freelist_4096 = $read4(ret)
         ret
     }
 }
 
 fn __free_4096[notrace](ptr i32) {
-    __write(ptr, __WAC_freelist_4096)
+    $write4(ptr, __WAC_freelist_4096)
     __WAC_freelist_4096 = ptr
 }
 
@@ -328,13 +328,13 @@ fn __malloc_16384[notrace]() i32 {
         __WAC_alloc(16384)
     } else {
         var ret = __WAC_freelist_16384
-        __WAC_freelist_16384 = __read(ret)
+        __WAC_freelist_16384 = $read4(ret)
         ret
     }
 }
 
 fn __free_16384[notrace](ptr i32) {
-    __write(ptr, __WAC_freelist_16384)
+    $write4(ptr, __WAC_freelist_16384)
     __WAC_freelist_16384 = ptr
 }
 
@@ -343,13 +343,13 @@ fn __malloc_65536[notrace]() i32 {
         __WAC_alloc(65536)
     } else {
         var ret = __WAC_freelist_65536
-        __WAC_freelist_65536 = __read(ret)
+        __WAC_freelist_65536 = $read4(ret)
         ret
     }
 }
 
 fn __free_65536[notrace](ptr i32) {
-    __write(ptr, __WAC_freelist_65536)
+    $write4(ptr, __WAC_freelist_65536)
     __WAC_freelist_65536 = ptr
 }
 
@@ -358,13 +358,13 @@ fn __malloc_262144[notrace]() i32 {
         __WAC_alloc(262144)
     } else {
         var ret = __WAC_freelist_262144
-        __WAC_freelist_262144 = __read(ret)
+        __WAC_freelist_262144 = $read4(ret)
         ret
     }
 }
 
 fn __free_262144[notrace](ptr i32) {
-    __write(ptr, __WAC_freelist_262144)
+    $write4(ptr, __WAC_freelist_262144)
     __WAC_freelist_262144 = ptr
 }
 
@@ -373,13 +373,13 @@ fn __malloc_1048576[notrace]() i32 {
         __WAC_alloc(1048576)
     } else {
         var ret = __WAC_freelist_1048576
-        __WAC_freelist_1048576 = __read(ret)
+        __WAC_freelist_1048576 = $read4(ret)
         ret
     }
 }
 
 fn __free_1048576[notrace](ptr i32) {
-    __write(ptr, __WAC_freelist_1048576)
+    $write4(ptr, __WAC_freelist_1048576)
     __WAC_freelist_1048576 = ptr
 }
 
@@ -388,13 +388,13 @@ fn __malloc_4194304[notrace]() i32 {
         __WAC_alloc(4194304)
     } else {
         var ret = __WAC_freelist_4194304
-        __WAC_freelist_4194304 = __read(ret)
+        __WAC_freelist_4194304 = $read4(ret)
         ret
     }
 }
 
 fn __free_4194304[notrace](ptr i32) {
-    __write(ptr, __WAC_freelist_4194304)
+    $write4(ptr, __WAC_freelist_4194304)
     __WAC_freelist_4194304 = ptr
 }
 
@@ -403,13 +403,13 @@ fn __malloc_16777216[notrace]() i32 {
         __WAC_alloc(16777216)
     } else {
         var ret = __WAC_freelist_16777216
-        __WAC_freelist_16777216 = __read(ret)
+        __WAC_freelist_16777216 = $read4(ret)
         ret
     }
 }
 
 fn __free_16777216[notrace](ptr i32) {
-    __write(ptr, __WAC_freelist_16777216)
+    $write4(ptr, __WAC_freelist_16777216)
     __WAC_freelist_16777216 = ptr
 }
 
@@ -418,13 +418,13 @@ fn __malloc_67108864[notrace]() i32 {
         __WAC_alloc(67108864)
     } else {
         var ret = __WAC_freelist_67108864
-        __WAC_freelist_67108864 = __read(ret)
+        __WAC_freelist_67108864 = $read4(ret)
         ret
     }
 }
 
 fn __free_67108864[notrace](ptr i32) {
-    __write(ptr, __WAC_freelist_67108864)
+    $write4(ptr, __WAC_freelist_67108864)
     __WAC_freelist_67108864 = ptr
 }
 
@@ -433,13 +433,13 @@ fn __malloc_268435456[notrace]() i32 {
         __WAC_alloc(268435456)
     } else {
         var ret = __WAC_freelist_268435456
-        __WAC_freelist_268435456 = __read(ret)
+        __WAC_freelist_268435456 = $read4(ret)
         ret
     }
 }
 
 fn __free_268435456[notrace](ptr i32) {
-    __write(ptr, __WAC_freelist_268435456)
+    $write4(ptr, __WAC_freelist_268435456)
     __WAC_freelist_268435456 = ptr
 }
 
@@ -448,12 +448,12 @@ fn __malloc_1073741824[notrace]() i32 {
         __WAC_alloc(1073741824)
     } else {
         var ret = __WAC_freelist_1073741824
-        __WAC_freelist_1073741824 = __read(ret)
+        __WAC_freelist_1073741824 = $read4(ret)
         ret
     }
 }
 
 fn __free_1073741824[notrace](ptr i32) {
-    __write(ptr, __WAC_freelist_1073741824)
+    $write4(ptr, __WAC_freelist_1073741824)
     __WAC_freelist_1073741824 = ptr
 }

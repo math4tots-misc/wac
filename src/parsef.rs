@@ -571,6 +571,74 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
                     parser.expect(Token::RParen)?;
                     Ok(Expr::Asm(span, args, type_, asm_code))
                 }
+                Token::Name("read1") |
+                Token::Name("read2") |
+                Token::Name("read4") |
+                Token::Name("read8") => {
+                    let name = parser.expect_name()?;
+                    let name: &str = &name;
+                    parser.expect(Token::LParen)?;
+                    let expr = parse_expr(parser, 0)?;
+                    parser.consume(Token::Comma);
+                    parser.expect(Token::RParen)?;
+                    let span = span.upto(&parser.span());
+                    Ok(match name {
+                        "read1" => Expr::Read1(
+                            span,
+                            expr.into(),
+                        ),
+                        "read2" => Expr::Read2(
+                            span,
+                            expr.into(),
+                        ),
+                        "read4" => Expr::Read4(
+                            span,
+                            expr.into(),
+                        ),
+                        "read8" => Expr::Read8(
+                            span,
+                            expr.into(),
+                        ),
+                        _ => panic!("Impossible read* name: {}", name),
+                    })
+                }
+                Token::Name("write1") |
+                Token::Name("write2") |
+                Token::Name("write4") |
+                Token::Name("write8") => {
+                    let name = parser.expect_name()?;
+                    let name: &str = &name;
+                    parser.expect(Token::LParen)?;
+                    let addr = parse_expr(parser, 0)?;
+                    parser.expect(Token::Comma)?;
+                    let val = parse_expr(parser, 0)?;
+                    parser.consume(Token::Comma);
+                    parser.expect(Token::RParen)?;
+                    let span = span.upto(&parser.span());
+                    Ok(match name {
+                        "write1" => Expr::Write1(
+                            span,
+                            addr.into(),
+                            val.into(),
+                        ),
+                        "write2" => Expr::Write2(
+                            span,
+                            addr.into(),
+                            val.into(),
+                        ),
+                        "write4" => Expr::Write4(
+                            span,
+                            addr.into(),
+                            val.into(),
+                        ),
+                        "write8" => Expr::Write8(
+                            span,
+                            addr.into(),
+                            val.into(),
+                        ),
+                        _ => panic!("Impossible write* name: {}", name),
+                    })
+                }
                 _ => Err(ParseError::InvalidToken {
                     span,
                     expected: "intrinsic name".into(),
