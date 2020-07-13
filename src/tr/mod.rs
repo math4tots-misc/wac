@@ -225,25 +225,46 @@ pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
     // global variables that appear later
     // NOTE: it kinda sucks that the behavior of the code will depend on the
     // order in which you provide the files
-    for (_filename, file) in &files {
-        for gvar in &file.globalvars {
-            let mut lscope = LocalScope::new(&gscope, true);
-            let type_ = if let Some(t) = gvar.type_ {
-                t
-            } else {
-                guess_type(&mut lscope, &gvar.init)?
-            };
-            let init_sink = out.start.spawn();
-            translate_expr(
-                &mut out,
-                &init_sink,
-                &mut lscope,
-                ReturnType::Value(type_),
-                &gvar.init,
-            )?;
-            let info = gscope.decl_gvar(gvar.span.clone(), gvar.name.clone(), type_)?;
-            init_sink.global_set(&info.wasm_name);
-            out.gvars.global_mut(info.type_.wasm(), &info.wasm_name, 0);
+    {
+        let mut init_lscope = LocalScope::new(&mut gscope, true);
+        for (_filename, file) in &files {
+            for gvar in &file.globalvars {
+                init_lscope.push();
+
+                let type_ = if let Some(t) = gvar.type_ {
+                    t
+                } else {
+                    guess_type(&mut init_lscope, &gvar.init)?
+                };
+                let init_sink = out.start.spawn();
+                translate_expr(
+                    &mut out,
+                    &init_sink,
+                    &mut init_lscope,
+                    ReturnType::Value(type_),
+                    &gvar.init,
+                )?;
+                let info = init_lscope.g.decl_gvar(gvar.span.clone(), gvar.name.clone(), type_)?;
+                init_sink.global_set(&info.wasm_name);
+                out.gvars.global_mut(info.type_.wasm(), &info.wasm_name, 0);
+
+                init_lscope.pop();
+            }
+        }
+        // declare all helper variables
+        for (wasm_name, type_) in init_lscope.helper_locals {
+            assert!(type_.primitive());
+            out.startlocals.writeln(format!("(local {} {})", wasm_name, translate_type(type_)));
+            release_var(&out.start, Scope::Local, &wasm_name, type_);
+        }
+        // declare all local variables used
+        for info in init_lscope.decls {
+            out.startlocals.writeln(format!(
+                " (local {} {})",
+                info.wasm_name,
+                translate_type(info.type_)
+            ));
+            release_var(&out.start, Scope::Local, &info.wasm_name, info.type_);
         }
     }
 
@@ -253,7 +274,7 @@ pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
             translate_import(&out, imp);
         }
         for func in file.functions {
-            translate_func(&mut out, &gscope, func)?;
+            translate_func(&mut out, &mut gscope, func)?;
         }
         for imp in file.impls {
             translate_impl(&mut out, &mut gscope, imp)?;

@@ -214,7 +214,7 @@ pub(super) struct LocalVarInfo {
 }
 
 pub(super) struct LocalScope<'a> {
-    pub(super) g: &'a GlobalScope,
+    pub(super) g: &'a mut GlobalScope,
     pub(super) trace: bool,
     pub(super) locals: Vec<HashMap<Rc<str>, Rc<LocalVarInfo>>>,
     pub(super) nlabels: usize,
@@ -230,7 +230,7 @@ pub(super) struct LocalScope<'a> {
 }
 
 impl<'a> LocalScope<'a> {
-    pub(super) fn new(g: &'a GlobalScope, trace: bool) -> Self {
+    pub(super) fn new(g: &'a mut GlobalScope, trace: bool) -> Self {
         Self {
             g,
             trace,

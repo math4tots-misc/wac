@@ -76,7 +76,7 @@ pub(super) fn translate_impl(
 
 pub(super) fn translate_func(
     out: &mut Out,
-    gscope: &GlobalScope,
+    gscope: &mut GlobalScope,
     func: Function,
 ) -> Result<(), Error> {
     translate_func_from_parts(
@@ -92,7 +92,7 @@ pub(super) fn translate_func(
 
 pub(super) fn translate_func_from_parts(
     out: &mut Out,
-    gscope: &GlobalScope,
+    gscope: &mut GlobalScope,
     visibility: Visibility,
     fspan: &SSpan,
     fname: &Rc<str>,
@@ -128,7 +128,6 @@ pub(super) fn translate_func_from_parts(
     }
     // we won't know what locals we have until we finish translate_expr on the body
     let locals_sink = sink.spawn();
-    let locals_init = sink.spawn();
     translate_expr(out, &sink, &mut lscope, ftype.return_type, &body)?;
     let epilogue = sink.spawn();
     sink.writeln(")");
@@ -138,6 +137,7 @@ pub(super) fn translate_func_from_parts(
     let mut helper_locals: Vec<(_, _)> = lscope.helper_locals.into_iter().collect();
     helper_locals.sort_by(|a, b| a.0.cmp(&b.0));
     for (wasm_name, type_) in helper_locals {
+        assert!(type_.primitive());
         locals_sink.writeln(format!("(local {} {})", wasm_name, translate_type(type_)));
         release_var(&epilogue, Scope::Local, &wasm_name, type_);
     }
@@ -146,11 +146,6 @@ pub(super) fn translate_func_from_parts(
     for info in lscope.decls.iter().skip(ftype.parameters.len()) {
         locals_sink.writeln(format!(
             " (local {} {})",
-            info.wasm_name,
-            translate_type(info.type_)
-        ));
-        locals_init.writeln(format!(
-            "(local.set {} ({}.const 0))",
             info.wasm_name,
             translate_type(info.type_)
         ));

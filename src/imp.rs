@@ -1,36 +1,26 @@
+use std::cell::Cell;
+use std::io::Write;
+
 pub fn make_import_object() -> wr::ImportObject {
     wr::imports! {
         "lang" => {
-            "print0_str_raw" => wr::func!(|ctx: &mut wr::Ctx, len: i32, ptr: i32| {
+            "write_raw" => wr::func!(|ctx: &mut wr::Ctx, fd: i32, len: i32, ptr: i32| -> i32 {
                 let memory = ctx.memory(0);
-                let s = read_str(memory, len, ptr);
-                print!("{}", s);
-            }),
-            "eprint0_str_raw" => wr::func!(|ctx: &mut wr::Ctx, len: i32, ptr: i32| {
-                let memory = ctx.memory(0);
-                let s = read_str(memory, len, ptr);
-                eprint!("{}", s);
+                let bytes = read_bytes_from_memory(memory, len, ptr);
+                match fd {
+                    0 => panic!("Cannot write to stdin"),
+                    1 => std::io::stdout().write(&bytes).unwrap() as i32,
+                    2 => std::io::stderr().write(&bytes).unwrap() as i32,
+                    _ => panic!("Invalid file descriptor {}", fd),
+                }
             }),
         }
     }
 }
 
-// fn read(memory: &wr::Memory, ptr: i32) -> i32 {
-//     wr::WasmPtr::<i32>::new(ptr as u32).deref(memory).unwrap().get()
-// }
-
-// fn write(memory: &wr::Memory, ptr: i32) -> i32 {
-//     wr::WasmPtr::<i32>::new(ptr as u32).deref(memory).unwrap().get()
-// }
-
-// fn read_cstr(memory: &wr::Memory, ptr: i32) -> &str {
-//     wr::WasmPtr::<i32, wr::Array>::new(ptr as u32)
-//         .get_utf8_string_with_nul(memory)
-//         .unwrap()
-// }
-
-fn read_str(memory: &wr::Memory, len: i32, ptr: i32) -> &str {
-    wr::WasmPtr::<i32, wr::Array>::new(ptr as u32)
-        .get_utf8_string(memory, len as u32)
-        .unwrap()
+fn read_bytes_from_memory(memory: &wr::Memory, len: i32, ptr: i32) -> Vec<u8> {
+    let ptr = ptr as usize;
+    let len = len as usize;
+    let view: wr::memory::MemoryView<u8> = memory.view();
+    view[ptr..ptr + len].iter().map(Cell::get).collect()
 }

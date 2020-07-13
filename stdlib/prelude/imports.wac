@@ -1,7 +1,16 @@
 # Some basic language imports
 
-import fn "lang" "print0_str_raw" __print0_str_raw[notrace](len i32, ptr i32)
-import fn "lang" "eprint0_str_raw" __eprint0_str_raw[notrace](len i32, ptr i32)
+# import fn "lang" "print0_str_raw" __print0_str_raw[notrace](len i32, ptr i32)
+# import fn "lang" "eprint0_str_raw" __eprint0_str_raw[notrace](len i32, ptr i32)
+import fn "lang" "write_raw" __write_raw[notrace](fd i32, len i32, ptr i32) i32
+
+fn __eprint0_str_raw[notrace](len i32, ptr i32) {
+    __write_raw(2, len, ptr)
+}
+
+fn __print0_str_raw[notrace](len i32, ptr i32) {
+    __write_raw(1, len, ptr)
+}
 
 # We define the entrypoint to be __start so that main can be private
 fn[pub] __start() i32 {
