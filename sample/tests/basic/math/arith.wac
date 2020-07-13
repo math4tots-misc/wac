@@ -4,7 +4,15 @@ fn __test_int_eq() {
     Assert(5 != 7)
 }
 
-
-fn __test_add() {
+fn __test_arith_misc() {
     AssertSame(5 + 5, 10)
+
+    # float(5) should not be the same as 5
+    Assert((5 / 1).(id) is not (5).(id))
+
+    AssertSame(5 // 1, 5)
+
+    AssertSame(type(5), i32)
+    AssertSame(type(5 // 1), i32)
+    AssertSame(type(5 / 1), f32)
 }

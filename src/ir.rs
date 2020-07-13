@@ -98,6 +98,9 @@ pub struct GlobalVariable {
     pub init: Expr,
 }
 
+// NOTE: the Cell<Option<ReturnType>> is not necessarily the actual
+// return type of the given expression -- it's just the cached result
+// of the guess_type function
 pub enum Expr {
     Bool(SSpan, Cell<Option<ReturnType>>, bool),
     Int(SSpan, Cell<Option<ReturnType>>, i64),

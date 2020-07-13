@@ -143,32 +143,47 @@ pub(super) fn guess_return_type(lscope: &mut LocalScope, expr: &Expr) -> Result<
                 // arithmetic ops
                 Binop::Add | Binop::Subtract | Binop::Multiply | Binop::Remainder => {
                     let ltype = guess_type(lscope, left)?;
-                    if !ltype.builtin_primitive() {
-                        Type::Id
-                    } else {
-                        let rtype = guess_type(lscope, right)?;
+                    let rtype = guess_type(lscope, right)?;
+                    if ltype.builtin_primitive() && rtype.builtin_primitive() {
                         match (ltype, rtype) {
                             (Type::I32, Type::I32) => Type::I32,
+                            (Type::I64, Type::I64) => Type::I64,
                             _ => Type::F32,
                         }
+                    } else {
+                        Type::Id
                     }
                 }
 
                 // division ops
                 Binop::Divide => {
                     let ltype = guess_type(lscope, left)?;
-                    if !ltype.builtin_primitive() {
-                        Type::Id
-                    } else {
-                        Type::F32
+                    let rtype = guess_type(lscope, right)?;
+                    match (ltype, rtype) {
+                        (Type::I32, Type::I32) |
+                        (Type::F32, Type::F32) |
+                        (Type::I32, Type::F32) |
+                        (Type::F32, Type::I32) => Type::F32,
+                        (Type::I64, Type::I64) |
+                        (Type::F64, Type::F64) |
+                        (Type::I64, Type::F64) |
+                        (Type::F64, Type::I64) => Type::F64,
+                        _ => Type::Id
                     }
                 }
                 Binop::TruncDivide => {
                     let ltype = guess_type(lscope, left)?;
-                    if !ltype.builtin_primitive() {
-                        Type::Id
-                    } else {
-                        Type::I32
+                    let rtype = guess_type(lscope, right)?;
+                    match (ltype, rtype) {
+                        (Type::I32, Type::I32) |
+                        (Type::F32, Type::F32) |
+                        (Type::I32, Type::F32) |
+                        (Type::F32, Type::I32) => Type::I32,
+                        (Type::I64, Type::I64) |
+                        (Type::F64, Type::F64) |
+                        (Type::I64, Type::F64) |
+                        (Type::F64, Type::I64) => Type::I64,
+                        _ => Type::Id
                     }
                 }
 
@@ -203,6 +218,7 @@ pub(super) fn guess_return_type(lscope: &mut LocalScope, expr: &Expr) -> Result<
                 //     * always returns bool
                 Unop::Minus | Unop::Plus => match guess_type(lscope, expr)? {
                     Type::I32 => Type::I32,
+                    Type::I64 => Type::I64,
                     _ => Type::F32,
                 },
                 Unop::Not => Type::Bool,
