@@ -41,9 +41,7 @@ pub(crate) fn get_name_for_enum_type_with_offset(offset: u16) -> Rc<str> {
         match cell
             .borrow()
             .as_ref()
-            .unwrap()
-            .offset_to_enum_name
-            .get(offset as usize)
+            .and_then(|tmap| tmap.offset_to_enum_name.get(offset as usize))
         {
             Some(name) => name.clone(),
             None => format!("[enum:{}]", offset).into(),

@@ -86,6 +86,7 @@ fn parse_constant(parser: &mut Parser) -> Result<Constant, ParseError> {
     parser.expect(Token::Eq)?;
     let expr = parse_expr(parser, 0)?;
     let value = eval_constexpr(&expr, parser)?;
+    parser.constants_map.insert(name.clone(), value.clone());
     let span = span.upto(&parser.span());
     Ok(Constant { span, name, value })
 }
@@ -111,7 +112,7 @@ fn eval_constexpr(expr: &Expr, parser: &mut Parser) -> Result<ConstValue, ParseE
                         })
                     } else {
                         // If it's not strict mode, just return some dummy type
-                        Ok(ConstValue::Type(Type::Enum(0)))
+                        Ok(ConstValue::I32(1))
                     }
                 }
             },
@@ -235,13 +236,13 @@ fn eval_constexpr(expr: &Expr, parser: &mut Parser) -> Result<ConstValue, ParseE
 
 fn parse_const_uint(parser: &mut Parser) -> Result<u32, ParseError> {
     let span = parser.span();
-    let peek = parser.peek();
     match parse_constval(parser)? {
         ConstValue::I32(i) if i >= 0 => Ok(i as u32),
-        _ => Err(ParseError::InvalidToken {
+        ConstValue::Enum(_, i) if i >= 0 => Ok(i as u32),
+        value => Err(ParseError::InvalidToken {
             span,
             expected: format!("const uint"),
-            got: format!("{:?}", peek),
+            got: format!("{:?}", value),
         }),
     }
 }

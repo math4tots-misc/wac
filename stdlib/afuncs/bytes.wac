@@ -1,3 +1,9 @@
 # bytes layout look like:
 #   [i32 refcnt][i32 nbytes][i32 capacity][i32 ptr]
 # (layout is similar to list)
+
+const __WAC_bytes_size_offset = 4
+
+fn bytes.Size(self) i32 {
+    $read4($asm([], i32, "local.get $l_0_self"), offset: __WAC_bytes_size_offset)
+}
