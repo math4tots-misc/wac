@@ -233,6 +233,19 @@ fn eval_constexpr(expr: &Expr, parser: &mut Parser) -> Result<ConstValue, ParseE
     }
 }
 
+fn parse_const_uint(parser: &mut Parser) -> Result<u32, ParseError> {
+    let span = parser.span();
+    let peek = parser.peek();
+    match parse_constval(parser)? {
+        ConstValue::I32(i) if i >= 0 => Ok(i as u32),
+        _ => Err(ParseError::InvalidToken {
+            span,
+            expected: format!("const uint"),
+            got: format!("{:?}", peek),
+        }),
+    }
+}
+
 fn parse_func(parser: &mut Parser) -> Result<Function, ParseError> {
     let span = parser.span();
     parser.expect(Token::Name("fn"))?;
@@ -571,71 +584,57 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
                     parser.expect(Token::RParen)?;
                     Ok(Expr::Asm(span, args, type_, asm_code))
                 }
-                Token::Name("read1") |
-                Token::Name("read2") |
-                Token::Name("read4") |
-                Token::Name("read8") => {
+                Token::Name("read1")
+                | Token::Name("read2")
+                | Token::Name("read4")
+                | Token::Name("read8") => {
                     let name = parser.expect_name()?;
                     let name: &str = &name;
                     parser.expect(Token::LParen)?;
                     let expr = parse_expr(parser, 0)?;
+                    let offset =
+                        if parser.consume(Token::Comma) && parser.consume(Token::Name("offset")) {
+                            parser.expect(Token::Colon)?;
+                            parse_const_uint(parser)?
+                        } else {
+                            0
+                        };
                     parser.consume(Token::Comma);
                     parser.expect(Token::RParen)?;
                     let span = span.upto(&parser.span());
                     Ok(match name {
-                        "read1" => Expr::Read1(
-                            span,
-                            expr.into(),
-                        ),
-                        "read2" => Expr::Read2(
-                            span,
-                            expr.into(),
-                        ),
-                        "read4" => Expr::Read4(
-                            span,
-                            expr.into(),
-                        ),
-                        "read8" => Expr::Read8(
-                            span,
-                            expr.into(),
-                        ),
+                        "read1" => Expr::Read1(span, expr.into(), offset),
+                        "read2" => Expr::Read2(span, expr.into(), offset),
+                        "read4" => Expr::Read4(span, expr.into(), offset),
+                        "read8" => Expr::Read8(span, expr.into(), offset),
                         _ => panic!("Impossible read* name: {}", name),
                     })
                 }
-                Token::Name("write1") |
-                Token::Name("write2") |
-                Token::Name("write4") |
-                Token::Name("write8") => {
+                Token::Name("write1")
+                | Token::Name("write2")
+                | Token::Name("write4")
+                | Token::Name("write8") => {
                     let name = parser.expect_name()?;
                     let name: &str = &name;
                     parser.expect(Token::LParen)?;
                     let addr = parse_expr(parser, 0)?;
                     parser.expect(Token::Comma)?;
                     let val = parse_expr(parser, 0)?;
+                    let offset =
+                        if parser.consume(Token::Comma) && parser.consume(Token::Name("offset")) {
+                            parser.expect(Token::Colon)?;
+                            parse_const_uint(parser)?
+                        } else {
+                            0
+                        };
                     parser.consume(Token::Comma);
                     parser.expect(Token::RParen)?;
                     let span = span.upto(&parser.span());
                     Ok(match name {
-                        "write1" => Expr::Write1(
-                            span,
-                            addr.into(),
-                            val.into(),
-                        ),
-                        "write2" => Expr::Write2(
-                            span,
-                            addr.into(),
-                            val.into(),
-                        ),
-                        "write4" => Expr::Write4(
-                            span,
-                            addr.into(),
-                            val.into(),
-                        ),
-                        "write8" => Expr::Write8(
-                            span,
-                            addr.into(),
-                            val.into(),
-                        ),
+                        "write1" => Expr::Write1(span, addr.into(), val.into(), offset),
+                        "write2" => Expr::Write2(span, addr.into(), val.into(), offset),
+                        "write4" => Expr::Write4(span, addr.into(), val.into(), offset),
+                        "write8" => Expr::Write8(span, addr.into(), val.into(), offset),
                         _ => panic!("Impossible write* name: {}", name),
                     })
                 }

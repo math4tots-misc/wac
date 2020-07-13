@@ -48,13 +48,13 @@ fn __new_list[notrace]() list {
     $write4(ptr, 1)
 
     # len (starts empty)
-    $write4(ptr + 4, 0)
+    $write4(ptr, 0, offset: 4)
 
     # capacity (starts with no allocation)
-    $write4(ptr + 8, 0)
+    $write4(ptr, 0, offset: 8)
 
     # ptr to buffer (starts as null)
-    $write4(ptr + 12, 0)
+    $write4(ptr, 0, offset: 12)
 
     $asm([], list, "local.get $l_0_ptr")
 }
@@ -68,8 +68,8 @@ fn __list_push[notrace](list list, item id) {
 
 fn __WAC_list_push_raw_no_retain[notrace](list i32, item i64) {
 
-    var len = $read4(list + 4)
-    var capacity = $read4(list + 8)
+    var len = $read4(list, offset: 4)
+    var capacity = $read4(list, offset: 8)
 
     if capacity < len + 1 {
         var new_capacity = if capacity is 0 {
@@ -83,15 +83,16 @@ fn __WAC_list_push_raw_no_retain[notrace](list i32, item i64) {
 
         # Update with larger buffer
         $write4(
-            list + 12,
-            __realloc(8 * capacity, 8 * new_capacity, $read4(list + 12)),
+            list,
+            __realloc(8 * capacity, 8 * new_capacity, $read4(list, offset: 12)),
+            offset: 12,
         )
     }
 
     # update the 'len' field
-    $write4(list + 4, len + 1)
+    $write4(list, len + 1, offset: 4)
 
-    var buffer = $read4(list + 12)
+    var buffer = $read4(list, offset: 12)
 
     $write8(buffer + 8 * len, item)
 }
@@ -111,10 +112,10 @@ fn __WAC_list_pop_raw_no_release[notrace](list i32) i64 {
     if new_len < 0 {
         NoTracePanic("Pop from empty list")
     }
-    $write4(list + 4, new_len)
+    $write4(list, new_len, offset: 4)
 
     # buffer[new_len]
-    $read8($read4(list + 12) + 8 * new_len)
+    $read8($read4(list, offset: 12) + 8 * new_len)
 }
 
 fn __list_getitem[notrace](list list, index i32) id {

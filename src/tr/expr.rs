@@ -834,41 +834,73 @@ pub(super) fn translate_expr(
             sink.writeln(asm_code);
             auto_cast(sink, span, lscope, *type_, etype)?;
         }
-        Expr::Read1(_, subexpr) => {
+        Expr::Read1(_, subexpr, offset) => {
             translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), subexpr)?;
-            sink.writeln("i32.load8_u");
+            sink.write("i32.load8_u");
+            if *offset > 0 {
+                sink.write(format!(" offset={}", offset));
+            }
+            sink.writeln("");
         }
-        Expr::Read2(_, subexpr) => {
+        Expr::Read2(_, subexpr, offset) => {
             translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), subexpr)?;
-            sink.writeln("i32.load16_u")
+            sink.write("i32.load16_u");
+            if *offset > 0 {
+                sink.write(format!(" offset={}", offset));
+            }
+            sink.writeln("");
         }
-        Expr::Read4(_, subexpr) => {
+        Expr::Read4(_, subexpr, offset) => {
             translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), subexpr)?;
-            sink.writeln("i32.load")
+            sink.write("i32.load");
+            if *offset > 0 {
+                sink.write(format!(" offset={}", offset));
+            }
+            sink.writeln("");
         }
-        Expr::Read8(_, subexpr) => {
+        Expr::Read8(_, subexpr, offset) => {
             translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), subexpr)?;
-            sink.writeln("i64.load")
+            sink.write("i64.load");
+            if *offset > 0 {
+                sink.write(format!(" offset={}", offset));
+            }
+            sink.writeln("");
         }
-        Expr::Write1(_, addr, val) => {
+        Expr::Write1(_, addr, val, offset) => {
             translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), addr)?;
             translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), val)?;
-            sink.writeln("i32.store8");
+            sink.write("i32.store8");
+            if *offset > 0 {
+                sink.write(format!(" offset={}", offset));
+            }
+            sink.writeln("");
         }
-        Expr::Write2(_, addr, val) => {
+        Expr::Write2(_, addr, val, offset) => {
             translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), addr)?;
             translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), val)?;
-            sink.writeln("i32.store16");
+            sink.write("i32.store16");
+            if *offset > 0 {
+                sink.write(format!(" offset={}", offset));
+            }
+            sink.writeln("");
         }
-        Expr::Write4(_, addr, val) => {
+        Expr::Write4(_, addr, val, offset) => {
             translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), addr)?;
             translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), val)?;
-            sink.writeln("i32.store");
+            sink.write("i32.store");
+            if *offset > 0 {
+                sink.write(format!(" offset={}", offset));
+            }
+            sink.writeln("");
         }
-        Expr::Write8(_, addr, val) => {
+        Expr::Write8(_, addr, val, offset) => {
             translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), addr)?;
             translate_expr(out, sink, lscope, ReturnType::Value(Type::I64), val)?;
-            sink.writeln("i64.store");
+            sink.write("i64.store");
+            if *offset > 0 {
+                sink.write(format!(" offset={}", offset));
+            }
+            sink.writeln("");
         }
     }
     Ok(())

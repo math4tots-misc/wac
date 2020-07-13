@@ -138,14 +138,14 @@ pub enum Expr {
 
     // memory reading intrinsics
     // reads/writes the number of bytes as specified in their names
-    Read1(SSpan, Box<Expr>),
-    Read2(SSpan, Box<Expr>),
-    Read4(SSpan, Box<Expr>),
-    Read8(SSpan, Box<Expr>),
-    Write1(SSpan, Box<Expr>, Box<Expr>),
-    Write2(SSpan, Box<Expr>, Box<Expr>),
-    Write4(SSpan, Box<Expr>, Box<Expr>),
-    Write8(SSpan, Box<Expr>, Box<Expr>),
+    Read1(SSpan, Box<Expr>, u32),
+    Read2(SSpan, Box<Expr>, u32),
+    Read4(SSpan, Box<Expr>, u32),
+    Read8(SSpan, Box<Expr>, u32),
+    Write1(SSpan, Box<Expr>, Box<Expr>, u32),
+    Write2(SSpan, Box<Expr>, Box<Expr>, u32),
+    Write4(SSpan, Box<Expr>, Box<Expr>, u32),
+    Write8(SSpan, Box<Expr>, Box<Expr>, u32),
 }
 
 impl Expr {

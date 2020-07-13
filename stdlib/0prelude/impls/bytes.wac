@@ -8,11 +8,11 @@ fn __WAC_bytes_release[notrace](ptr i32) {
     if refcnt > 0 {
         $write4(ptr, refcnt)
     } else {
-        var len = $read4(ptr + 4)
-        var buf = $read4(ptr + 12)
+        var len = $read4(ptr, offset: 4)
+        var buf = $read4(ptr, offset: 12)
 
         # free the bytes
-        __free($read4(ptr + 8), buf)
+        __free($read4(ptr, offset: 8), buf)
 
         # free the info
         __free(16, ptr)
@@ -49,13 +49,13 @@ fn __bytes_resize[notrace](bts bytes, new_size i32) {
 }
 
 fn __bytes_len[notrace](bts bytes) i32 {
-    $read4($asm([], i32, "local.get $l_0_bts") + 4)
+    $read4($asm([], i32, "local.get $l_0_bts"), offset: 4)
 }
 
 # Get the byte at given index
 fn __bytes_getitem[notrace](bts bytes, i i32) i32 {
     var bts = $asm([], i32, "local.get $l_0_bts")
-    $read1($read4(bts + 12) + i)
+    $read1($read4(bts, offset: 12) + i)
 }
 
 # Set the byte at given index
@@ -71,7 +71,7 @@ fn __bytes_setitem[notrace](bts bytes, i i32, byte i32) {
             ]
         ))
     }
-    $write1($read4(bts + 12) + i, byte)
+    $write1($read4(bts, offset: 12) + i, byte)
 }
 
 fn __bytes_push[notrace](buf bytes, byte i32) {
@@ -81,8 +81,8 @@ fn __bytes_push[notrace](buf bytes, byte i32) {
 
 fn __WAC_bytes_push_raw[notrace](btsptr i32, byte i32) {
 
-    var len = $read4(btsptr + 4)
-    var capacity = $read4(btsptr + 8)
+    var len = $read4(btsptr, offset: 4)
+    var capacity = $read4(btsptr, offset: 8)
 
     if capacity < len + 1 {
         var new_capacity = if capacity is 0 {
@@ -96,15 +96,16 @@ fn __WAC_bytes_push_raw[notrace](btsptr i32, byte i32) {
 
         # Update with larger bytes
         $write4(
-            btsptr + 12,
-            __realloc(capacity, new_capacity, $read4(btsptr + 12)),
+            btsptr,
+            __realloc(capacity, new_capacity, $read4(btsptr, offset: 12)),
+            offset: 12,
         )
     }
 
     # update the 'len' field
-    $write4(btsptr + 4, len + 1)
+    $write4(btsptr, len + 1, offset: 4)
 
-    var buffer = $read4(btsptr + 12)
+    var buffer = $read4(btsptr, offset: 12)
 
     if byte < 0 or byte > 0xFF {
         NoTracePanic(__str_join(
