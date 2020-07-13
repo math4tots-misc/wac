@@ -172,7 +172,19 @@ pub(super) fn guess_return_type(lscope: &mut LocalScope, expr: &Expr) -> Result<
             | Binop::BitwiseOr
             | Binop::BitwiseXor
             | Binop::ShiftLeft
-            | Binop::ShiftRight => Type::I32,
+            | Binop::ShiftRight => {
+                let ltype = guess_type(lscope, left)?;
+                let rtype = guess_type(lscope, right)?;
+                match (ltype, rtype) {
+                    (Type::I32, Type::I32) => Type::I32,
+                    (Type::I64, Type::I64) => Type::I64,
+                    _ => return Err(Error::Type {
+                        span: expr.span().clone(),
+                        expected: "bitwise operands (i32xi32 or i64xi64)".into(),
+                        got: format!("{}, {}", ltype, rtype),
+                    })
+                }
+            }
         })),
         Expr::Unop(_span, op, expr) => Ok(ReturnType::Value(match op {
             // == unops ==

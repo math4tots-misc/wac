@@ -1,0 +1,20 @@
+
+
+# cast an i32 to an i64, without extending the signed bit
+fn i32.ExtendUnsigned(self) i64 {
+    $asm([self], i64, "i64.extend_i32_u")
+}
+
+fn i32.ExtendSigned(self) i64 {
+    $asm([self], i64, "i64.extend_i32_s")
+}
+
+fn i64.Wrap(self) i32 {
+    $asm([self], i32, "i32.wrap_i64")
+}
+
+# Truncates an i64 integer to an i32
+# Basically an unsigned cast
+fn i64.Trunc(self) i32 {
+    $asm([self & (0xFFFFFFFF).(i64)], i32, "i32.wrap_i64")
+}

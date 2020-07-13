@@ -765,18 +765,29 @@ pub(super) fn translate_expr(
                 | Binop::BitwiseXor
                 | Binop::ShiftLeft
                 | Binop::ShiftRight => {
-                    translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), left)?;
-                    translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), right)?;
+                    let ltype = guess_type(lscope, left)?;
+                    let rtype = guess_type(lscope, right)?;
+                    let union_type = match (ltype, rtype) {
+                        (Type::I32, Type::I32) => Type::I32,
+                        (Type::I64, Type::I64) => Type::I64,
+                        _ => return Err(Error::Type {
+                            span: expr.span().clone(),
+                            expected: "bitwise operands (i32xi32 or i64xi64)".into(),
+                            got: format!("{}, {}", ltype, rtype),
+                        })
+                    };
+                    translate_expr(out, sink, lscope, ReturnType::Value(union_type), left)?;
+                    translate_expr(out, sink, lscope, ReturnType::Value(union_type), right)?;
                     let code = match op {
-                        Binop::BitwiseAnd => "i32.and",
-                        Binop::BitwiseOr => "i32.or",
-                        Binop::BitwiseXor => "i32.xor",
-                        Binop::ShiftLeft => "i32.shl",
-                        Binop::ShiftRight => "i32.shr_u",
+                        Binop::BitwiseAnd => format!("{}.and", union_type),
+                        Binop::BitwiseOr => format!("{}.or", union_type),
+                        Binop::BitwiseXor => format!("{}.xor", union_type),
+                        Binop::ShiftLeft => format!("{}.shl", union_type),
+                        Binop::ShiftRight => format!("{}.shr_u", union_type),
                         _ => panic!("impossible bitwise op {:?}", op),
                     };
                     sink.writeln(code);
-                    auto_cast(sink, span, lscope, ReturnType::Value(Type::I32), etype)?;
+                    auto_cast(sink, span, lscope, ReturnType::Value(union_type), etype)?;
                 }
             }
         }

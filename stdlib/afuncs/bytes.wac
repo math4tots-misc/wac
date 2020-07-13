@@ -1,9 +1,57 @@
 # bytes layout look like:
 #   [i32 refcnt][i32 nbytes][i32 capacity][i32 ptr]
 # (layout is similar to list)
+#
+# little endian is assumed unless specified otherwise
+#
 
-const __WAC_bytes_size_offset = 4
+const __WAC_bytes_offset_size = 4
+const __WAC_bytes_offset_capacity = 8
+const __WAC_bytes_offset_buffer = 12
 
 fn bytes.Size(self) i32 {
-    $read4($asm([], i32, "local.get $l_0_self"), offset: __WAC_bytes_size_offset)
+    $read4($asm([], i32, "local.get $l_0_self"), offset: __WAC_bytes_offset_size)
+}
+
+# Get a single byte at index
+fn bytes.Get1(self, index i32) i32 {
+    var size = self.Size()
+    index = __index(index, size)
+    var buffer = $read4($asm([], i32, "local.get $l_0_self"), offset: __WAC_bytes_offset_buffer)
+    $read1(buffer + index)
+}
+
+fn bytes.Set1(self, index i32, byte i32) {
+    var size = self.Size()
+    index = __index(index, size)
+    var buffer = $read4($asm([], i32, "local.get $l_0_self"), offset: __WAC_bytes_offset_buffer)
+    $write1(buffer + index, byte)
+}
+
+# Get a 2-byte value at an index
+fn bytes.Get2(self, index i32) i32 {
+    self.Get1(index) | self.Get1(index + 1) << 8
+}
+
+# Set a 2-byte value at an index
+fn bytes.Set2(self, index i32, value i32) {
+    self.Set1(index, value & 0xFF)
+    self.Set1(index + 1, (value >> 8) & 0xFF)
+}
+
+# Get a 4-byte value at an index
+fn bytes.Get4(self, index i32) i32 {
+    self.Get2(index) | self.Get2(index + 2) << 16
+}
+
+# Set a 4-bit value at an index
+fn bytes.Set4(self, index i32, value i32) {
+    self.Set2(index, value & 0xFFFF)
+    self.Set2(index, (value >> 16) & 0xFFFF)
+}
+
+# Get an 8-byte value at an index
+fn bytes.Get8(self, index i32) i64 {
+    (self.Get4(index).ExtendUnsigned() |
+        self.Get4(index + 4).ExtendUnsigned() << (32).(i64))
 }
