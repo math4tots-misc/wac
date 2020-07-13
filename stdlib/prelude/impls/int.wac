@@ -40,3 +40,11 @@ fn __i32_str[notrace](i i32) str {
         __str_join("", parts)
     }
 }
+
+fn i32.Pow[notrace](self, n i32) i32 {
+    var ret = 1
+    for _ in 0..n {
+        ret = ret * self
+    }
+    ret
+}

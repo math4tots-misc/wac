@@ -173,12 +173,12 @@ fn __list_swap[notrace](items list, i i32, j i32) {
     __list_setitem(items, j, tmp)
 }
 
-fn __list_clone[notrace](list list) list {
-    var len = __listlen(list)
+fn __list_clone[notrace](items list) list {
+    var len = __listlen(items)
     var ret = __new_list()
     var i = 0
     while i < len {
-        __list_push(ret, __list_getitem(list, i))
+        __list_push(ret, __list_getitem(items, i))
         i = i + 1
     }
     ret

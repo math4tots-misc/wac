@@ -4,6 +4,7 @@ use crate::translate;
 use crate::translate_files;
 use crate::Error;
 use crate::Visibility;
+use crate::MALLOC_CHECK;
 use std::io::Write;
 use std::rc::Rc;
 
@@ -91,6 +92,20 @@ pub fn run_tests(sources: Vec<(Rc<str>, Rc<str>)>, test_prefix: &str) -> Result<
         "wasm code size     : {:.3}kb",
         (wasm_code_size as f64) / (2.0f64.powi(10))
     );
+
+    MALLOC_CHECK.with(|check| {
+        let check = check.borrow();
+        println!("malloc cnt         : {}", check.malloc_cnt);
+        println!("free cnt           : {}", check.free_cnt);
+        if check.map.len() != 0 {
+            println!("REMAINING ALLOCATIONS: ");
+            let mut pairs: Vec<_> = check.map.iter().collect();
+            pairs.sort_by(|a, b| a.0.cmp(&b.0));
+            for (ptr, len) in pairs {
+                println!("    {}, {}", ptr, len);
+            }
+        }
+    });
 
     Ok(())
 }

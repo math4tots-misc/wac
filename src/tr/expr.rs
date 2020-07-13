@@ -604,7 +604,9 @@ pub(super) fn translate_expr(
                     let rtype = guess_type(lscope, right)?;
                     let union_type = best_union_type(ltype, rtype);
                     translate_expr(out, sink, lscope, ReturnType::Value(union_type), left)?;
+                    release(lscope, sink, union_type, DropPolicy::Keep);
                     translate_expr(out, sink, lscope, ReturnType::Value(union_type), right)?;
+                    release(lscope, sink, union_type, DropPolicy::Keep);
                     // for float types and 64-bit types, we need to use specific opcodes,
                     // but for all other values, they should be just i32
                     let code = match (op, union_type) {

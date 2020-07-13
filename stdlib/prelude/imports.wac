@@ -1,8 +1,10 @@
 # Some basic language imports
 
-# import fn "lang" "print0_str_raw" __print0_str_raw[notrace](len i32, ptr i32)
-# import fn "lang" "eprint0_str_raw" __eprint0_str_raw[notrace](len i32, ptr i32)
 import fn "lang" "write_raw" __write_raw[notrace](fd i32, len i32, ptr i32) i32
+
+# For debugging malloc/free
+import fn "lang" "record_malloc" __record_malloc[notrace](len i32, ptr i32) i32
+import fn "lang" "record_free" __record_free[notrace](len i32, ptr i32) i32
 
 fn __eprint0_str_raw[notrace](len i32, ptr i32) {
     __write_raw(2, len, ptr)

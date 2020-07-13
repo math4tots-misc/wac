@@ -40,7 +40,7 @@ fn __test_list_clone() {
     var list = [1, 2, 3]
     Assert(list is list)
     AssertEq(list, list)
-    var clone = Clone(list)
+    var clone = __list_clone(list)
     Assert(list is not clone)
     AssertEq(list, clone)
 }

@@ -120,10 +120,6 @@ fn __eprint0_cstr[notrace](cstr i32) {
     __eprint0_str_raw(__cstrlen(cstr), cstr)
 }
 
-fn __eprint0_i32[notrace](x i32) {
-    __eprint0_str(__i32_str(x))
-}
-
 fn __print0_cstr[notrace](cstr i32) {
     __print0_str_raw(__cstrlen(cstr), cstr)
 }

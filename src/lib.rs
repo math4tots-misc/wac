@@ -11,6 +11,7 @@ mod start;
 mod tmap;
 mod tr;
 mod wfs;
+mod debug;
 
 extern crate wasmer_runtime as wr;
 
@@ -25,12 +26,9 @@ pub use rn::*;
 pub use sink::*;
 pub use start::*;
 pub use tr::*;
+pub use debug::*;
 
 use tmap::*;
-
-/// enables stack traces even on 'notrace' functions
-/// to see where some kinds of errors are coming from
-const DEBUG_TRACE: bool = false;
 
 #[cfg(test)]
 mod tests {

@@ -84,40 +84,71 @@ fn __malloc[notrace](len i32) i32 {
         __WAC_alloc_count = __WAC_alloc_count + 1
     }
 
-    if len is 0 {
+    var len_adjusted = 0
+
+    var ptr = if len is 0 {
         # special case -- no need to even dealloc anything
         0
     } else if len <= 16 {
+        len_adjusted = 16
         __malloc_16()
     } else if len <= 64 {
+        len_adjusted = 64
         __malloc_64()
     } else if len <= 256 {
+        len_adjusted = 256
         __malloc_256()
     } else if len <= 1024 {
+        len_adjusted = 1024
         __malloc_1024()
     } else if len <= 4096 {
+        len_adjusted = 4096
         __malloc_4096()
     } else if len <= 16384 {
+        len_adjusted = 16384
         __malloc_16384()
     } else if len <= 65536 {
+        len_adjusted = 65536
         __malloc_65536()
     } else if len <= 262144 {
+        len_adjusted = 262144
         __malloc_262144()
     } else if len <= 1048576 {
+        len_adjusted = 1048576
         __malloc_1048576()
     } else if len <= 4194304 {
+        len_adjusted = 4194304
         __malloc_4194304()
     } else if len <= 16777216 {
+        len_adjusted = 16777216
         __malloc_16777216()
     } else if len <= 67108864 {
+        len_adjusted = 67108864
         __malloc_67108864()
     } else if len <= 268435456 {
+        len_adjusted = 268435456
         __malloc_268435456()
     } else if len <= 1073741824 {
+        len_adjusted = 1073741824
         __malloc_1073741824()
     } else {
         NoTracePanic("Exceeded malloc limit (limit is 1073741824)")
     }
+
+    if len_adjusted is not 0 {
+        switch __record_malloc(len_adjusted, ptr) {
+            0 => {
+                NoTracePanic("invalid malloc (checked)")
+            }
+            1 => {}
+            2 => {
+                __eprint_str("LEAK SUSPECT (malloc)")
+                __WAC_eprint_stack()
+            }
+        }
+    }
+
+    ptr
 }
 
 fn __realloc[notrace](old_len i32, new_len i32, ptr i32) i32 {
@@ -150,45 +181,70 @@ fn __WAC_memcpy[notrace](dst i32, src i32, len i32) {
 }
 
 fn __free[notrace](len i32, ptr i32) {
-    if __WAC_alloc_count <= 0 {
-        NoTracePanic("invalid free (no allocations)")
-    }
     if len is not 0 and ptr is not 0 {
+        if __WAC_alloc_count <= 0 {
+            NoTracePanic("invalid free (no allocations)")
+        }
         __WAC_alloc_count = __WAC_alloc_count - 1
     }
+
+    var len_adjusted = 0
 
     if len is 0 or ptr is 0 {
         # nothing to do since no alloc was made in the first place
     } else if len <= 16 {
+        len_adjusted = 16
         __free_16(ptr)
     } else if len <= 64 {
+        len_adjusted = 64
         __free_64(ptr)
     } else if len <= 256 {
+        len_adjusted = 256
         __free_256(ptr)
     } else if len <= 1024 {
+        len_adjusted = 1024
         __free_1024(ptr)
     } else if len <= 4096 {
+        len_adjusted = 4096
         __free_4096(ptr)
     } else if len <= 16384 {
+        len_adjusted = 16384
         __free_16384(ptr)
     } else if len <= 65536 {
+        len_adjusted = 65536
         __free_65536(ptr)
     } else if len <= 262144 {
+        len_adjusted = 262144
         __free_262144(ptr)
     } else if len <= 1048576 {
+        len_adjusted = 1048576
         __free_1048576(ptr)
     } else if len <= 4194304 {
+        len_adjusted = 4194304
         __free_4194304(ptr)
     } else if len <= 16777216 {
+        len_adjusted = 16777216
         __free_16777216(ptr)
     } else if len <= 67108864 {
+        len_adjusted = 67108864
         __free_67108864(ptr)
     } else if len <= 268435456 {
+        len_adjusted = 268435456
         __free_268435456(ptr)
     } else if len <= 1073741824 {
+        len_adjusted = 1073741824
         __free_1073741824(ptr)
     } else {
         NoTracePanic("invalid free")
+    }
+
+    if len_adjusted is not 0 {
+        switch __record_free(len_adjusted, ptr) {
+            0 => {
+                NoTracePanic("invalid free (checked)")
+            }
+            1 | 2 => {}
+        }
     }
 }
 
