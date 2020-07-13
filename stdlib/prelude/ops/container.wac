@@ -1,107 +1,3 @@
-# Common traits and their impls
-
-
-##############################################################################
-# Eq
-#
-# Check two values for equivalence
-# The '==' and '!=' operators use this function
-#
-##############################################################################
-trait Eq(self, other id) bool
-
-impl bool for Eq(self, other id) bool {
-    self is other
-}
-
-impl i32 for Eq(self, other id) bool {
-    self is other
-}
-
-impl f32 for Eq(self, other id) bool {
-    self is other
-}
-
-impl str for Eq(self, other id) bool {
-    self is other or type(other) is str and {
-        var other str = other
-        __str_eq(self, other)
-    }
-}
-
-impl list for Eq(self, other id) bool {
-    self is other or type(other) is list and {
-        var other list = other
-        __list_eq(self, other)
-    }
-}
-
-##############################################################################
-# str
-#
-# For converting values into str
-#
-##############################################################################
-trait str(self) str
-
-impl str for str(self) str {
-    self
-}
-
-impl type for str(self) str {
-    __type_str(self)
-}
-
-impl id for str(self) str {
-    if __type_is_enum(type(self)) {
-        __type_enum_value_name(self)
-    } else {
-        repr(self)
-    }
-}
-
-##############################################################################
-# repr
-#
-# For a more 'quoted' representation of a value
-#
-##############################################################################
-trait repr(self) str
-
-impl bool for repr(self) str {
-    if self {
-        "true"
-    } else {
-        "false"
-    }
-}
-
-impl i32 for repr(self) str {
-    __i32_str(self)
-}
-
-impl bytes for repr(self) str {
-    __bytes_repr(self)
-}
-
-impl list for repr(self) str {
-    __list_repr(self)
-}
-
-impl id for repr(self) str {
-    if __type_is_enum(type(self)) {
-        Join('.', [
-            __type_str(type(self)),
-            __type_enum_value_name(self),
-        ])
-    } else {
-        Join("", [
-            "<",
-            str(type(self)),
-            " value>",
-        ])
-    }
-}
 
 ##############################################################################
 # SizeOf
@@ -125,24 +21,6 @@ impl str for SizeOf(self) i32 {
 
 impl list for SizeOf(self) i32 {
     __listlen(self)
-}
-
-##############################################################################
-# Multiply
-#
-# Add an element to the end of a container
-# (e.g. list)
-#
-##############################################################################
-trait Multiply(self, other id) id
-
-impl list for Multiply(self, other id) id {
-    var n i32 = other
-    var ret = []
-    for _ in 0..other {
-        Extend(ret, self)
-    }
-    ret
 }
 
 ##############################################################################
@@ -252,35 +130,6 @@ impl id for Reversed(self) id {
 }
 
 ##############################################################################
-# Clone
-#
-# Clone a value
-#
-##############################################################################
-trait Clone(self) id
-
-impl bool for Clone(self) id {
-    self
-}
-
-impl i32 for Clone(self) id {
-    self
-}
-
-impl f32 for Clone(self) id {
-    self
-}
-
-impl str for Clone(self) id {
-    # NOTE: strings are immutable
-    self
-}
-
-impl list for Clone(self) id {
-    __list_clone(self)
-}
-
-##############################################################################
 # Join
 #
 # Given a separator (self) and a list of items,
@@ -293,7 +142,6 @@ trait Join(self, items list) id
 impl str for Join(self, items list) id {
     __str_join(self, items)
 }
-
 
 ##############################################################################
 # Slice
@@ -313,26 +161,4 @@ impl str for Slice(self, start i32, end i32) id {
 ##############################################################################
 fn OpenSlice(self id, start i32) id {
     Slice(self, start, SizeOf(self))
-}
-
-##############################################################################
-# Remainder
-#
-#   Allows overriding the '%' operator
-##############################################################################
-trait Remainder(self, other id) id
-
-##############################################################################
-# str for Remainder
-#
-# For creating formatted strings
-# e.g.:
-#   "hello %s" % [10]  # returns "hello 10"
-#   "%s %s" % ['space', 'pirate']  # returns "space pirate"
-#
-# Use '%s' to apply 'str', '%r' to apply 'repr'
-# or '%%' if you actually just wanted a '%'.
-##############################################################################
-impl str for Remainder(self, other id) id {
-    __str_format(self, other)
 }

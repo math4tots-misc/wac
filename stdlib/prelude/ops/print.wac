@@ -1,3 +1,10 @@
+fn Print(x id) {
+    __print_str(str(x))
+}
+
+fn PrintErr(x id) {
+    __eprint_str(str(x))
+}
 
 fn Panic(s str) noreturn {
     NoTracePanic(s)
