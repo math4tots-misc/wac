@@ -244,7 +244,9 @@ pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
                     ReturnType::Value(type_),
                     &gvar.init,
                 )?;
-                let info = init_lscope.g.decl_gvar(gvar.span.clone(), gvar.name.clone(), type_)?;
+                let info = init_lscope
+                    .g
+                    .decl_gvar(gvar.span.clone(), gvar.name.clone(), type_)?;
                 init_sink.global_set(&info.wasm_name);
                 out.gvars.global_mut(info.type_.wasm(), &info.wasm_name, 0);
 
@@ -254,7 +256,8 @@ pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
         // declare all helper variables
         for (wasm_name, type_) in init_lscope.helper_locals {
             assert!(type_.primitive());
-            out.startlocals.writeln(format!("(local {} {})", wasm_name, translate_type(type_)));
+            out.startlocals
+                .writeln(format!("(local {} {})", wasm_name, translate_type(type_)));
             release_var(&out.start, Scope::Local, &wasm_name, type_);
         }
         // declare all local variables used

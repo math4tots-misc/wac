@@ -70,33 +70,11 @@ pub(super) fn translate_fcall(
     }
 
     if TRACE_MODE.check(trace) {
-        // check for stack overflow
-        sink.writeln("global.get $rt_stack_top");
-        sink.writeln("global.get $rt_stack_end");
-        sink.writeln("i32.ge_s");
-        sink.writeln("if");
-        sink.writeln("call $f___WAC_stack_overflow");
-        sink.writeln("else end");
-
-        // record the file this function call comes from
         let ptr = out.intern_cstr(&span.source.name);
-        sink.writeln("global.get $rt_stack_top");
-        sink.writeln(format!("i32.const {}", ptr));
-        sink.writeln("i32.store");
-
-        // record the lineno of this function call
         let lineno = span.lineno() as i32;
-        sink.writeln("global.get $rt_stack_top");
-        sink.writeln("i32.const 4");
-        sink.writeln("i32.add");
+        sink.writeln(format!("i32.const {}", ptr));
         sink.writeln(format!("i32.const {}", lineno));
-        sink.writeln("i32.store");
-
-        // increment the stack pointer
-        sink.writeln("global.get $rt_stack_top");
-        sink.writeln("i32.const 8");
-        sink.writeln("i32.add");
-        sink.writeln("global.set $rt_stack_top");
+        sink.writeln(format!("call $rt_stack_push"));
     }
 
     match &fentry {
@@ -137,10 +115,7 @@ pub(super) fn translate_fcall(
 
     if TRACE_MODE.check(trace) {
         // pop stack pointer
-        sink.writeln("global.get $rt_stack_top");
-        sink.writeln("i32.const -8");
-        sink.writeln("i32.add");
-        sink.writeln("global.set $rt_stack_top");
+        sink.writeln("call $rt_stack_pop");
     }
 
     auto_cast(sink, span, lscope, ftype.return_type, etype)?;

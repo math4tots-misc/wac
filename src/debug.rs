@@ -1,4 +1,3 @@
-
 /// enables stack traces even on 'notrace' functions
 /// to see where some kinds of errors are coming from
 pub const TRACE_MODE: TraceMode = TraceMode::Default;

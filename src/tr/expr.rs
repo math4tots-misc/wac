@@ -227,15 +227,7 @@ pub(super) fn translate_expr(
             let fname = format!("{}.{}", owner_type, fname_part);
             let mut args = vec![&**owner];
             args.extend(argexprs.iter());
-            translate_fcall(
-                out,
-                lscope,
-                sink,
-                etype,
-                span,
-                &fname.into(),
-                &args,
-            )?;
+            translate_fcall(out, lscope, sink, etype, span, &fname.into(), &args)?;
         }
         Expr::If(_span, pairs, other) => {
             for (cond, body) in pairs {

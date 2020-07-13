@@ -58,7 +58,10 @@ pub(super) fn guess_return_type(lscope: &mut LocalScope, expr: &Expr) -> Result<
         Expr::AssociatedFunctionCall(span, owner, name, _) => {
             let owner_type = guess_type(lscope, owner)?;
             let fname = format!("{}.{}", owner_type, name);
-            Ok(lscope.getf_or_err(span.clone(), &fname.into())?.type_().return_type)
+            Ok(lscope
+                .getf_or_err(span.clone(), &fname.into())?
+                .type_()
+                .return_type)
         }
         Expr::If(_, pairs, other) => {
             let mut ret = ReturnType::NoReturn;

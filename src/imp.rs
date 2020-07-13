@@ -1,14 +1,13 @@
 use std::cell::Cell;
-use std::io::Write;
-use std::collections::HashMap;
 use std::cell::RefCell;
+use std::collections::HashMap;
+use std::io::Write;
 
 std::thread_local! {
     pub static MALLOC_CHECK: RefCell<MallocCheck> = RefCell::new(MallocCheck::new());
 }
 
 pub fn make_import_object() -> wr::ImportObject {
-
     wr::imports! {
         "lang" => {
             "write_raw" => wr::func!(|ctx: &mut wr::Ctx, fd: i32, len: i32, ptr: i32| -> i32 {

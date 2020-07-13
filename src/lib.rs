@@ -1,3 +1,4 @@
+mod debug;
 mod er;
 mod imp;
 mod ir;
@@ -11,10 +12,10 @@ mod start;
 mod tmap;
 mod tr;
 mod wfs;
-mod debug;
 
 extern crate wasmer_runtime as wr;
 
+pub use debug::*;
 pub use er::*;
 pub use imp::*;
 pub use ir::*;
@@ -26,7 +27,6 @@ pub use rn::*;
 pub use sink::*;
 pub use start::*;
 pub use tr::*;
-pub use debug::*;
 
 use tmap::*;
 

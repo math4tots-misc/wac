@@ -95,6 +95,10 @@ pub fn run_tests(sources: Vec<(Rc<str>, Rc<str>)>, test_prefix: &str) -> Result<
 
     MALLOC_CHECK.with(|check| {
         let check = check.borrow();
+        println!(
+            "max heap usage     : {:.3}kb",
+            (check.max_heap_usage as f64) / (2.0f64.powi(10))
+        );
         println!("malloc cnt         : {}", check.malloc_cnt);
         println!("free cnt           : {}", check.free_cnt);
         if check.map.len() != 0 {
