@@ -9,7 +9,7 @@
 fn __WAC_record_alloc[notrace](nfields i32) i32 {
     var ptr = __malloc(8 + 8 * nfields)
     $write4(ptr, 1)
-    $write4(ptr + 4, nfields)
+    $write4(ptr, nfields, offset: 4)
     ptr
 }
 
@@ -18,7 +18,7 @@ fn __WAC_record_release[notrace](ptr i32) {
     if refcnt > 0 {
         $write4(ptr, refcnt)
     } else {
-        var nfields = $read4(ptr + 4)
+        var nfields = $read4(ptr, offset: 4)
         __free(8 + 8 * nfields, ptr)
     }
 }
