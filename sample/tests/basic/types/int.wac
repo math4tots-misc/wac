@@ -6,6 +6,8 @@ fn __test_i32_str() {
     Assert(str(-1) == '-1')
     Assert(str(8585) == '8585')
     Assert(str(-8585) == '-8585')
+    Assert(str(-1000000000) == '-1000000000')
+    Assert(str(1000000000) == '1000000000')
 }
 
 fn __test_i32_hex_literals() {

@@ -945,6 +945,9 @@ pub(super) fn translate_expr(
             sink.i32_const(ptr);
             auto_cast(sink, span, lscope, ReturnType::Value(Type::I32), etype)?
         }
+        Expr::Char(_, _, ch) => {
+            sink.i32_const(*ch as i32);
+        }
         Expr::Asm(span, _, args, type_, asm_code) => {
             for arg in args {
                 let argtype = guess_type(lscope, arg)?;

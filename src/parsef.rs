@@ -588,6 +588,24 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
                     let span = span.upto(&parser.span());
                     Ok(Expr::CString(span, Cell::new(None), string))
                 }
+                Token::Name("char") => {
+                    parser.gettok();
+                    parser.expect(Token::LParen)?;
+                    let string = parser.expect_string()?;
+                    parser.consume(Token::Comma);
+                    parser.expect(Token::RParen)?;
+                    let span = span.upto(&parser.span());
+                    let chars: Vec<char> = string.chars().collect();
+                    if chars.len() != 1 {
+                        Err(ParseError::InvalidToken {
+                            span,
+                            expected: "String with exactly 1 char".into(),
+                            got: format!("{} chars ({})", chars.len(), string),
+                        })
+                    } else {
+                        Ok(Expr::Char(span, Cell::new(None), chars[0]))
+                    }
+                }
                 Token::Name("asm") => {
                     parser.gettok();
                     parser.expect(Token::LParen)?;

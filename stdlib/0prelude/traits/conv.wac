@@ -41,7 +41,7 @@ impl bool for repr(self) str {
 }
 
 impl i32 for repr(self) str {
-    __i32_str(self)
+    self.Str()
 }
 
 impl bytes for repr(self) str {

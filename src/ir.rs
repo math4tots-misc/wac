@@ -171,6 +171,7 @@ pub enum Expr {
 
     // intrinsics
     CString(SSpan, Cell<Option<ReturnType>>, Rc<str>),
+    Char(SSpan, Cell<Option<ReturnType>>, char),
     Asm(
         SSpan,
         Cell<Option<ReturnType>>,
@@ -218,6 +219,7 @@ impl Expr {
             Expr::Unop(span, ..) => span,
             Expr::AscribeType(span, ..) => span,
             Expr::CString(span, ..) => span,
+            Expr::Char(span, ..) => span,
             Expr::Asm(span, ..) => span,
             Expr::Read1(span, ..) => span,
             Expr::Read2(span, ..) => span,
@@ -256,6 +258,7 @@ impl Expr {
             Expr::Unop(_, cell, ..) => cell,
             Expr::AscribeType(_, cell, ..) => cell,
             Expr::CString(_, cell, ..) => cell,
+            Expr::Char(_, cell, ..) => cell,
             Expr::Asm(_, cell, ..) => cell,
             Expr::Read1(_, cell, ..) => cell,
             Expr::Read2(_, cell, ..) => cell,

@@ -231,6 +231,7 @@ pub(super) fn guess_return_type(lscope: &mut LocalScope, expr: &Expr) -> Result<
                 // Should return a pointer
                 Ok(ReturnType::Value(Type::I32))
             }
+            Expr::Char(..) => Ok(ReturnType::Value(Type::I32)),
             Expr::Asm(_, _, _, type_, _) => Ok(type_.clone()),
             Expr::Read1(..) => Ok(ReturnType::Value(Type::I32)),
             Expr::Read2(..) => Ok(ReturnType::Value(Type::I32)),
