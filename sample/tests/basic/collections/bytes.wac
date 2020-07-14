@@ -17,6 +17,8 @@ fn __test_bytes_misc() {
 fn __test_bytes_build() {
     var bb = bytes([1, 2, 3])
     AssertEq(repr(bb), 'bytes[1, 2, 3]')
+    bb.Extend([$char('a'), $char('b'), $char('c')])
+    AssertEq(repr(bb), 'bytes[1, 2, 3, 97, 98, 99]')
 }
 
 fn __test_bytes_str() {
