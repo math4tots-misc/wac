@@ -71,6 +71,11 @@ impl Out {
             .global(WasmType::I32, "$rt_stack_start", STACK_START as i64);
         self.gvars
             .global(WasmType::I32, "$rt_stack_end", STACK_END as i64);
+        self.gvars.global(
+            WasmType::I32,
+            "$rt_malloc_check_enabled",
+            if MALLOC_CHECK_MODE.enabled() { 1 } else { 0 },
+        );
         self.main.get()
     }
 

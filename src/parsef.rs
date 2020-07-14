@@ -447,10 +447,10 @@ fn expect_delim(parser: &mut Parser) -> Result<(), ParseError> {
 }
 
 fn at_delim(parser: &mut Parser) -> bool {
-    parser.at(Token::RBrace) ||
-    parser.at(Token::EOF) ||
-    parser.at(Token::Semicolon) ||
-    parser.at(Token::Newline)
+    parser.at(Token::RBrace)
+        || parser.at(Token::EOF)
+        || parser.at(Token::Semicolon)
+        || parser.at(Token::Newline)
 }
 
 fn parse_stmt(parser: &mut Parser) -> Result<Expr, ParseError> {

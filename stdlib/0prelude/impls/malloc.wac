@@ -136,14 +136,16 @@ fn __malloc[notrace](len i32) i32 {
     }
 
     if len_adjusted is not 0 {
-        switch __record_malloc(len_adjusted, ptr) {
-            0 => {
-                NoTracePanic("invalid malloc (checked)")
-            }
-            1 => {}
-            2 => {
-                __eprint_str("LEAK SUSPECT (malloc)")
-                __WAC_eprint_stack()
+        if $asm([], bool, 'global.get $rt_malloc_check_enabled') {
+            switch __record_malloc(len_adjusted, ptr) {
+                0 => {
+                    NoTracePanic("invalid malloc (checked)")
+                }
+                1 => {}
+                2 => {
+                    __eprint_str("LEAK SUSPECT (malloc)")
+                    __WAC_eprint_stack()
+                }
             }
         }
     }
@@ -239,11 +241,13 @@ fn __free[notrace](len i32, ptr i32) {
     }
 
     if len_adjusted is not 0 {
-        switch __record_free(len_adjusted, ptr) {
-            0 => {
-                NoTracePanic("invalid free (checked)")
+        if $asm([], bool, 'global.get $rt_malloc_check_enabled') {
+            switch __record_free(len_adjusted, ptr) {
+                0 => {
+                    NoTracePanic("invalid free (checked)")
+                }
+                1 | 2 => {}
             }
-            1 | 2 => {}
         }
     }
 }

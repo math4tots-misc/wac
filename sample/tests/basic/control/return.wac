@@ -17,6 +17,7 @@ fn returns_void() {
 fn returns_non_void() str {
     var s = 'some other allocation'
     for i in 0..1000 {
+        # var x = str('%s%s' % [i, i])
         if i > 500 {
             return str(i + 5)
         }

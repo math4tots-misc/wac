@@ -13,6 +13,7 @@ use crate::Parser;
 use crate::SSpan;
 use crate::Sink;
 use crate::Source;
+use crate::MALLOC_CHECK_MODE;
 use crate::TRACE_MODE;
 use std::cell::Cell;
 use std::collections::HashMap;
