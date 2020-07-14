@@ -12,6 +12,10 @@ impl str for str(self) str {
     self
 }
 
+impl bytes for str(self) str {
+    __bytes_str(self)
+}
+
 impl type for str(self) str {
     __type_str(self)
 }

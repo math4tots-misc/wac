@@ -973,8 +973,9 @@ pub(super) fn translate_expr(
             sink.i32_const(ptr);
             auto_cast(sink, span, lscope, ReturnType::Value(Type::I32), etype)?
         }
-        Expr::Char(_, _, ch) => {
+        Expr::Char(span, _, ch) => {
             sink.i32_const(*ch as i32);
+            auto_cast(sink, span, lscope, ReturnType::Value(Type::I32), etype)?
         }
         Expr::Asm(span, _, args, type_, asm_code) => {
             for arg in args {

@@ -10,11 +10,21 @@ fn __test_bytes_misc() {
 
     __bytes_push(bts, 40)
 
-    AssertEq(str(bts), 'bytes[10, 40]')
+    AssertEq(repr(bts), 'bytes[10, 40]')
 }
 
 
 fn __test_bytes_build() {
     var bb = bytes([1, 2, 3])
-    AssertEq(str(bb), 'bytes[1, 2, 3]')
+    AssertEq(repr(bb), 'bytes[1, 2, 3]')
+}
+
+fn __test_bytes_str() {
+    var s = str(bytes([
+        $char('a'),
+        $char('b'),
+        $char('c'),
+    ]))
+    AssertEq(s.Size(), 3)
+    AssertEq(s, 'abc')
 }

@@ -164,5 +164,5 @@ fn __bytes_str[notrace](bts bytes) str {
 }
 
 fn __bytes_buffer[notrace](bts bytes) i32 {
-    $asm([], i32, "local.get $l_0_bts")
+    $read4($asm([], i32, "local.get $l_0_bts"), offset:12)
 }
