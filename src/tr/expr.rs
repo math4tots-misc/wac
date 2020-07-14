@@ -594,7 +594,17 @@ pub(super) fn translate_expr(
                 Binop::Is | Binop::IsNot => {
                     let ltype = guess_type(lscope, left)?;
                     let rtype = guess_type(lscope, right)?;
-                    let union_type = best_union_type(ltype, rtype);
+
+                    // for is/is-not comparisons, we don't want to wash away the types
+                    // by doing automatic conversions (e.g. between int/float)
+                    // so the only conversion we potentially do here, is to cast both to
+                    // 'id' if the two types are not exactly the same
+                    let union_type = if ltype == rtype {
+                        ltype
+                    } else {
+                        Type::Id
+                    };
+
                     translate_expr(out, sink, lscope, ReturnType::Value(union_type), left)?;
                     release(lscope, sink, union_type, DropPolicy::Keep);
                     translate_expr(out, sink, lscope, ReturnType::Value(union_type), right)?;
@@ -617,7 +627,7 @@ pub(super) fn translate_expr(
                         (Binop::Equal, _) => panic!("TODO translate_expr =="),
                         (Binop::NotEqual, _) => panic!("TODO translate_expr !="),
 
-                        _ => panic!("impossible eq op {:?}", op),
+                        _ => panic!("impossible eq op {:?}, {}", op, union_type),
                     };
                     sink.writeln(code);
                     auto_cast(sink, span, lscope, ReturnType::Value(Type::Bool), etype)?;

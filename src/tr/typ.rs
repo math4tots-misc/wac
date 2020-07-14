@@ -185,6 +185,7 @@ pub(super) fn best_union_type(a: Type, b: Type) -> Type {
         // special case for int/floats -- ints can be used as floats
         // if needed
         (Type::I32, Type::F32) | (Type::F32, Type::I32) => Type::F32,
+        (Type::I64, Type::F64) | (Type::F64, Type::I64) => Type::F64,
 
         // in all other cases, just use the id type
         _ => Type::Id,
