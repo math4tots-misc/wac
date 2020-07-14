@@ -15,4 +15,6 @@ fn __test_arith_misc() {
     AssertSame(type(5), i32)
     AssertSame(type(5 // 1), i32)
     AssertSame(type(5 / 1), f32)
+
+    AssertEq(5 % 3, 2)
 }

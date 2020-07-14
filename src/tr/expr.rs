@@ -660,7 +660,64 @@ pub(super) fn translate_expr(
                 }
                 Binop::Add | Binop::Subtract | Binop::Multiply | Binop::Remainder => {
                     let ltype = guess_type(lscope, left)?;
-                    if !ltype.builtin_primitive() {
+                    let rtype = guess_type(lscope, right)?;
+
+                    let union_type = match (ltype, rtype) {
+                        (Type::I32, Type::I32) => Type::I32,
+                        (Type::I64, Type::I64) => Type::I64,
+
+                        (Type::F32, Type::F32) |
+                        (Type::I32, Type::F32) |
+                        (Type::F32, Type::I32) => Type::F32,
+
+                        (Type::F64, Type::F64) |
+                        (Type::I64, Type::F64) |
+                        (Type::F64, Type::I64) => Type::F64,
+                        _ => Type::Id,
+                    };
+
+                    if union_type.builtin_primitive() {
+                        translate_expr(out, sink, lscope, ReturnType::Value(union_type), left)?;
+                        translate_expr(out, sink, lscope, ReturnType::Value(union_type), right)?;
+                        let code = match (op, union_type) {
+                            (Binop::Add, Type::I32) => "i32.add",
+                            (Binop::Add, Type::F32) => "f32.add",
+
+                            (Binop::Subtract, Type::I32) => "i32.sub",
+                            (Binop::Subtract, Type::F32) => "f32.sub",
+
+                            (Binop::Multiply, Type::I32) => "i32.mul",
+                            (Binop::Multiply, Type::F32) => "f32.mul",
+
+                            (Binop::Remainder, Type::I32) => "i32.rem_s",
+                            (Binop::Remainder, Type::F32) => panic!("f32 % not yet implemented"),
+
+                            (Binop::Add, Type::I64) => "i64.add",
+                            (Binop::Add, Type::F64) => "f64.add",
+
+                            (Binop::Subtract, Type::I64) => "i64.sub",
+                            (Binop::Subtract, Type::F64) => "f64.sub",
+
+                            (Binop::Multiply, Type::I64) => "i64.mul",
+                            (Binop::Multiply, Type::F64) => "f64.mul",
+
+                            (Binop::Remainder, Type::I64) => "i64.rem_s",
+                            (Binop::Remainder, Type::F64) => panic!("f64 % not yet implemented"),
+
+                            (Binop::Add, _)
+                            | (Binop::Subtract, _)
+                            | (Binop::Multiply, _)
+                            | (Binop::Remainder, _) => Err(Error::Type {
+                                span: span.clone(),
+                                expected: "numeric values".into(),
+                                got: format!("{:?}, {:?}", ltype, rtype),
+                            })?,
+
+                            _ => panic!("impossible arithmetic op {:?}", op),
+                        };
+                        sink.writeln(code);
+                        auto_cast(sink, span, lscope, ReturnType::Value(union_type), etype)?;
+                    } else {
                         let opname = match op {
                             Binop::Add => "Add",
                             Binop::Subtract => "Subtract",
@@ -677,88 +734,90 @@ pub(super) fn translate_expr(
                             &opname.into(),
                             &vec![left, right],
                         )?;
-                    } else {
-                        let rtype = guess_type(lscope, right)?;
-                        let union_type = match best_union_type(ltype, rtype) {
-                            Type::I32 => Type::I32,
-                            _ => Type::F32,
-                        };
-                        translate_expr(out, sink, lscope, ReturnType::Value(union_type), left)?;
-                        translate_expr(out, sink, lscope, ReturnType::Value(union_type), right)?;
-                        let code = match (op, union_type) {
-                            (Binop::Add, Type::I32) => "i32.add",
-                            (Binop::Add, Type::F32) => "f32.add",
-
-                            (Binop::Subtract, Type::I32) => "i32.sub",
-                            (Binop::Subtract, Type::F32) => "f32.sub",
-
-                            (Binop::Multiply, Type::I32) => "i32.mul",
-                            (Binop::Multiply, Type::F32) => "f32.mul",
-
-                            (Binop::Remainder, Type::I32) => "i32.rem_s",
-                            (Binop::Remainder, Type::F32) => panic!("f32 % not yet implemented"),
-
-                            (Binop::Add, _)
-                            | (Binop::Subtract, _)
-                            | (Binop::Multiply, _)
-                            | (Binop::Remainder, _) => Err(Error::Type {
-                                span: span.clone(),
-                                expected: "numeric values".into(),
-                                got: format!("{:?}, {:?}", ltype, rtype),
-                            })?,
-
-                            _ => panic!("impossible arithmetic op {:?}", op),
-                        };
-                        sink.writeln(code);
-                        auto_cast(sink, span, lscope, ReturnType::Value(union_type), etype)?;
                     }
                 }
                 Binop::Divide => {
                     let ltype = guess_type(lscope, left)?;
                     let rtype = guess_type(lscope, right)?;
-                    let union_type = best_union_type(ltype, rtype);
-                    translate_expr(out, sink, lscope, ReturnType::Value(union_type), left)?;
-                    explicit_cast(
-                        sink,
-                        span,
-                        lscope,
-                        ReturnType::Value(union_type),
-                        ReturnType::Value(Type::F32),
-                    )?;
-                    translate_expr(out, sink, lscope, ReturnType::Value(union_type), right)?;
-                    explicit_cast(
-                        sink,
-                        span,
-                        lscope,
-                        ReturnType::Value(union_type),
-                        ReturnType::Value(Type::F32),
-                    )?;
-                    sink.f32_div();
-                    auto_cast(sink, span, lscope, ReturnType::Value(Type::F32), etype)?;
+                    match (ltype, rtype) {
+                        (Type::I32, Type::I32) |
+                        (Type::F32, Type::F32) |
+                        (Type::F32, Type::I32) |
+                        (Type::I32, Type::F32) => {
+                            translate_expr(out, sink, lscope, ReturnType::Value(Type::F32), left)?;
+                            translate_expr(out, sink, lscope, ReturnType::Value(Type::F32), right)?;
+                            sink.writeln("f32.div");
+                            auto_cast(sink, span, lscope, ReturnType::Value(Type::F32), etype)?;
+                        }
+                        (Type::I64, Type::I64) |
+                        (Type::F64, Type::F64) |
+                        (Type::F64, Type::I64) |
+                        (Type::I64, Type::F64) => {
+                            translate_expr(out, sink, lscope, ReturnType::Value(Type::F64), left)?;
+                            translate_expr(out, sink, lscope, ReturnType::Value(Type::F64), right)?;
+                            sink.writeln("f64.div");
+                            auto_cast(sink, span, lscope, ReturnType::Value(Type::F64), etype)?;
+                        }
+                        _ => {
+                            translate_fcall(
+                                out,
+                                lscope,
+                                sink,
+                                etype,
+                                span,
+                                &"Divide".into(),
+                                &vec![left, right],
+                            )?;
+                        }
+                    }
                 }
                 Binop::TruncDivide => {
                     let ltype = guess_type(lscope, left)?;
                     let rtype = guess_type(lscope, right)?;
-                    let union_type = best_union_type(ltype, rtype);
-                    match union_type {
-                        Type::I32 => {
+                    match (ltype, rtype) {
+                        (Type::I32, Type::I32) => {
                             translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), left)?;
                             translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), right)?;
-                            sink.i32_div_s();
+                            sink.writeln("i32.div_s");
+                            auto_cast(sink, span, lscope, ReturnType::Value(Type::I32), etype)?;
                         }
-                        Type::F32 | Type::Id => {
+                        (Type::F32, Type::F32) |
+                        (Type::I32, Type::F32) |
+                        (Type::F32, Type::I32) => {
                             translate_expr(out, sink, lscope, ReturnType::Value(Type::F32), left)?;
                             translate_expr(out, sink, lscope, ReturnType::Value(Type::F32), right)?;
-                            sink.f32_div();
-                            sink.i32_trunc_f32_s();
+                            sink.writeln("f32.div");
+                            sink.writeln("i32.trunc_f32_s");
+                            auto_cast(sink, span, lscope, ReturnType::Value(Type::I32), etype)?;
                         }
-                        _ => Err(Error::Type {
-                            span: span.clone(),
-                            expected: "trunc-divisible values".into(),
-                            got: format!("{:?}, {:?}", ltype, rtype),
-                        })?,
+
+                        (Type::I64, Type::I64) => {
+                            translate_expr(out, sink, lscope, ReturnType::Value(Type::I64), left)?;
+                            translate_expr(out, sink, lscope, ReturnType::Value(Type::I64), right)?;
+                            sink.writeln("i64.div_s");
+                            auto_cast(sink, span, lscope, ReturnType::Value(Type::I64), etype)?;
+                        }
+                        (Type::F64, Type::F64) |
+                        (Type::I64, Type::F64) |
+                        (Type::F64, Type::I64) => {
+                            translate_expr(out, sink, lscope, ReturnType::Value(Type::F64), left)?;
+                            translate_expr(out, sink, lscope, ReturnType::Value(Type::F64), right)?;
+                            sink.writeln("f64.div");
+                            sink.writeln("i64.trunc_f64_s");
+                            auto_cast(sink, span, lscope, ReturnType::Value(Type::I64), etype)?;
+                        }
+                        _ => {
+                            translate_fcall(
+                                out,
+                                lscope,
+                                sink,
+                                etype,
+                                span,
+                                &"Divide".into(),
+                                &vec![left, right],
+                            )?;
+                        }
                     }
-                    auto_cast(sink, span, lscope, ReturnType::Value(Type::I32), etype)?;
                 }
                 Binop::BitwiseAnd
                 | Binop::BitwiseOr
@@ -832,7 +891,7 @@ pub(super) fn translate_expr(
         },
         Expr::AscribeType(span, _, expr, type_) => {
             translate_expr(out, sink, lscope, ReturnType::Value(*type_), expr)?;
-            auto_cast(sink, span, lscope, ReturnType::Value(*type_), etype)?
+            explicit_cast(sink, span, lscope, ReturnType::Value(*type_), etype)?
         }
         Expr::CString(span, _, value) => {
             let ptr = out.intern_cstr(value);

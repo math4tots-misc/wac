@@ -144,14 +144,16 @@ pub(super) fn guess_return_type(lscope: &mut LocalScope, expr: &Expr) -> Result<
                 Binop::Add | Binop::Subtract | Binop::Multiply | Binop::Remainder => {
                     let ltype = guess_type(lscope, left)?;
                     let rtype = guess_type(lscope, right)?;
-                    if ltype.builtin_primitive() && rtype.builtin_primitive() {
-                        match (ltype, rtype) {
-                            (Type::I32, Type::I32) => Type::I32,
-                            (Type::I64, Type::I64) => Type::I64,
-                            _ => Type::F32,
-                        }
-                    } else {
-                        Type::Id
+                    match (ltype, rtype) {
+                        (Type::I32, Type::I32) => Type::I32,
+                        (Type::I64, Type::I64) => Type::I64,
+                        (Type::F32, Type::F32) |
+                        (Type::F32, Type::I32) |
+                        (Type::I32, Type::F32) => Type::F32,
+                        (Type::F64, Type::F64) |
+                        (Type::F64, Type::I64) |
+                        (Type::I64, Type::F64) => Type::F64,
+                        _ => Type::Id,
                     }
                 }
 
