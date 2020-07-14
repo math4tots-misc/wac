@@ -71,3 +71,7 @@ fn __test_str_format() {
     s = "hello" % []
     AssertEq(s, 'hello')
 }
+
+fn __test_str_less_than() {
+    Assert('hello' < 'zz')
+}

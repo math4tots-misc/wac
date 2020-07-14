@@ -74,6 +74,10 @@ impl list for Pop(self) id {
 ##############################################################################
 trait GetItem(self, index id) id
 
+impl str for GetItem(self, index id) id {
+    self.Byte(index)
+}
+
 impl bytes for GetItem(self, index id) id {
     __bytes_getitem(self, index)
 }

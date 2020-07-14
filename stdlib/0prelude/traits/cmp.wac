@@ -34,3 +34,27 @@ impl list for Eq(self, other id) bool {
         __list_eq(self, other)
     }
 }
+
+##############################################################################
+# LessThan
+#
+# Compares two values
+#
+##############################################################################
+trait LessThan(self, other id) bool
+
+fn GreaterThan(self id, other id) bool {
+    LessThan(other, self)
+}
+
+fn LessThanOrEqual(self id, other id) bool {
+    !LessThan(other, self)
+}
+
+fn GreaterThanOrEqual(self id, other id) bool {
+    !LessThan(self, other)
+}
+
+impl str for LessThan(self, other id) bool {
+    self.LessThan(other)
+}
