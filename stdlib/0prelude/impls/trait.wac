@@ -39,7 +39,10 @@ fn __WAC_find_funcptr[notrace](type_tag i32, trait_id i32) i32 {
     }
 
     if looking {
-        NoTracePanic("matching impl not found")
+        NoTracePanic(__str_cat(
+            "matching impl not found: ",
+            __type_str($asm([type_tag], type, '')),
+        ))
     }
 
     result

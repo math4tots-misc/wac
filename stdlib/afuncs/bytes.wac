@@ -9,7 +9,27 @@ const __WAC_bytes_offset_size = 4
 const __WAC_bytes_offset_capacity = 8
 const __WAC_bytes_offset_buffer = 12
 
-fn bytes.Size(self) i32 {
+trait bytes(self) bytes
+
+impl i32 for bytes(self) bytes {
+    var ret = __new_bytes()
+    ret.Push1(self)
+    ret
+}
+
+impl bytes for bytes(self) bytes {
+    self
+}
+
+impl list for bytes(self) bytes {
+    var ret = __new_bytes()
+    for i in 0..self.Size() {
+        ret.Extend(self.Get(i))
+    }
+    ret
+}
+
+fn bytes.Size[notrace](self) i32 {
     $read4($asm([], i32, "local.get $l_0_self"), offset: __WAC_bytes_offset_size)
 }
 
@@ -54,4 +74,37 @@ fn bytes.Set4(self, index i32, value i32) {
 fn bytes.Get8(self, index i32) i64 {
     (self.Get4(index).ExtendUnsigned() |
         self.Get4(index + 4).ExtendUnsigned() << (32).(i64))
+}
+
+fn bytes.Resize[notrace](self, size i32) {
+    __bytes_resize(self, size)
+}
+
+fn bytes.Push1[notrace](self, byte i32) {
+    __bytes_push(self, byte)
+}
+
+fn bytes.Push2[notrace](self, value i32) {
+    self.Push1(value & 0xFF)
+    self.Push1((value >> 8) & 0xFF)
+}
+
+fn bytes.Push4[notrace](self, value i32) {
+    self.Push2(value & 0xFFFF)
+    self.Push2((value >> 16) & 0xFFFF)
+}
+
+fn bytes.Push8[notrace](self, value i64) {
+    self.Push4((value & (0xFFFFFFFF).(i64)).Wrap())
+    self.Push4(((value >> (32).(i64)) & (0xFFFFFFFF).(i64)).Wrap())
+}
+
+fn bytes.ExtendWithBytes(self, other bytes) {
+    for i in 0..other.Size() {
+        self.Push1(other.Get1(i))
+    }
+}
+
+fn bytes.Extend(self, other id) {
+    self.ExtendWithBytes(bytes(other))
 }
