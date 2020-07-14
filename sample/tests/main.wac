@@ -1,7 +1,0 @@
-fn Main() {
-    # When running as a test, this function should not
-    # be called
-    # We still need to define it though, since in prelude
-    # we refer to it in __start
-    Panic("Main run in test-only sources")
-}

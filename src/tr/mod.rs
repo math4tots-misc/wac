@@ -125,31 +125,55 @@ pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
     for (_filename, file) in &files {
         for imp in &file.imports {
             match imp {
-                Import::Function(FunctionImport { alias, type_, .. }) => {
+                Import::Function(FunctionImport { span, alias, type_, .. }) => {
                     let entry = FunctionEntry::Function(Rc::new(FunctionInfo {
+                        span: span.clone(),
                         name: alias.clone(),
                         type_: type_.clone(),
                     }));
+                    if let Some(old_info) = functions.get(alias) {
+                        return Err(Error::ConflictingDefinitions {
+                            span1: old_info.span().clone(),
+                            span2: span.clone(),
+                            name: alias.clone(),
+                        })
+                    }
                     functions.insert(alias.clone(), entry);
                 }
             }
         }
         for func in &file.functions {
             let entry = FunctionEntry::Function(Rc::new(FunctionInfo {
+                span: func.span.clone(),
                 name: func.name.clone(),
                 type_: func.type_.clone(),
             }));
+            if let Some(old_info) = functions.get(&func.name) {
+                return Err(Error::ConflictingDefinitions {
+                    span1: old_info.span().clone(),
+                    span2: func.span.clone(),
+                    name: func.name.clone(),
+                })
+            }
             functions.insert(func.name.clone(), entry);
         }
         for trait_ in &file.traits {
             let id = traits_by_id.len() as i32;
             let info = Rc::new(TraitInfo {
+                span: trait_.span.clone(),
                 id,
                 type_: trait_.type_.clone(),
                 name: trait_.name.clone(),
             });
             traits_by_id.push(info.clone());
             let entry = FunctionEntry::Trait(info);
+            if let Some(old_info) = functions.get(&trait_.name) {
+                return Err(Error::ConflictingDefinitions {
+                    span1: old_info.span().clone(),
+                    span2: trait_.span.clone(),
+                    name: trait_.name.clone(),
+                })
+            }
             functions.insert(trait_.name.clone(), entry);
         }
     }

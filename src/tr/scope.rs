@@ -351,6 +351,7 @@ pub(super) enum ScopeEntry {
 }
 
 impl ScopeEntry {
+    #[allow(dead_code)]
     pub(super) fn span(&self) -> &SSpan {
         match self {
             ScopeEntry::Local(info) => &info.span,
@@ -381,16 +382,24 @@ impl FunctionEntry {
             FunctionEntry::Trait(info) => &info.type_,
         }
     }
+    pub(super) fn span(&self) -> &SSpan {
+        match self {
+            FunctionEntry::Function(info) => &info.span,
+            FunctionEntry::Trait(info) => &info.span,
+        }
+    }
 }
 
 #[derive(Debug)]
 pub(super) struct FunctionInfo {
+    pub(super) span: SSpan,
     pub(super) type_: FunctionType,
     pub(super) name: Rc<str>,
 }
 
 #[derive(Debug)]
 pub(super) struct TraitInfo {
+    pub(super) span: SSpan,
     pub(super) type_: FunctionType,
     pub(super) id: i32,
     pub(super) name: Rc<str>,

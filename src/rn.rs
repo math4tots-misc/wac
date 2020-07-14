@@ -35,9 +35,11 @@ pub fn run(sources: Vec<(Rc<str>, Rc<str>)>) -> Result<i32, Error> {
 
 /// given a list of (filename, wac-code) pairs,
 /// runs all tests
-pub fn run_tests(sources: Vec<(Rc<str>, Rc<str>)>, test_prefix: &str) -> Result<(), Error> {
+pub fn run_tests(mut sources: Vec<(Rc<str>, Rc<str>)>, test_prefix: &str) -> Result<(), Error> {
     let test_func_prefix = format!("__test_{}", test_prefix);
     let base_prefix_len = "__test_".len();
+
+    sources.push(("[test-main]".into(), "fn Main(){}".into()));
 
     println!("Test filter: __test_{}", test_prefix);
 
