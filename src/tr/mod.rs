@@ -226,7 +226,7 @@ pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
     // NOTE: it kinda sucks that the behavior of the code will depend on the
     // order in which you provide the files
     {
-        let mut init_lscope = LocalScope::new(&mut gscope, true);
+        let mut init_lscope = LocalScope::new(&mut gscope, true, None);
         for (_filename, file) in &files {
             for gvar in &file.globalvars {
                 init_lscope.push();

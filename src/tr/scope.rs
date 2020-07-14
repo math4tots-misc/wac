@@ -222,6 +222,8 @@ pub(super) struct LocalScope<'a> {
     pub(super) break_labels: Vec<u32>,
     pub(super) decls: Vec<Rc<LocalVarInfo>>,
 
+    pub(super) return_type: Option<ReturnType>,
+
     /// local variables not directly created by the end-user
     /// but by the system as needed
     pub(super) helper_locals: HashMap<Rc<str>, Type>,
@@ -230,7 +232,11 @@ pub(super) struct LocalScope<'a> {
 }
 
 impl<'a> LocalScope<'a> {
-    pub(super) fn new(g: &'a mut GlobalScope, trace: bool) -> Self {
+    pub(super) fn new(
+        g: &'a mut GlobalScope,
+        trace: bool,
+        return_type: Option<ReturnType>,
+    ) -> Self {
         Self {
             g,
             trace,
@@ -239,6 +245,7 @@ impl<'a> LocalScope<'a> {
             continue_labels: vec![],
             break_labels: vec![],
             decls: vec![],
+            return_type,
             helper_locals: HashMap::new(),
             next_unique_helper_id: 0,
         }

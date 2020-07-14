@@ -159,6 +159,8 @@ pub enum Expr {
         Option<Box<Expr>>,
     ),
 
+    Return(SSpan, Cell<Option<ReturnType>>, Option<Box<Expr>>),
+
     // Create a new record value
     New(SSpan, Cell<Option<ReturnType>>, Type, Vec<Expr>),
 
@@ -210,6 +212,7 @@ impl Expr {
             Expr::GetItem(span, ..) => span,
             Expr::SetItem(span, ..) => span,
             Expr::Switch(span, ..) => span,
+            Expr::Return(span, ..) => span,
             Expr::New(span, ..) => span,
             Expr::Binop(span, ..) => span,
             Expr::Unop(span, ..) => span,
@@ -247,6 +250,7 @@ impl Expr {
             Expr::GetItem(_, cell, ..) => cell,
             Expr::SetItem(_, cell, ..) => cell,
             Expr::Switch(_, cell, ..) => cell,
+            Expr::Return(_, cell, ..) => cell,
             Expr::New(_, cell, ..) => cell,
             Expr::Binop(_, cell, ..) => cell,
             Expr::Unop(_, cell, ..) => cell,

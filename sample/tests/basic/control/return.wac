@@ -1,0 +1,25 @@
+fn __test_return() {
+    returns_void()
+    AssertEq(returns_non_void(), '506')
+}
+
+fn returns_void() {
+    # Do some allocations to check that returning doesn't cause
+    # a memory leak
+    var some_string = "Hello"
+    var combined_string = "%s%s" % [some_string, some_string]
+    AssertEq(combined_string, 'HelloHello')
+    {
+        return
+    }
+}
+
+fn returns_non_void() str {
+    var s = 'some other allocation'
+    for i in 0..1000 {
+        if i > 500 {
+            return str(i + 5)
+        }
+    }
+    '%s, %s' % [s, s]
+}

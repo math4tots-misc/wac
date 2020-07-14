@@ -446,6 +446,13 @@ fn expect_delim(parser: &mut Parser) -> Result<(), ParseError> {
     Ok(())
 }
 
+fn at_delim(parser: &mut Parser) -> bool {
+    parser.at(Token::RBrace) ||
+    parser.at(Token::EOF) ||
+    parser.at(Token::Semicolon) ||
+    parser.at(Token::Newline)
+}
+
 fn parse_stmt(parser: &mut Parser) -> Result<Expr, ParseError> {
     let expr = parse_expr(parser, 0)?;
     expect_delim(parser)?;
@@ -545,6 +552,15 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
             }
             let span = span.upto(&parser.span());
             Ok(Expr::Switch(span, Cell::new(None), src, pairs, other))
+        }
+        Token::Name("return") => {
+            parser.gettok();
+            let ret = if at_delim(parser) {
+                None
+            } else {
+                Some(parse_expr(parser, 0)?.into())
+            };
+            Ok(Expr::Return(span, Cell::new(None), ret))
         }
         Token::Name(_) => {
             let name = parser.expect_name()?;

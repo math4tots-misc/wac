@@ -60,17 +60,18 @@ impl SSpan {
     }
     pub fn lineno(&self) -> usize {
         // TODO: fix self.span.lineno
-        assert_eq!(
-            self.span.lineno,
-            self.source.data[..self.span.main].matches('\n').count()
-                + 1
-                + if self.source.data[self.span.main..].chars().next() == Some('\n') {
-                    1
-                } else {
-                    0
-                },
-        );
-        self.span.lineno
+        // assert_eq!(
+        //     self.span.lineno,
+        //     self.source.data[..self.span.main].matches('\n').count()
+        //         + 1
+        //         + if self.source.data[self.span.main..].chars().next() == Some('\n') {
+        //             1
+        //         } else {
+        //             0
+        //         },
+        // );
+        // self.span.lineno
+        self.source.data[..self.span.main].matches('\n').count() + 1
     }
 }
 
@@ -89,6 +90,10 @@ pub enum Error {
         span1: SSpan,
         span2: SSpan,
         name: Rc<str>,
+    },
+    Other {
+        span: SSpan,
+        message: String,
     },
 }
 
@@ -116,6 +121,7 @@ impl Error {
                 span2.format(),
                 name
             ),
+            Self::Other { span, message } => format!("{}{}", span.format(), message,),
             Self::Wabt(_) | Self::Wasmer(_) => format!("{:?}", self),
         }
     }

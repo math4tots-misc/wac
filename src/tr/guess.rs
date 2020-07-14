@@ -103,6 +103,7 @@ pub(super) fn guess_return_type(lscope: &mut LocalScope, expr: &Expr) -> Result<
                 }
                 Ok(ret)
             }
+            Expr::Return(..) => Ok(ReturnType::NoReturn),
             Expr::New(_span, _, type_, _) => Ok(ReturnType::Value(*type_)),
             Expr::Binop(_span, _, op, left, right) => Ok(ReturnType::Value(match op {
                 // == binops ==
@@ -147,12 +148,12 @@ pub(super) fn guess_return_type(lscope: &mut LocalScope, expr: &Expr) -> Result<
                     match (ltype, rtype) {
                         (Type::I32, Type::I32) => Type::I32,
                         (Type::I64, Type::I64) => Type::I64,
-                        (Type::F32, Type::F32) |
-                        (Type::F32, Type::I32) |
-                        (Type::I32, Type::F32) => Type::F32,
-                        (Type::F64, Type::F64) |
-                        (Type::F64, Type::I64) |
-                        (Type::I64, Type::F64) => Type::F64,
+                        (Type::F32, Type::F32)
+                        | (Type::F32, Type::I32)
+                        | (Type::I32, Type::F32) => Type::F32,
+                        (Type::F64, Type::F64)
+                        | (Type::F64, Type::I64)
+                        | (Type::I64, Type::F64) => Type::F64,
                         _ => Type::Id,
                     }
                 }
@@ -162,30 +163,30 @@ pub(super) fn guess_return_type(lscope: &mut LocalScope, expr: &Expr) -> Result<
                     let ltype = guess_type(lscope, left)?;
                     let rtype = guess_type(lscope, right)?;
                     match (ltype, rtype) {
-                        (Type::I32, Type::I32) |
-                        (Type::F32, Type::F32) |
-                        (Type::I32, Type::F32) |
-                        (Type::F32, Type::I32) => Type::F32,
-                        (Type::I64, Type::I64) |
-                        (Type::F64, Type::F64) |
-                        (Type::I64, Type::F64) |
-                        (Type::F64, Type::I64) => Type::F64,
-                        _ => Type::Id
+                        (Type::I32, Type::I32)
+                        | (Type::F32, Type::F32)
+                        | (Type::I32, Type::F32)
+                        | (Type::F32, Type::I32) => Type::F32,
+                        (Type::I64, Type::I64)
+                        | (Type::F64, Type::F64)
+                        | (Type::I64, Type::F64)
+                        | (Type::F64, Type::I64) => Type::F64,
+                        _ => Type::Id,
                     }
                 }
                 Binop::TruncDivide => {
                     let ltype = guess_type(lscope, left)?;
                     let rtype = guess_type(lscope, right)?;
                     match (ltype, rtype) {
-                        (Type::I32, Type::I32) |
-                        (Type::F32, Type::F32) |
-                        (Type::I32, Type::F32) |
-                        (Type::F32, Type::I32) => Type::I32,
-                        (Type::I64, Type::I64) |
-                        (Type::F64, Type::F64) |
-                        (Type::I64, Type::F64) |
-                        (Type::F64, Type::I64) => Type::I64,
-                        _ => Type::Id
+                        (Type::I32, Type::I32)
+                        | (Type::F32, Type::F32)
+                        | (Type::I32, Type::F32)
+                        | (Type::F32, Type::I32) => Type::I32,
+                        (Type::I64, Type::I64)
+                        | (Type::F64, Type::F64)
+                        | (Type::I64, Type::F64)
+                        | (Type::F64, Type::I64) => Type::I64,
+                        _ => Type::Id,
                     }
                 }
 

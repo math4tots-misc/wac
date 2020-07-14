@@ -486,6 +486,33 @@ pub(super) fn translate_expr(
             }
             sink.end_block();
         }
+        Expr::Return(span, _, ret) => match (lscope.return_type, ret) {
+            (None, _) | (Some(ReturnType::NoReturn), _) => {
+                return Err(Error::Other {
+                    span: span.clone(),
+                    message: "Return is not possible in this context".into(),
+                })
+            }
+            (Some(ReturnType::Void), Some(_)) => {
+                return Err(Error::Other {
+                    span: span.clone(),
+                    message: "Cannot return a value in a function returning void".into(),
+                })
+            }
+            (Some(ReturnType::Value(_)), None) => {
+                return Err(Error::Other {
+                    span: span.clone(),
+                    message: "Cannot return void in a function returning value".into(),
+                })
+            }
+            (Some(ReturnType::Void), None) => {
+                sink.writeln("br $rt_label_return");
+            }
+            (Some(ReturnType::Value(return_type)), Some(ret)) => {
+                translate_expr(out, sink, lscope, ReturnType::Value(return_type), ret)?;
+                sink.writeln("br $rt_label_return");
+            }
+        },
         Expr::New(span, _, type_, args) => {
             let name = match type_ {
                 Type::Record(_) => type_.name(),
@@ -599,11 +626,7 @@ pub(super) fn translate_expr(
                     // by doing automatic conversions (e.g. between int/float)
                     // so the only conversion we potentially do here, is to cast both to
                     // 'id' if the two types are not exactly the same
-                    let union_type = if ltype == rtype {
-                        ltype
-                    } else {
-                        Type::Id
-                    };
+                    let union_type = if ltype == rtype { ltype } else { Type::Id };
 
                     translate_expr(out, sink, lscope, ReturnType::Value(union_type), left)?;
                     release(lscope, sink, union_type, DropPolicy::Keep);
@@ -642,7 +665,6 @@ pub(super) fn translate_expr(
                         translate_expr(out, sink, lscope, ReturnType::Value(union_type), left)?;
                         translate_expr(out, sink, lscope, ReturnType::Value(union_type), right)?;
                         let code = match (op, union_type) {
-
                             (Binop::Less, Type::I32) => "i32.lt_s",
                             (Binop::Less, Type::F32) => "f32.lt",
                             (Binop::Less, Type::I64) => "i64.lt_s",
@@ -765,19 +787,19 @@ pub(super) fn translate_expr(
                     let ltype = guess_type(lscope, left)?;
                     let rtype = guess_type(lscope, right)?;
                     match (ltype, rtype) {
-                        (Type::I32, Type::I32) |
-                        (Type::F32, Type::F32) |
-                        (Type::F32, Type::I32) |
-                        (Type::I32, Type::F32) => {
+                        (Type::I32, Type::I32)
+                        | (Type::F32, Type::F32)
+                        | (Type::F32, Type::I32)
+                        | (Type::I32, Type::F32) => {
                             translate_expr(out, sink, lscope, ReturnType::Value(Type::F32), left)?;
                             translate_expr(out, sink, lscope, ReturnType::Value(Type::F32), right)?;
                             sink.writeln("f32.div");
                             auto_cast(sink, span, lscope, ReturnType::Value(Type::F32), etype)?;
                         }
-                        (Type::I64, Type::I64) |
-                        (Type::F64, Type::F64) |
-                        (Type::F64, Type::I64) |
-                        (Type::I64, Type::F64) => {
+                        (Type::I64, Type::I64)
+                        | (Type::F64, Type::F64)
+                        | (Type::F64, Type::I64)
+                        | (Type::I64, Type::F64) => {
                             translate_expr(out, sink, lscope, ReturnType::Value(Type::F64), left)?;
                             translate_expr(out, sink, lscope, ReturnType::Value(Type::F64), right)?;
                             sink.writeln("f64.div");
@@ -806,9 +828,9 @@ pub(super) fn translate_expr(
                             sink.writeln("i32.div_s");
                             auto_cast(sink, span, lscope, ReturnType::Value(Type::I32), etype)?;
                         }
-                        (Type::F32, Type::F32) |
-                        (Type::I32, Type::F32) |
-                        (Type::F32, Type::I32) => {
+                        (Type::F32, Type::F32)
+                        | (Type::I32, Type::F32)
+                        | (Type::F32, Type::I32) => {
                             translate_expr(out, sink, lscope, ReturnType::Value(Type::F32), left)?;
                             translate_expr(out, sink, lscope, ReturnType::Value(Type::F32), right)?;
                             sink.writeln("f32.div");
@@ -822,9 +844,9 @@ pub(super) fn translate_expr(
                             sink.writeln("i64.div_s");
                             auto_cast(sink, span, lscope, ReturnType::Value(Type::I64), etype)?;
                         }
-                        (Type::F64, Type::F64) |
-                        (Type::I64, Type::F64) |
-                        (Type::F64, Type::I64) => {
+                        (Type::F64, Type::F64)
+                        | (Type::I64, Type::F64)
+                        | (Type::F64, Type::I64) => {
                             translate_expr(out, sink, lscope, ReturnType::Value(Type::F64), left)?;
                             translate_expr(out, sink, lscope, ReturnType::Value(Type::F64), right)?;
                             sink.writeln("f64.div");

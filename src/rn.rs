@@ -58,6 +58,7 @@ pub fn run_tests(sources: Vec<(Rc<str>, Rc<str>)>, test_prefix: &str) -> Result<
     let file_loading_time = start.elapsed().as_secs_f64();
     let start = std::time::Instant::now();
     let wat_code = translate_files(files)?;
+    let wat_code_size = wat_code.len();
     let wac_to_wat_time = start.elapsed().as_secs_f64();
 
     let start = std::time::Instant::now();
@@ -93,6 +94,10 @@ pub fn run_tests(sources: Vec<(Rc<str>, Rc<str>)>, test_prefix: &str) -> Result<
     println!("wat to wasm time   : {}s", wat_to_wasm_time);
     println!("instantiate time   : {}s", instantiate_time);
     println!("execution time     : {}s", exec_time);
+    println!(
+        "wat code size      : {:.3}kb",
+        (wat_code_size as f64) / (2.0f64.powi(10))
+    );
     println!(
         "wasm code size     : {:.3}kb",
         (wasm_code_size as f64) / (2.0f64.powi(10))

@@ -101,7 +101,7 @@ pub(super) fn translate_func_from_parts(
     ftype: &FunctionType,
     body: &Expr,
 ) -> Result<(), Error> {
-    let mut lscope = LocalScope::new(gscope, ftype.trace);
+    let mut lscope = LocalScope::new(gscope, ftype.trace, Some(ftype.return_type));
 
     match visibility {
         Visibility::Public => {
@@ -130,7 +130,15 @@ pub(super) fn translate_func_from_parts(
     }
     // we won't know what locals we have until we finish translate_expr on the body
     let locals_sink = sink.spawn();
+    sink.write("(block $rt_label_return");
+    match ftype.return_type {
+        ReturnType::Value(return_type) => {
+            sink.writeln(format!(" (result {})", translate_type(return_type)));
+        }
+        ReturnType::NoReturn | ReturnType::Void => sink.writeln(""),
+    }
     translate_expr(out, &sink, &mut lscope, ftype.return_type, &body)?;
+    sink.writeln(")");
     let epilogue = sink.spawn();
     sink.writeln(")");
 
