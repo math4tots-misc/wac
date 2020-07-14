@@ -635,56 +635,71 @@ pub(super) fn translate_expr(
                 Binop::Less | Binop::LessOrEqual | Binop::Greater | Binop::GreaterOrEqual => {
                     let ltype = guess_type(lscope, left)?;
                     let rtype = guess_type(lscope, right)?;
-                    let union_type = match best_union_type(ltype, rtype) {
-                        Type::I32 => Type::I32,
-                        _ => Type::F32,
-                    };
-                    translate_expr(out, sink, lscope, ReturnType::Value(union_type), left)?;
-                    translate_expr(out, sink, lscope, ReturnType::Value(union_type), right)?;
-                    let code = match (op, union_type) {
-                        (Binop::Less, Type::I32) => "i32.lt_s",
-                        (Binop::Less, Type::F32) => "f32.lt",
 
-                        (Binop::LessOrEqual, Type::I32) => "i32.le_s",
-                        (Binop::LessOrEqual, Type::F32) => "f32.le",
+                    let union_type = best_union_type(ltype, rtype);
 
-                        (Binop::Greater, Type::I32) => "i32.gt_s",
-                        (Binop::Greater, Type::F32) => "f32.gt",
+                    if union_type.builtin_primitive() {
+                        translate_expr(out, sink, lscope, ReturnType::Value(union_type), left)?;
+                        translate_expr(out, sink, lscope, ReturnType::Value(union_type), right)?;
+                        let code = match (op, union_type) {
 
-                        (Binop::GreaterOrEqual, Type::I32) => "i32.ge_s",
-                        (Binop::GreaterOrEqual, Type::F32) => "f32.ge",
+                            (Binop::Less, Type::I32) => "i32.lt_s",
+                            (Binop::Less, Type::F32) => "f32.lt",
+                            (Binop::Less, Type::I64) => "i64.lt_s",
+                            (Binop::Less, Type::F64) => "f64.lt",
 
-                        (Binop::Less, _)
-                        | (Binop::LessOrEqual, _)
-                        | (Binop::Greater, _)
-                        | (Binop::GreaterOrEqual, _) => Err(Error::Type {
-                            span: span.clone(),
-                            expected: "comparable values".into(),
-                            got: format!("{:?}, {:?}", ltype, rtype),
-                        })?,
+                            (Binop::LessOrEqual, Type::I32) => "i32.le_s",
+                            (Binop::LessOrEqual, Type::F32) => "f32.le",
+                            (Binop::LessOrEqual, Type::I64) => "i64.le_s",
+                            (Binop::LessOrEqual, Type::F64) => "f64.le",
 
-                        _ => panic!("impossible cmp op {:?}", op),
-                    };
-                    sink.writeln(code);
-                    auto_cast(sink, span, lscope, ReturnType::Value(Type::Bool), etype)?;
+                            (Binop::Greater, Type::I32) => "i32.gt_s",
+                            (Binop::Greater, Type::F32) => "f32.gt",
+                            (Binop::Greater, Type::I64) => "i64.gt_s",
+                            (Binop::Greater, Type::F64) => "f64.gt",
+
+                            (Binop::GreaterOrEqual, Type::I32) => "i32.ge_s",
+                            (Binop::GreaterOrEqual, Type::F32) => "f32.ge",
+                            (Binop::GreaterOrEqual, Type::I64) => "i64.ge_s",
+                            (Binop::GreaterOrEqual, Type::F64) => "f64.ge",
+
+                            (Binop::Less, _)
+                            | (Binop::LessOrEqual, _)
+                            | (Binop::Greater, _)
+                            | (Binop::GreaterOrEqual, _) => Err(Error::Type {
+                                span: span.clone(),
+                                expected: "comparable values".into(),
+                                got: format!("{:?}, {:?}", ltype, rtype),
+                            })?,
+
+                            _ => panic!("impossible cmp op {:?}", op),
+                        };
+                        sink.writeln(code);
+                        auto_cast(sink, span, lscope, ReturnType::Value(Type::Bool), etype)?;
+                    } else {
+                        let opname = match op {
+                            Binop::Less => "LessThan",
+                            Binop::LessOrEqual => "LessThanOrEqual",
+                            Binop::Greater => "GreaterThan",
+                            Binop::GreaterOrEqual => "GreaterThanOrEqual",
+                            _ => panic!("impossible comp op: {:?}", op),
+                        };
+                        translate_fcall(
+                            out,
+                            lscope,
+                            sink,
+                            etype,
+                            span,
+                            &opname.into(),
+                            &vec![left, right],
+                        )?;
+                    }
                 }
                 Binop::Add | Binop::Subtract | Binop::Multiply | Binop::Remainder => {
                     let ltype = guess_type(lscope, left)?;
                     let rtype = guess_type(lscope, right)?;
 
-                    let union_type = match (ltype, rtype) {
-                        (Type::I32, Type::I32) => Type::I32,
-                        (Type::I64, Type::I64) => Type::I64,
-
-                        (Type::F32, Type::F32) |
-                        (Type::I32, Type::F32) |
-                        (Type::F32, Type::I32) => Type::F32,
-
-                        (Type::F64, Type::F64) |
-                        (Type::I64, Type::F64) |
-                        (Type::F64, Type::I64) => Type::F64,
-                        _ => Type::Id,
-                    };
+                    let union_type = best_union_type(ltype, rtype);
 
                     if union_type.builtin_primitive() {
                         translate_expr(out, sink, lscope, ReturnType::Value(union_type), left)?;
