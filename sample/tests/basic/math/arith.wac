@@ -23,4 +23,9 @@ fn __test_arith_64bit() {
     var x i64 = 123
     var y i64 = 234
     Assert(x + y is (357).(i64))
+
+    {
+        var x i64 = -1
+        AssertEq(x.Wrap(), (-1).(i32))
+    }
 }

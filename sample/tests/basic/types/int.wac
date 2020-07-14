@@ -3,7 +3,7 @@
 fn __test_i32_str() {
     Assert(str(123456) == '123456')
     Assert(str(0) == '0')
-    Assert(str(-1) == '-1')
+    AssertEq(str(-1), '-1')
     Assert(str(8585) == '8585')
     Assert(str(-8585) == '-8585')
     Assert(str(-1000000000) == '-1000000000')

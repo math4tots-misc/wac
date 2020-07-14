@@ -908,28 +908,56 @@ pub(super) fn translate_expr(
             //   !
             //     * always returns bool
             Unop::Plus => {
-                let guessed_type = match guess_type(lscope, expr)? {
-                    Type::I32 => Type::I32,
-                    _ => Type::F32,
+                let guessed_type = match etype {
+                    ReturnType::Value(Type::I32) => Type::I32,
+                    ReturnType::Value(Type::I64) => Type::I64,
+                    _ => match guess_type(lscope, expr)? {
+                        Type::I32 => Type::I32,
+                        Type::I64 => Type::I64,
+                        Type::F64 => Type::F64,
+                        _ => Type::F32,
+                    }
                 };
                 translate_expr(out, sink, lscope, ReturnType::Value(guessed_type), expr)?;
                 auto_cast(sink, span, lscope, ReturnType::Value(guessed_type), etype)?
             }
-            Unop::Minus => match guess_type(lscope, expr)? {
-                Type::I32 => {
-                    let guessed_type = Type::I32;
-                    sink.i32_const(0);
-                    translate_expr(out, sink, lscope, ReturnType::Value(guessed_type), expr)?;
-                    sink.i32_sub();
-                    auto_cast(sink, span, lscope, ReturnType::Value(guessed_type), etype)?
+            Unop::Minus => {
+                let guessed_type = match etype {
+                    ReturnType::Value(Type::I32) => Type::I32,
+                    ReturnType::Value(Type::I64) => Type::I64,
+                    _ => match guess_type(lscope, expr)? {
+                        Type::I32 => Type::I32,
+                        Type::I64 => Type::I64,
+                        Type::F64 => Type::F64,
+                        _ => Type::F32,
+                    }
+                };
+                match guessed_type {
+                    Type::I32 => {
+                        sink.i32_const(0);
+                        translate_expr(out, sink, lscope, ReturnType::Value(guessed_type), expr)?;
+                        sink.writeln("i32.sub");
+                        auto_cast(sink, span, lscope, ReturnType::Value(guessed_type), etype)?
+                    }
+                    Type::I64 => {
+                        sink.i64_const(0);
+                        translate_expr(out, sink, lscope, ReturnType::Value(guessed_type), expr)?;
+                        sink.writeln("i64.sub");
+                        auto_cast(sink, span, lscope, ReturnType::Value(guessed_type), etype)?
+                    }
+                    Type::F64 => {
+                        translate_expr(out, sink, lscope, ReturnType::Value(guessed_type), expr)?;
+                        sink.writeln("f64.neg");
+                        auto_cast(sink, span, lscope, ReturnType::Value(guessed_type), etype)?
+                    }
+                    _ => {
+                        let guessed_type = Type::F32;
+                        translate_expr(out, sink, lscope, ReturnType::Value(guessed_type), expr)?;
+                        sink.writeln("f32.neg");
+                        auto_cast(sink, span, lscope, ReturnType::Value(guessed_type), etype)?
+                    }
                 }
-                _ => {
-                    let guessed_type = Type::F32;
-                    translate_expr(out, sink, lscope, ReturnType::Value(guessed_type), expr)?;
-                    sink.writeln("f32.neg");
-                    auto_cast(sink, span, lscope, ReturnType::Value(guessed_type), etype)?
-                }
-            },
+            }
             Unop::Not => {
                 translate_expr(out, sink, lscope, ReturnType::Value(Type::Bool), expr)?;
                 sink.writeln("i32.eqz");

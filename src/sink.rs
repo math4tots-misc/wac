@@ -86,10 +86,6 @@ impl Sink {
         self.writeln("i32.add");
     }
 
-    pub fn i32_sub(&self) {
-        self.writeln("i32.sub");
-    }
-
     pub fn i32_div_s(&self) {
         self.writeln("i32.div_s");
     }
