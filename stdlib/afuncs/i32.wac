@@ -7,10 +7,6 @@ fn i32.ExtendSigned[notrace](self) i64 {
     $asm([self], i64, "i64.extend_i32_s")
 }
 
-fn i64.Wrap[notrace](self) i32 {
-    $asm([self], i32, "i32.wrap_i64")
-}
-
 fn i32.Abs[notrace](self) i32 {
     if self < 0 {
         -self
