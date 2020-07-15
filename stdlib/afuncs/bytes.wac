@@ -33,6 +33,11 @@ fn bytes.Size[notrace](self) i32 {
     $read4($asm([], i32, "local.get $l_0_self"), offset: __WAC_bytes_offset_size)
 }
 
+# Gets a raw pointer to the buffer containing the data
+fn bytes.PointerToRawData[notrace](self) i32 {
+    $read4($raw(self), offset: __WAC_bytes_offset_buffer)
+}
+
 # Get a single byte at index
 fn bytes.Get1(self, index i32) i32 {
     var size = self.Size()

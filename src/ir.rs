@@ -179,6 +179,7 @@ pub enum Expr {
         ReturnType,
         Rc<str>,
     ),
+    Raw(SSpan, Cell<Option<ReturnType>>, Rc<str>),
 
     // memory reading intrinsics
     // reads/writes the number of bytes as specified in their names
@@ -221,6 +222,7 @@ impl Expr {
             Expr::CString(span, ..) => span,
             Expr::Char(span, ..) => span,
             Expr::Asm(span, ..) => span,
+            Expr::Raw(span, ..) => span,
             Expr::Read1(span, ..) => span,
             Expr::Read2(span, ..) => span,
             Expr::Read4(span, ..) => span,
@@ -260,6 +262,7 @@ impl Expr {
             Expr::CString(_, cell, ..) => cell,
             Expr::Char(_, cell, ..) => cell,
             Expr::Asm(_, cell, ..) => cell,
+            Expr::Raw(_, cell, ..) => cell,
             Expr::Read1(_, cell, ..) => cell,
             Expr::Read2(_, cell, ..) => cell,
             Expr::Read4(_, cell, ..) => cell,
@@ -381,6 +384,12 @@ pub enum Type {
 }
 
 impl Type {
+    pub fn is_64bit(&self) -> bool {
+        match self {
+            Type::I64 | Type::F64 | Type::Id => true,
+            _ => false,
+        }
+    }
     pub fn from_name(name: &str) -> Option<Type> {
         match name {
             "i32" => Some(Type::I32),

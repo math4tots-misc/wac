@@ -313,11 +313,11 @@ impl<'a> LocalScope<'a> {
             None => None,
         }
     }
-    pub(super) fn get_or_err(&self, span: SSpan, name: &Rc<str>) -> Result<ScopeEntry, Error> {
+    pub(super) fn get_or_err(&self, span: &SSpan, name: &Rc<str>) -> Result<ScopeEntry, Error> {
         match self.get(name) {
             Some(e) => Ok(e),
             None => Err(Error::Type {
-                span,
+                span: span.clone(),
                 expected: format!("Variable {}", name),
                 got: "NotFound".into(),
             }),
@@ -326,11 +326,11 @@ impl<'a> LocalScope<'a> {
     pub(super) fn getf(&self, name: &Rc<str>) -> Option<FunctionEntry> {
         self.g.functions.get(name).cloned()
     }
-    pub(super) fn getf_or_err(&self, span: SSpan, name: &Rc<str>) -> Result<FunctionEntry, Error> {
+    pub(super) fn getf_or_err(&self, span: &SSpan, name: &Rc<str>) -> Result<FunctionEntry, Error> {
         match self.getf(name) {
             Some(e) => Ok(e),
             None => Err(Error::Type {
-                span,
+                span: span.clone(),
                 expected: format!("Function {}", name),
                 got: "NotFound".into(),
             }),

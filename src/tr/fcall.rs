@@ -9,7 +9,7 @@ pub(super) fn translate_fcall(
     fname: &Rc<str>,
     argexprs: &Vec<&Expr>,
 ) -> Result<(), Error> {
-    let fentry = lscope.getf_or_err(span.clone(), fname)?;
+    let fentry = lscope.getf_or_err(span, fname)?;
     let ftype = fentry.type_();
     let trace = ftype.trace;
     if argexprs.len() != ftype.parameters.len() {

@@ -41,7 +41,7 @@ pub(super) fn guess_return_type(lscope: &mut LocalScope, expr: &Expr) -> Result<
             Expr::Float(..) => Ok(ReturnType::Value(Type::F32)),
             Expr::String(..) => Ok(ReturnType::Value(Type::String)),
             Expr::List(..) => Ok(ReturnType::Value(Type::List)),
-            Expr::GetVar(span, _, name) => match lscope.get_or_err(span.clone(), name)? {
+            Expr::GetVar(span, _, name) => match lscope.get_or_err(span, name)? {
                 ScopeEntry::Local(info) => Ok(ReturnType::Value(info.type_)),
                 ScopeEntry::Global(info) => Ok(ReturnType::Value(info.type_)),
                 ScopeEntry::Constant(info) => Ok(ReturnType::Value(info.value.type_())),
@@ -56,15 +56,12 @@ pub(super) fn guess_return_type(lscope: &mut LocalScope, expr: &Expr) -> Result<
                 None => Ok(ReturnType::Void),
             },
             Expr::FunctionCall(span, _, name, _) => {
-                Ok(lscope.getf_or_err(span.clone(), name)?.type_().return_type)
+                Ok(lscope.getf_or_err(span, name)?.type_().return_type)
             }
             Expr::AssociatedFunctionCall(span, _, owner, name, _) => {
                 let owner_type = guess_type(lscope, owner)?;
                 let fname = format!("{}.{}", owner_type, name);
-                Ok(lscope
-                    .getf_or_err(span.clone(), &fname.into())?
-                    .type_()
-                    .return_type)
+                Ok(lscope.getf_or_err(span, &fname.into())?.type_().return_type)
             }
             Expr::If(_, _, pairs, other) => {
                 let mut ret = ReturnType::NoReturn;
@@ -235,6 +232,13 @@ pub(super) fn guess_return_type(lscope: &mut LocalScope, expr: &Expr) -> Result<
             }
             Expr::Char(..) => Ok(ReturnType::Value(Type::I32)),
             Expr::Asm(_, _, _, type_, _) => Ok(type_.clone()),
+            Expr::Raw(span, _, name) => Ok(ReturnType::Value(
+                if lscope.get_or_err(span, name)?.type_().is_64bit() {
+                    Type::I64
+                } else {
+                    Type::I32
+                },
+            )),
             Expr::Read1(..) => Ok(ReturnType::Value(Type::I32)),
             Expr::Read2(..) => Ok(ReturnType::Value(Type::I32)),
             Expr::Read4(..) => Ok(ReturnType::Value(Type::I32)),

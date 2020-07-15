@@ -135,7 +135,7 @@ pub(super) fn translate_expr(
             }
         }
         Expr::GetVar(span, _, name) => {
-            let entry = lscope.get_or_err(span.clone(), name)?;
+            let entry = lscope.get_or_err(span, name)?;
             let gtype = entry.type_();
             match entry {
                 ScopeEntry::Local(info) => {
@@ -161,7 +161,7 @@ pub(super) fn translate_expr(
             auto_cast(sink, span, lscope, ReturnType::Value(gtype), etype)?;
         }
         Expr::SetVar(span, _, name, setexpr) => {
-            let entry = lscope.get_or_err(span.clone(), name)?;
+            let entry = lscope.get_or_err(span, name)?;
 
             // There's no need to retain here, because anything that's currently
             // on the stack already has a retain on it. By popping from the
@@ -990,6 +990,30 @@ pub(super) fn translate_expr(
             }
             sink.writeln(asm_code);
             auto_cast(sink, span, lscope, *type_, etype)?;
+        }
+        Expr::Raw(span, _, name) => {
+            let info = lscope.get_or_err(span, name)?;
+            let stype = info.type_();
+            let ttype = if stype.is_64bit() {
+                Type::I64
+            } else {
+                Type::I32
+            };
+            match info {
+                ScopeEntry::Global(info) => sink.writeln(format!("global.get {}", info.wasm_name)),
+                ScopeEntry::Local(info) => sink.writeln(format!("local.get {}", info.wasm_name)),
+                ScopeEntry::Constant(info) => match info.value {
+                    ConstValue::I32(value) => sink.writeln(format!("i32.const {}", value)),
+                    ConstValue::Enum(_, value) => sink.writeln(format!("i32.const {}", value)),
+                    ConstValue::Type(type_) => sink.writeln(format!("i32.const {}", type_.tag())),
+                },
+            }
+            match stype {
+                Type::F32 => sink.writeln("i32.reinterpret_f32"),
+                Type::F64 => sink.writeln("i64.reinterpret_f64"),
+                _ => {}
+            }
+            auto_cast(sink, span, lscope, ttype.into(), etype)?;
         }
         Expr::Read1(_, _, subexpr, offset) => {
             translate_expr(out, sink, lscope, ReturnType::Value(Type::I32), subexpr)?;

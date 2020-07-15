@@ -626,6 +626,15 @@ fn parse_atom(parser: &mut Parser) -> Result<Expr, ParseError> {
                     parser.expect(Token::RParen)?;
                     Ok(Expr::Asm(span, Cell::new(None), args, type_, asm_code))
                 }
+                Token::Name("raw") => {
+                    parser.gettok();
+                    parser.expect(Token::LParen)?;
+                    let name = parser.expect_name()?;
+                    parser.consume(Token::Comma);
+                    parser.expect(Token::RParen)?;
+                    let span = span.upto(&parser.span());
+                    Ok(Expr::Raw(span, Cell::new(None), name))
+                }
                 Token::Name("read1")
                 | Token::Name("read2")
                 | Token::Name("read4")
