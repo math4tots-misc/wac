@@ -1,6 +1,12 @@
 # Some basic language imports
 
+# Raw api for writing data
 import fn "lang" "write_raw" __write_raw[notrace](fd i32, len i32, ptr i32) i32
+
+# For reading data, we need to determine size of buffer to allocate before
+# doing the read itself, so we also have the 'peek' functions
+# import fn "lang" "peek_read_raw" __peek_read_raw[notrace](fd i32) i32
+# import fn "lang" "read_raw" __read_raw[notrace](fd i32, len i32, ptr i32) i32
 
 # For debugging malloc/free
 import fn "lang" "record_malloc" __record_malloc[notrace](len i32, ptr i32) i32

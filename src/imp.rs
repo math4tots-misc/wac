@@ -20,9 +20,6 @@ pub fn make_import_object() -> wr::ImportObject {
                     _ => panic!("Invalid file descriptor {}", fd),
                 }
             }),
-            "eprint0_i32" => wr::func!(|_ctx: &mut wr::Ctx, x: i32| {
-                eprint!("{}", x);
-            }),
 
             "record_malloc" => wr::func!(move |_ctx: &mut wr::Ctx, len: i32, ptr: i32| -> i32 {
                 MALLOC_CHECK.with(|check| {

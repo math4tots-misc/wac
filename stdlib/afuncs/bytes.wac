@@ -30,7 +30,7 @@ impl list for bytes(self) bytes {
 }
 
 fn bytes.Size[notrace](self) i32 {
-    $read4($asm([], i32, "local.get $l_0_self"), offset: __WAC_bytes_offset_size)
+    $read4($raw(self), offset: __WAC_bytes_offset_size)
 }
 
 # Gets a raw pointer to the buffer containing the data
@@ -42,14 +42,14 @@ fn bytes.PointerToRawData[notrace](self) i32 {
 fn bytes.Get1(self, index i32) i32 {
     var size = self.Size()
     index = __index(index, size)
-    var buffer = $read4($asm([], i32, "local.get $l_0_self"), offset: __WAC_bytes_offset_buffer)
+    var buffer = $read4($raw(self), offset: __WAC_bytes_offset_buffer)
     $read1(buffer + index)
 }
 
 fn bytes.Set1(self, index i32, byte i32) {
     var size = self.Size()
     index = __index(index, size)
-    var buffer = $read4($asm([], i32, "local.get $l_0_self"), offset: __WAC_bytes_offset_buffer)
+    var buffer = $read4($raw(self), offset: __WAC_bytes_offset_buffer)
     $write1(buffer + index, byte)
 }
 
