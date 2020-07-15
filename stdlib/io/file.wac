@@ -11,4 +11,5 @@ var STDERR = new File(2)
 fn File.Write(self, data id) {
     var len = SizeOfRawData(data)
     var ptr = PointerToRawData(data)
+    __write_raw(self.fd, len, ptr)
 }
