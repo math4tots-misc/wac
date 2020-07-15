@@ -73,7 +73,7 @@ fn bytes.Set4(self, index i32, value i32) {
 # Get an 8-byte value at an index
 fn bytes.Get8(self, index i32) i64 {
     (self.Get4(index).ExtendUnsigned() |
-        self.Get4(index + 4).ExtendUnsigned() << (32).(i64))
+        self.Get4(index + 4).ExtendUnsigned() << 32)
 }
 
 fn bytes.Resize[notrace](self, size i32) {
@@ -95,8 +95,8 @@ fn bytes.Push4[notrace](self, value i32) {
 }
 
 fn bytes.Push8[notrace](self, value i64) {
-    self.Push4((value & (0xFFFFFFFF).(i64)).Wrap())
-    self.Push4(((value >> (32).(i64)) & (0xFFFFFFFF).(i64)).Wrap())
+    self.Push4((value & 0xFFFFFFFF).Wrap())
+    self.Push4(((value >> 32) & 0xFFFFFFFF).Wrap())
 }
 
 fn bytes.ExtendWithBytes(self, other bytes) {

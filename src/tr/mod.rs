@@ -125,7 +125,9 @@ pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
     for (_filename, file) in &files {
         for imp in &file.imports {
             match imp {
-                Import::Function(FunctionImport { span, alias, type_, .. }) => {
+                Import::Function(FunctionImport {
+                    span, alias, type_, ..
+                }) => {
                     let entry = FunctionEntry::Function(Rc::new(FunctionInfo {
                         span: span.clone(),
                         name: alias.clone(),
@@ -136,7 +138,7 @@ pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
                             span1: old_info.span().clone(),
                             span2: span.clone(),
                             name: alias.clone(),
-                        })
+                        });
                     }
                     functions.insert(alias.clone(), entry);
                 }
@@ -153,7 +155,7 @@ pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
                     span1: old_info.span().clone(),
                     span2: func.span.clone(),
                     name: func.name.clone(),
-                })
+                });
             }
             functions.insert(func.name.clone(), entry);
         }
@@ -172,7 +174,7 @@ pub fn translate_files(files: Vec<(Rc<str>, File)>) -> Result<String, Error> {
                     span1: old_info.span().clone(),
                     span2: trait_.span.clone(),
                     name: trait_.name.clone(),
-                })
+                });
             }
             functions.insert(trait_.name.clone(), entry);
         }

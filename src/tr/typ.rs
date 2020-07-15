@@ -187,6 +187,15 @@ pub(super) fn best_union_type(a: Type, b: Type) -> Type {
         (Type::I32, Type::F32) | (Type::F32, Type::I32) => Type::F32,
         (Type::I64, Type::F64) | (Type::F64, Type::I64) => Type::F64,
 
+        // allow promoting ints to larger types
+        (Type::I32, Type::I64) | (Type::I64, Type::I32) => Type::I64,
+
+        // promote mixed float/int and 32/64 types to f64
+        (Type::F32, Type::I64)
+        | (Type::I64, Type::F32)
+        | (Type::I32, Type::F64)
+        | (Type::F64, Type::I32) => Type::F64,
+
         // in all other cases, just use the id type
         _ => Type::Id,
     }

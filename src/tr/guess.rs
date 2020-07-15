@@ -200,7 +200,9 @@ pub(super) fn guess_return_type(lscope: &mut LocalScope, expr: &Expr) -> Result<
                     let rtype = guess_type(lscope, right)?;
                     match (ltype, rtype) {
                         (Type::I32, Type::I32) => Type::I32,
-                        (Type::I64, Type::I64) => Type::I64,
+                        (Type::I64, Type::I64)
+                        | (Type::I32, Type::I64)
+                        | (Type::I64, Type::I32) => Type::I64,
                         _ => {
                             return Err(Error::Type {
                                 span: expr.span().clone(),

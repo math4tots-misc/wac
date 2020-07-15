@@ -797,6 +797,10 @@ pub(super) fn translate_expr(
                             auto_cast(sink, span, lscope, ReturnType::Value(Type::F32), etype)?;
                         }
                         (Type::I64, Type::I64)
+                        | (Type::I32, Type::I64)
+                        | (Type::I64, Type::I32)
+                        | (Type::F64, Type::I32)
+                        | (Type::I32, Type::F64)
                         | (Type::F64, Type::F64)
                         | (Type::F64, Type::I64)
                         | (Type::I64, Type::F64) => {
@@ -875,7 +879,9 @@ pub(super) fn translate_expr(
                     let rtype = guess_type(lscope, right)?;
                     let union_type = match (ltype, rtype) {
                         (Type::I32, Type::I32) => Type::I32,
-                        (Type::I64, Type::I64) => Type::I64,
+                        (Type::I64, Type::I64)
+                        | (Type::I32, Type::I64)
+                        | (Type::I64, Type::I32) => Type::I64,
                         _ => {
                             return Err(Error::Type {
                                 span: expr.span().clone(),
@@ -916,7 +922,7 @@ pub(super) fn translate_expr(
                         Type::I64 => Type::I64,
                         Type::F64 => Type::F64,
                         _ => Type::F32,
-                    }
+                    },
                 };
                 translate_expr(out, sink, lscope, ReturnType::Value(guessed_type), expr)?;
                 auto_cast(sink, span, lscope, ReturnType::Value(guessed_type), etype)?
@@ -930,7 +936,7 @@ pub(super) fn translate_expr(
                         Type::I64 => Type::I64,
                         Type::F64 => Type::F64,
                         _ => Type::F32,
-                    }
+                    },
                 };
                 match guessed_type {
                     Type::I32 => {
