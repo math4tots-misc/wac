@@ -14,6 +14,7 @@ mod start;
 mod tr;
 
 extern crate wasmer_runtime as wr;
+extern crate binaryen;
 
 pub use ast::*;
 pub use cgen::*;

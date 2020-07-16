@@ -1,18 +1,32 @@
 use crate::run;
 use crate::translate;
 use crate::Source;
+use crate::RunConfig;
 use std::path::Path;
 use std::rc::Rc;
 
 pub fn main() {
     let mut mode = Mode::Run;
     let mut sources = Vec::<Rc<Source>>::new();
+    let mut run_config = RunConfig::default();
     // let mut test_prefix = String::new();
     for arg in std::env::args().skip(1) {
         let arg: &str = &arg;
         match arg {
             "-c" => {
                 mode = Mode::CompileOnly;
+            }
+            _ if arg.starts_with("-O") => {
+                let text = &arg["-O".len()..];
+                let optlevel: Result<u32, _> = text.parse();
+                match optlevel {
+                    Ok(0) => run_config.optimize = None,
+                    Ok(1) => run_config.optimize = Some(1),
+                    Ok(2) => run_config.optimize = Some(2),
+                    _ => {
+                        panic!("Invalid opt level {:?} (must be 0, 1, or 2)", optlevel)
+                    }
+                }
             }
             // _ if arg.starts_with("-t") => {
             //     mode = Mode::Test;
@@ -25,7 +39,7 @@ pub fn main() {
     }
 
     match mode {
-        Mode::Run => match run(sources) {
+        Mode::Run => match run(sources, run_config) {
             Ok(stats) => eprintln!("{}", stats.format()),
             Err(error) => {
                 eprintln!("{}", error.format());
