@@ -62,7 +62,12 @@ fn gen_start(out: &mut String, program: &Program) -> Result<(), Error> {
     // Initialize global variables
     out.push_str("(func $start\n");
     for local in &program.gvar_init_locals {
-        out.push_str(&format!("(local $l/{}/{})\n", local.id, local.name));
+        out.push_str(&format!(
+            "(local $l/{}/{} {})\n",
+            local.id,
+            local.name,
+            trtype(&local.type_)
+        ));
     }
     for gvar in &program.globals {
         gen_expr(out, &gvar.init)?;
@@ -126,7 +131,12 @@ fn gen_func(out: &mut String, func: &Func) -> Result<(), Error> {
         .iter()
         .skip(func.parameters.borrow().len())
     {
-        out.push_str(&format!("(local $l/{}/{})\n", local.id, local.name));
+        out.push_str(&format!(
+            "(local $l/{}/{} {})\n",
+            local.id,
+            local.name,
+            trtype(&local.type_)
+        ));
     }
 
     out.push_str("(block $ret");
@@ -181,6 +191,15 @@ fn gen_expr(out: &mut String, expr: &Expr) -> Result<(), Error> {
             }
             Type::Record(_) => panic!("TODO: gen_expr record SetLocal (retain + release)"),
         },
+        ExprData::AugLocal(x, op, expr) => match x.type_ {
+            Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 => {
+                out.push_str(&format!("local.get $l/{}/{}\n", x.id, x.name));
+                gen_expr(out, expr)?;
+                out.push_str(&format!("{}\n", op));
+                out.push_str(&format!("local.set $l/{}/{}\n", x.id, x.name));
+            }
+            Type::Record(_) => panic!("TODO: gen_expr record AugLocal (retain + release)"),
+        },
         ExprData::GetGlobal(x) => match x.type_ {
             Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 => {
                 out.push_str(&format!("global.get $g/{}\n", x.name));
@@ -194,6 +213,15 @@ fn gen_expr(out: &mut String, expr: &Expr) -> Result<(), Error> {
             }
             Type::Record(_) => panic!("TODO: gen_expr record SetGlobal (retain + release)"),
         },
+        ExprData::AugGlobal(x, op, expr) => match x.type_ {
+            Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 => {
+                out.push_str(&format!("global.get $g/{}\n", x.name));
+                gen_expr(out, expr)?;
+                out.push_str(&format!("{}\n", op));
+                out.push_str(&format!("global.set $g/{}\n", x.name));
+            }
+            Type::Record(_) => panic!("TODO: gen_expr record AugGlobal (retain + release)"),
+        },
         ExprData::CallFunc(func, args) => {
             for arg in args {
                 gen_expr(out, arg)?;
@@ -206,6 +234,12 @@ fn gen_expr(out: &mut String, expr: &Expr) -> Result<(), Error> {
             }
             out.push_str(&format!("call $f/{}\n", ext.name));
         }
+        ExprData::Op(op, args) => {
+            for arg in args {
+                gen_expr(out, arg)?;
+            }
+            out.push_str(&format!("{}\n", op));
+        }
         ExprData::DropPrimitive(x) => {
             gen_expr(out, x)?;
             out.push_str("drop\n");
@@ -217,41 +251,81 @@ fn gen_expr(out: &mut String, expr: &Expr) -> Result<(), Error> {
             out.push_str(code);
             out.push('\n');
         }
-        ExprData::Read1(addr) => {
+        ExprData::Read1(addr, offset) => {
             gen_expr(out, addr)?;
-            out.push_str("i32.load8_u\n");
+            let offset = if *offset != 0 {
+                format!(" offset={}", offset)
+            } else {
+                "".to_owned()
+            };
+            out.push_str(&format!("i32.load8_u{}\n", offset));
         }
-        ExprData::Read2(addr) => {
+        ExprData::Read2(addr, offset) => {
             gen_expr(out, addr)?;
-            out.push_str("i32.load16_u\n");
+            let offset = if *offset != 0 {
+                format!(" offset={}", offset)
+            } else {
+                "".to_owned()
+            };
+            out.push_str(&format!("i32.load16_u{}\n", offset));
         }
-        ExprData::Read4(addr) => {
+        ExprData::Read4(addr, offset) => {
             gen_expr(out, addr)?;
-            out.push_str("i32.load\n");
+            let offset = if *offset != 0 {
+                format!(" offset={}", offset)
+            } else {
+                "".to_owned()
+            };
+            out.push_str(&format!("i32.load{}\n", offset));
         }
-        ExprData::Read8(addr) => {
+        ExprData::Read8(addr, offset) => {
             gen_expr(out, addr)?;
-            out.push_str("i64.load\n");
+            let offset = if *offset != 0 {
+                format!(" offset={}", offset)
+            } else {
+                "".to_owned()
+            };
+            out.push_str(&format!("i64.load{}\n", offset));
         }
-        ExprData::Write1(addr, data) => {
+        ExprData::Write1(addr, data, offset) => {
             gen_expr(out, addr)?;
             gen_expr(out, data)?;
-            out.push_str("i32.store8\n");
+            let offset = if *offset != 0 {
+                format!(" offset={}", offset)
+            } else {
+                "".to_owned()
+            };
+            out.push_str(&format!("i32.store8{}\n", offset));
         }
-        ExprData::Write2(addr, data) => {
+        ExprData::Write2(addr, data, offset) => {
             gen_expr(out, addr)?;
             gen_expr(out, data)?;
-            out.push_str("i32.store16\n");
+            let offset = if *offset != 0 {
+                format!(" offset={}", offset)
+            } else {
+                "".to_owned()
+            };
+            out.push_str(&format!("i32.store16{}\n", offset));
         }
-        ExprData::Write4(addr, data) => {
+        ExprData::Write4(addr, data, offset) => {
             gen_expr(out, addr)?;
             gen_expr(out, data)?;
-            out.push_str("i32.store\n");
+            let offset = if *offset != 0 {
+                format!(" offset={}", offset)
+            } else {
+                "".to_owned()
+            };
+            out.push_str(&format!("i32.store{}\n", offset));
         }
-        ExprData::Write8(addr, data) => {
+        ExprData::Write8(addr, data, offset) => {
             gen_expr(out, addr)?;
             gen_expr(out, data)?;
-            out.push_str("i64.store\n");
+            let offset = if *offset != 0 {
+                format!(" offset={}", offset)
+            } else {
+                "".to_owned()
+            };
+            out.push_str(&format!("i64.store{}\n", offset));
         }
     }
     Ok(())

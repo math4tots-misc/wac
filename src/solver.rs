@@ -380,6 +380,64 @@ fn solve_expr(
                 message: format!("{} not found (setvar)", name),
             }),
         },
+        RawExprData::AugVar(name, op, arg) => match lscope.get(name).cloned() {
+            Some(Item::Local(local)) => match op {
+                Binop::Add | Binop::Subtract => {
+                    let type_ = local.type_.clone();
+                    match type_ {
+                        Type::I32 => Ok(Expr {
+                            span: node.span.clone(),
+                            type_: ReturnType::Void,
+                            data: ExprData::AugLocal(
+                                local.clone(),
+                                TypedWasmOp {
+                                    op: UntypedWasmOp::from_binop_for_int(*op).unwrap(),
+                                    type_: type_.wasm(),
+                                },
+                                solve_typed_expr(lscope, arg, &type_.into())?.into(),
+                            ),
+                        }),
+                        _ => Err(Error {
+                            span: vec![node.span.clone()],
+                            message: format!("Aug{:?} not supported for {}", op, type_),
+                        }),
+                    }
+                }
+                _ => panic!("Augassign {:?} not yet supported", op),
+            },
+            Some(Item::Global(global)) => match op {
+                Binop::Add | Binop::Subtract => {
+                    let type_ = global.type_.clone();
+                    match type_ {
+                        Type::I32 => Ok(Expr {
+                            span: node.span.clone(),
+                            type_: ReturnType::Void,
+                            data: ExprData::AugGlobal(
+                                global.clone(),
+                                TypedWasmOp {
+                                    op: UntypedWasmOp::from_binop_for_int(*op).unwrap(),
+                                    type_: type_.wasm(),
+                                },
+                                solve_typed_expr(lscope, arg, &type_.into())?.into(),
+                            ),
+                        }),
+                        _ => Err(Error {
+                            span: vec![node.span.clone()],
+                            message: format!("Aug{:?} not supported for {}", op, type_),
+                        }),
+                    }
+                }
+                _ => panic!("Augassign {:?} not yet supported", op),
+            },
+            Some(item) => Err(Error {
+                span: vec![node.span.clone(), item.span().clone()],
+                message: format!("{} is not a variable (augvar)", name),
+            }),
+            _ => Err(Error {
+                span: vec![node.span.clone()],
+                message: format!("{} not found (augvar)", name),
+            }),
+        },
         RawExprData::CallFunc(fname, raw_args) => {
             let func = lscope.get_callable(&node.span, fname)?;
             if func.type_().parameters.len() != raw_args.len() {
@@ -406,6 +464,45 @@ fn solve_expr(
                 },
             })
         }
+        RawExprData::Unop(op, arg) => {
+            let arg = solve_value_expr(lscope, arg, hint.and_then(|t| t.value()))?;
+            match (op, arg.type_.value().unwrap()) {
+                (Unop::Positive, Type::I32)
+                | (Unop::Positive, Type::I64)
+                | (Unop::Positive, Type::F32)
+                | (Unop::Positive, Type::F64) => Ok(arg),
+                (op, type_) => Err(Error {
+                    span: vec![node.span.clone()],
+                    message: format!("{:?} {} op combo not supported", op, type_),
+                }),
+            }
+        }
+        RawExprData::Binop(op, arg1, arg2) => match op {
+            Binop::Add | Binop::Subtract => {
+                let arg1 = solve_value_expr(lscope, arg1, hint.and_then(|t| t.value()))?;
+                let return_type = &arg1.type_.clone();
+                let type_ = return_type.value().unwrap();
+                let arg2 = solve_typed_expr(lscope, arg2, return_type)?;
+                match type_ {
+                    Type::I32 => Ok(Expr {
+                        span: node.span.clone(),
+                        type_: return_type.clone(),
+                        data: ExprData::Op(
+                            TypedWasmOp {
+                                op: UntypedWasmOp::from_binop_for_int(*op).unwrap(),
+                                type_: type_.wasm(),
+                            },
+                            vec![arg1, arg2],
+                        ),
+                    }),
+                    _ => Err(Error {
+                        span: vec![node.span.clone()],
+                        message: format!("{:?} not supported for {}", op, type_),
+                    }),
+                }
+            }
+            _ => panic!("Operator {:?} not yet supported", op),
+        },
         RawExprData::Asm(raw_args, type_, code) => {
             let mut args = Vec::new();
             for raw_arg in raw_args {
@@ -423,72 +520,72 @@ fn solve_expr(
             type_: Type::I32.into(),
             data: ExprData::I32(*ch as i32),
         }),
-        RawExprData::Read1(addr) => {
+        RawExprData::Read1(addr, offset) => {
             let addr = solve_typed_expr(lscope, addr, &Type::I32.into())?;
             Ok(Expr {
                 span: node.span.clone(),
                 type_: Type::I32.into(),
-                data: ExprData::Read1(addr.into()),
+                data: ExprData::Read1(addr.into(), *offset),
             })
         }
-        RawExprData::Read2(addr) => {
+        RawExprData::Read2(addr, offset) => {
             let addr = solve_typed_expr(lscope, addr, &Type::I32.into())?;
             Ok(Expr {
                 span: node.span.clone(),
                 type_: Type::I32.into(),
-                data: ExprData::Read2(addr.into()),
+                data: ExprData::Read2(addr.into(), *offset),
             })
         }
-        RawExprData::Read4(addr) => {
+        RawExprData::Read4(addr, offset) => {
             let addr = solve_typed_expr(lscope, addr, &Type::I32.into())?;
             Ok(Expr {
                 span: node.span.clone(),
                 type_: Type::I32.into(),
-                data: ExprData::Read4(addr.into()),
+                data: ExprData::Read4(addr.into(), *offset),
             })
         }
-        RawExprData::Read8(addr) => {
+        RawExprData::Read8(addr, offset) => {
             let addr = solve_typed_expr(lscope, addr, &Type::I32.into())?;
             Ok(Expr {
                 span: node.span.clone(),
                 type_: Type::I64.into(),
-                data: ExprData::Read4(addr.into()),
+                data: ExprData::Read4(addr.into(), *offset),
             })
         }
-        RawExprData::Write1(addr, data) => {
+        RawExprData::Write1(addr, data, offset) => {
             let addr = solve_typed_expr(lscope, addr, &Type::I32.into())?;
             let data = solve_typed_expr(lscope, data, &Type::I32.into())?;
             Ok(Expr {
                 span: node.span.clone(),
                 type_: ReturnType::Void,
-                data: ExprData::Write1(addr.into(), data.into()),
+                data: ExprData::Write1(addr.into(), data.into(), *offset),
             })
         }
-        RawExprData::Write2(addr, data) => {
+        RawExprData::Write2(addr, data, offset) => {
             let addr = solve_typed_expr(lscope, addr, &Type::I32.into())?;
             let data = solve_typed_expr(lscope, data, &Type::I32.into())?;
             Ok(Expr {
                 span: node.span.clone(),
                 type_: ReturnType::Void,
-                data: ExprData::Write2(addr.into(), data.into()),
+                data: ExprData::Write2(addr.into(), data.into(), *offset),
             })
         }
-        RawExprData::Write4(addr, data) => {
+        RawExprData::Write4(addr, data, offset) => {
             let addr = solve_typed_expr(lscope, addr, &Type::I32.into())?;
             let data = solve_typed_expr(lscope, data, &Type::I32.into())?;
             Ok(Expr {
                 span: node.span.clone(),
                 type_: ReturnType::Void,
-                data: ExprData::Write4(addr.into(), data.into()),
+                data: ExprData::Write4(addr.into(), data.into(), *offset),
             })
         }
-        RawExprData::Write8(addr, data) => {
+        RawExprData::Write8(addr, data, offset) => {
             let addr = solve_typed_expr(lscope, addr, &Type::I32.into())?;
             let data = solve_typed_expr(lscope, data, &Type::I64.into())?;
             Ok(Expr {
                 span: node.span.clone(),
                 type_: ReturnType::Void,
-                data: ExprData::Write8(addr.into(), data.into()),
+                data: ExprData::Write8(addr.into(), data.into(), *offset),
             })
         }
     }

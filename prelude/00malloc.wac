@@ -3,3 +3,9 @@
 # its global variables before any memory can be allocated on the heap
 
 
+fn __malloc(len i32) i32 {
+    return 0
+}
+
+fn __free(len i32, ptr i32) {
+}

@@ -210,6 +210,18 @@ fn parse_stmt(parser: &mut Parser) -> Result<RawStmt, ParseError> {
             };
             RawStmtData::Return(expr)
         }
+        Token::Name("var") => {
+            parser.gettok();
+            let name = parser.expect_name()?;
+            let type_ = if parser.at(Token::Eq) {
+                None
+            } else {
+                Some(parse_type(parser)?)
+            };
+            parser.expect(Token::Eq)?;
+            let init = parse_expr(parser, 0)?;
+            RawStmtData::DeclVar(name, type_, init)
+        }
         _ => {
             let expr = parse_expr(parser, 0)?;
             RawStmtData::Expr(expr)
@@ -304,44 +316,68 @@ fn parse_atom(parser: &mut Parser) -> Result<RawExpr, ParseError> {
                     parser.gettok();
                     parser.expect(Token::LParen)?;
                     let addr = parse_expr(parser, 0)?;
-                    parser.consume(Token::Comma);
+                    let offset = if parser.consume(Token::Comma) {
+                        parser.expect(Token::Name("offset"))?;
+                        parser.expect(Token::Eq)?;
+                        parser.expect_u32()?
+                    } else {
+                        0
+                    };
                     parser.expect(Token::RParen)?;
                     Ok(RawExpr {
                         span,
-                        data: RawExprData::Read1(addr.into()),
+                        data: RawExprData::Read1(addr.into(), offset),
                     })
                 }
                 Token::Name("read2") => {
                     parser.gettok();
                     parser.expect(Token::LParen)?;
                     let addr = parse_expr(parser, 0)?;
-                    parser.consume(Token::Comma);
+                    let offset = if parser.consume(Token::Comma) {
+                        parser.expect(Token::Name("offset"))?;
+                        parser.expect(Token::Eq)?;
+                        parser.expect_u32()?
+                    } else {
+                        0
+                    };
                     parser.expect(Token::RParen)?;
                     Ok(RawExpr {
                         span,
-                        data: RawExprData::Read2(addr.into()),
+                        data: RawExprData::Read2(addr.into(), offset),
                     })
                 }
                 Token::Name("read4") => {
                     parser.gettok();
                     parser.expect(Token::LParen)?;
                     let addr = parse_expr(parser, 0)?;
-                    parser.consume(Token::Comma);
+                    let offset = if parser.consume(Token::Comma) {
+                        parser.expect(Token::Name("offset"))?;
+                        parser.expect(Token::Eq)?;
+                        parser.expect_u32()?
+                    } else {
+                        0
+                    };
                     parser.expect(Token::RParen)?;
                     Ok(RawExpr {
                         span,
-                        data: RawExprData::Read4(addr.into()),
+                        data: RawExprData::Read4(addr.into(), offset),
                     })
                 }
                 Token::Name("read8") => {
                     parser.gettok();
                     parser.expect(Token::LParen)?;
                     let addr = parse_expr(parser, 0)?;
-                    parser.consume(Token::Comma);
+                    let offset = if parser.consume(Token::Comma) {
+                        parser.expect(Token::Name("offset"))?;
+                        parser.expect(Token::Eq)?;
+                        parser.expect_u32()?
+                    } else {
+                        0
+                    };
                     parser.expect(Token::RParen)?;
                     Ok(RawExpr {
                         span,
-                        data: RawExprData::Read8(addr.into()),
+                        data: RawExprData::Read8(addr.into(), offset),
                     })
                 }
                 Token::Name("write1") => {
@@ -350,11 +386,17 @@ fn parse_atom(parser: &mut Parser) -> Result<RawExpr, ParseError> {
                     let addr = parse_expr(parser, 0)?;
                     parser.expect(Token::Comma)?;
                     let data = parse_expr(parser, 0)?;
-                    parser.consume(Token::Comma);
+                    let offset = if parser.consume(Token::Comma) {
+                        parser.expect(Token::Name("offset"))?;
+                        parser.expect(Token::Eq)?;
+                        parser.expect_u32()?
+                    } else {
+                        0
+                    };
                     parser.expect(Token::RParen)?;
                     Ok(RawExpr {
                         span,
-                        data: RawExprData::Write1(addr.into(), data.into()),
+                        data: RawExprData::Write1(addr.into(), data.into(), offset),
                     })
                 }
                 Token::Name("write2") => {
@@ -363,11 +405,17 @@ fn parse_atom(parser: &mut Parser) -> Result<RawExpr, ParseError> {
                     let addr = parse_expr(parser, 0)?;
                     parser.expect(Token::Comma)?;
                     let data = parse_expr(parser, 0)?;
-                    parser.consume(Token::Comma);
+                    let offset = if parser.consume(Token::Comma) {
+                        parser.expect(Token::Name("offset"))?;
+                        parser.expect(Token::Eq)?;
+                        parser.expect_u32()?
+                    } else {
+                        0
+                    };
                     parser.expect(Token::RParen)?;
                     Ok(RawExpr {
                         span,
-                        data: RawExprData::Write2(addr.into(), data.into()),
+                        data: RawExprData::Write2(addr.into(), data.into(), offset),
                     })
                 }
                 Token::Name("write4") => {
@@ -376,11 +424,17 @@ fn parse_atom(parser: &mut Parser) -> Result<RawExpr, ParseError> {
                     let addr = parse_expr(parser, 0)?;
                     parser.expect(Token::Comma)?;
                     let data = parse_expr(parser, 0)?;
-                    parser.consume(Token::Comma);
+                    let offset = if parser.consume(Token::Comma) {
+                        parser.expect(Token::Name("offset"))?;
+                        parser.expect(Token::Eq)?;
+                        parser.expect_u32()?
+                    } else {
+                        0
+                    };
                     parser.expect(Token::RParen)?;
                     Ok(RawExpr {
                         span,
-                        data: RawExprData::Write4(addr.into(), data.into()),
+                        data: RawExprData::Write4(addr.into(), data.into(), offset),
                     })
                 }
                 Token::Name("write8") => {
@@ -389,11 +443,17 @@ fn parse_atom(parser: &mut Parser) -> Result<RawExpr, ParseError> {
                     let addr = parse_expr(parser, 0)?;
                     parser.expect(Token::Comma)?;
                     let data = parse_expr(parser, 0)?;
-                    parser.consume(Token::Comma);
+                    let offset = if parser.consume(Token::Comma) {
+                        parser.expect(Token::Name("offset"))?;
+                        parser.expect(Token::Eq)?;
+                        parser.expect_u32()?
+                    } else {
+                        0
+                    };
                     parser.expect(Token::RParen)?;
                     Ok(RawExpr {
                         span,
-                        data: RawExprData::Write8(addr.into(), data.into()),
+                        data: RawExprData::Write8(addr.into(), data.into(), offset),
                     })
                 }
                 _ => {
@@ -474,6 +534,19 @@ fn parse_infix(parser: &mut Parser, mut lhs: RawExpr, prec: u32) -> Result<RawEx
                         })
                     }
                 }
+            }
+            Token::Plus | Token::Minus => {
+                if prec > PREC_SUM {
+                    break;
+                }
+                let span = parser.span();
+                let op = Binop::from_token(parser.gettok()).expect("impossible binop");
+                let rhs = parse_expr(parser, PREC_SUM + 1)?;
+                let span = span.upto(&parser.span());
+                lhs = RawExpr {
+                    span,
+                    data: RawExprData::Binop(op, lhs.into(), rhs.into()),
+                };
             }
             _ => break,
         }

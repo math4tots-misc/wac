@@ -173,6 +173,9 @@ impl<'a> Scope for LocalScope<'a> {
                 message: format!("Redefinition of {}", name),
             });
         }
+        if let Item::Local(local) = &item {
+            self.locals.push(local.clone());
+        }
         self.stack.last_mut().unwrap().insert(name, item);
         Ok(())
     }

@@ -1,6 +1,27 @@
+# Reference counted objects have the following structure:
+#
+#   [i32 refcnt][i32 capacity(bytes)][i32 ptrcnt][i32 reserved][data...]
+#
+# ptrcnt contains the number of pointers that this structure holds, all
+# of which must come at the beginning of the 'data' section
+#
 
 fn __retain(ptr i32) {
+    $write4(ptr, $read4(ptr) + 1)
 }
 
 fn __release(ptr i32) {
+    var refcnt = $read4(ptr) - 1
+    # if refcnt <= 0 {
+    #     var ptrcnt = $read4(ptr, offset: 8)
+    #     var buf = ptr + 16
+    #     while ptrcnt > 0 {
+    #         __release($read4(buf))
+    #         buf += 8
+    #         ptrcnt -= 1
+    #     }
+    #     __free($read4(ptr, offset: 4), ptr)
+    # } else {
+    #     $write4(ptr, refcnt)
+    # }
 }

@@ -1,4 +1,5 @@
 use crate::Span;
+use crate::Token;
 use std::rc::Rc;
 
 pub struct File {
@@ -71,19 +72,63 @@ pub enum RawExprData {
     Float(f64),
     GetVar(Rc<str>),
     SetVar(Rc<str>, Box<RawExpr>),
+    AugVar(Rc<str>, Binop, Box<RawExpr>),
     CallFunc(Rc<str>, Vec<RawExpr>),
+
+    Unop(Unop, Box<RawExpr>),
+    Binop(Binop, Box<RawExpr>, Box<RawExpr>),
 
     Asm(Vec<RawExpr>, TypeExpr, Rc<str>),
 
     Char(char),
 
-    Read1(Box<RawExpr>),
-    Read2(Box<RawExpr>),
-    Read4(Box<RawExpr>),
-    Read8(Box<RawExpr>),
+    Read1(Box<RawExpr>, u32),
+    Read2(Box<RawExpr>, u32),
+    Read4(Box<RawExpr>, u32),
+    Read8(Box<RawExpr>, u32),
 
-    Write1(Box<RawExpr>, Box<RawExpr>),
-    Write2(Box<RawExpr>, Box<RawExpr>),
-    Write4(Box<RawExpr>, Box<RawExpr>),
-    Write8(Box<RawExpr>, Box<RawExpr>),
+    Write1(Box<RawExpr>, Box<RawExpr>, u32),
+    Write2(Box<RawExpr>, Box<RawExpr>, u32),
+    Write4(Box<RawExpr>, Box<RawExpr>, u32),
+    Write8(Box<RawExpr>, Box<RawExpr>, u32),
+}
+
+#[derive(Debug)]
+pub enum Unop {
+    Negative,
+    Positive,
+}
+
+impl Unop {
+    pub fn from_token(token: Token) -> Option<Self> {
+        Some(match token {
+            Token::Plus => Self::Positive,
+            Token::Minus => Self::Negative,
+            _ => return None,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Binop {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    TruncDivide,
+    Remainder,
+}
+
+impl Binop {
+    pub fn from_token(token: Token) -> Option<Self> {
+        Some(match token {
+            Token::Plus => Self::Add,
+            Token::Minus => Self::Subtract,
+            Token::Star => Self::Multiply,
+            Token::Slash => Self::Divide,
+            Token::Slash2 => Self::TruncDivide,
+            Token::Percent => Self::Remainder,
+            _ => return None,
+        })
+    }
 }

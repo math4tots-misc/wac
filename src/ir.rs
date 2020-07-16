@@ -1,3 +1,4 @@
+use crate::Binop;
 use crate::Span;
 use std::cell::RefCell;
 use std::cmp;
@@ -114,14 +115,14 @@ pub enum Type {
 }
 
 impl Type {
-    pub fn wasm(&self) -> &str {
+    pub fn wasm(&self) -> WasmType {
         match self {
-            Self::Bool => "i32",
-            Self::I32 => "i32",
-            Self::I64 => "i64",
-            Self::F32 => "f32",
-            Self::F64 => "f64",
-            Self::Record(_) => "i32",
+            Self::Bool => WasmType::i32,
+            Self::I32 => WasmType::i32,
+            Self::I64 => WasmType::i64,
+            Self::F32 => WasmType::f32,
+            Self::F64 => WasmType::f64,
+            Self::Record(_) => WasmType::i32,
         }
     }
 }
@@ -247,22 +248,108 @@ pub enum ExprData {
     F64(f64),
     GetLocal(Rc<Local>),
     SetLocal(Rc<Local>, Box<Expr>),
+    AugLocal(Rc<Local>, TypedWasmOp, Box<Expr>),
     GetGlobal(Rc<Global>),
     SetGlobal(Rc<Global>, Box<Expr>),
+    AugGlobal(Rc<Global>, TypedWasmOp, Box<Expr>),
     CallFunc(Rc<Func>, Vec<Expr>),
     CallExtern(Rc<Extern>, Vec<Expr>),
 
+    Op(TypedWasmOp, Vec<Expr>),
+
     Asm(Vec<Expr>, Type, Rc<str>),
 
-    Read1(Box<Expr>),
-    Read2(Box<Expr>),
-    Read4(Box<Expr>),
-    Read8(Box<Expr>),
+    Read1(Box<Expr>, u32),
+    Read2(Box<Expr>, u32),
+    Read4(Box<Expr>, u32),
+    Read8(Box<Expr>, u32),
 
-    Write1(Box<Expr>, Box<Expr>),
-    Write2(Box<Expr>, Box<Expr>),
-    Write4(Box<Expr>, Box<Expr>),
-    Write8(Box<Expr>, Box<Expr>),
+    Write1(Box<Expr>, Box<Expr>, u32),
+    Write2(Box<Expr>, Box<Expr>, u32),
+    Write4(Box<Expr>, Box<Expr>, u32),
+    Write8(Box<Expr>, Box<Expr>, u32),
 
     DropPrimitive(Box<Expr>),
+}
+
+#[derive(Debug)]
+#[allow(non_camel_case_types)]
+pub enum WasmType {
+    i32,
+    i64,
+    f32,
+    f64,
+}
+
+#[derive(Debug)]
+#[allow(non_camel_case_types)]
+pub enum UntypedWasmOp {
+    clz,
+    ctz,
+    popcnt,
+    add,
+    sub,
+    mul,
+    div_s,
+    div_u,
+    div,
+    rem_s,
+    rem_u,
+    and,
+    or,
+    xor,
+    shl,
+    shr_s,
+    shr_u,
+    rotl,
+    rotr,
+    abs,
+    neg,
+    sqrt,
+    ceil,
+    floor,
+    trunc,
+    nearest,
+    min,
+    max,
+    copysign,
+    eqz,
+    eq,
+    ne,
+    lt,
+    lt_s,
+    lt_u,
+    gt,
+    gt_s,
+    gt_u,
+    le,
+    le_s,
+    le_u,
+    ge,
+    ge_s,
+    ge_u,
+}
+
+impl UntypedWasmOp {
+    pub fn from_binop_for_int(op: Binop) -> Option<Self> {
+        Some(match op {
+            Binop::Add => Self::add,
+            Binop::Subtract => Self::sub,
+            Binop::Multiply => Self::mul,
+            Binop::Remainder => Self::rem_s,
+            Binop::TruncDivide => Self::div_s,
+            _ => return None,
+        })
+    }
+}
+
+pub struct TypedWasmOp {
+    pub type_: WasmType,
+    pub op: UntypedWasmOp,
+}
+
+impl fmt::Display for TypedWasmOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}.{:?}", self.type_, self.op)
+    }
 }

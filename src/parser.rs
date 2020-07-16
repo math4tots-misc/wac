@@ -122,6 +122,27 @@ impl<'a> Parser<'a> {
             }),
         }
     }
+    pub fn expect_u32(&mut self) -> Result<u32, ParseError> {
+        match self.peek() {
+            Token::Int(i) => {
+                if i < 0 || i > (u32::MAX as i64) {
+                    Err(ParseError::InvalidToken {
+                        span: self.span(),
+                        expected: "u32".into(),
+                        got: format!("{:?}", self.peek()),
+                    })
+                } else {
+                    self.gettok();
+                    Ok(i as u32)
+                }
+            }
+            _ => Err(ParseError::InvalidToken {
+                span: self.span(),
+                expected: "u32".into(),
+                got: format!("{:?}", self.peek()),
+            }),
+        }
+    }
 }
 
 fn resolve_escapes(s: &str, span: Span) -> Result<Rc<str>, ParseError> {
