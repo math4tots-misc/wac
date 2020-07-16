@@ -11,9 +11,9 @@ use std::rc::Rc;
 
 /// Special names not allowed for use as variable or function names
 pub const RESERVED_NAMES: &'static [&'static str] = &[
-    "fn", "trait", "impl", "record", "enum", "import", "var", "const", "true", "false", "nil",
-    "and", "or", "is", "not", "in", "if", "else", "for", "while", "break", "continue", "return",
-    "switch", "new",
+    "fn", "trait", "impl", "record", "enum", "extern", "import", "var", "const", "true", "false",
+    "nil", "and", "or", "is", "not", "in", "if", "else", "for", "while", "break", "continue",
+    "return", "switch", "new",
 ];
 
 pub struct Parser<'a> {
