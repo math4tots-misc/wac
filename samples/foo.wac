@@ -18,9 +18,3 @@ fn Foo() i32 {
 }
 
 var gl = $char('x')
-
-fn __retain(ptr i32) {
-}
-
-fn __release(ptr i32) {
-}

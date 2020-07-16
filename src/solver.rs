@@ -107,13 +107,13 @@ pub fn solve(files: &Vec<File>) -> Result<Program, Error> {
                 });
             }
         }
-        if !main_found {
-            return Err(Error {
-                span: vec![],
-                message: format!("Main function not found"),
-            });
-        }
         solve_func(&mut gscope, func, node)?;
+    }
+    if !main_found {
+        return Err(Error {
+            span: vec![],
+            message: format!("Main function not found"),
+        });
     }
 
     Ok(Program {
