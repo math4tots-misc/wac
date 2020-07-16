@@ -1,15 +1,11 @@
 //! Relatively language agnostic tools for parsing
 //! for grammer stuff, see parsef.rs
-use crate::get_user_defined_type_from_name;
 use crate::lex;
-use crate::ConstValue;
+use crate::LSpan;
 use crate::LexError;
-use crate::SSpan;
 use crate::Source;
 use crate::Span;
 use crate::Token;
-use crate::Type;
-use std::collections::HashMap;
 use std::collections::HashSet;
 use std::rc::Rc;
 
@@ -23,39 +19,18 @@ pub const RESERVED_NAMES: &'static [&'static str] = &[
 pub struct Parser<'a> {
     source: Rc<Source>,
     i: usize,
-    tokens_and_spans: Vec<(Token<'a>, Span)>,
-
-    /// we make this distinction because we parse the input twice,
-    /// first to fill in the global type information for user
-    /// defined types, then the second time for the final results.
-    ///
-    /// the first time around, if we encounter a user defined type that
-    /// we don't recognize, we just want to move on with a dummy type
-    ///
-    /// the second time around, if we encounter an unrecognized user
-    /// defined type, that's actually an error
-    ///
-    /// this flag controls which of the above two behaviors to exhibit
-    pub(crate) strict_about_user_defined_types: bool,
-
+    tokens_and_spans: Vec<(Token<'a>, LSpan)>,
     reserved: HashSet<&'static str>,
-
-    pub(crate) constants_map: HashMap<Rc<str>, ConstValue>,
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(
-        source: &'a Rc<Source>,
-        strict_about_user_defined_types: bool,
-    ) -> Result<Self, LexError> {
+    pub fn new(source: &'a Rc<Source>) -> Result<Self, LexError> {
         let tokens_and_spans = lex(&source.data)?;
         Ok(Self {
             source: source.clone(),
             i: 0,
             tokens_and_spans,
-            strict_about_user_defined_types,
             reserved: RESERVED_NAMES.iter().map(|s| *s).collect(),
-            constants_map: HashMap::new(),
         })
     }
     pub fn peek(&self) -> Token<'a> {
@@ -64,11 +39,13 @@ impl<'a> Parser<'a> {
     pub fn lookahaed(&self, n: usize) -> Option<Token<'a>> {
         self.tokens_and_spans.get(self.i + n).map(|pair| pair.0)
     }
-    pub fn span(&self) -> SSpan {
+    pub fn span(&self) -> Span {
         let span = self.tokens_and_spans[self.i].1;
-        SSpan {
+        Span {
             source: self.source.clone(),
-            span: span,
+            main: span.main,
+            start: span.start,
+            end: span.end,
         }
     }
     pub fn gettok(&mut self) -> Token<'a> {
@@ -145,30 +122,9 @@ impl<'a> Parser<'a> {
             }),
         }
     }
-    pub fn get_user_defined_type(
-        &mut self,
-        span: &SSpan,
-        name: &Rc<str>,
-    ) -> Result<Type, ParseError> {
-        match get_user_defined_type_from_name(name) {
-            Some(t) => Ok(t),
-            None => {
-                if self.strict_about_user_defined_types {
-                    Err(ParseError::InvalidToken {
-                        span: span.clone(),
-                        expected: "enum or record".into(),
-                        got: "user defined type not found".into(),
-                    })
-                } else {
-                    // If not in strict mode, return a dummy type
-                    Ok(Type::Enum(0xFFFF))
-                }
-            }
-        }
-    }
 }
 
-fn resolve_escapes(s: &str, span: SSpan) -> Result<Rc<str>, ParseError> {
+fn resolve_escapes(s: &str, span: Span) -> Result<Rc<str>, ParseError> {
     enum State {
         Normal,
         Escape,
@@ -245,16 +201,16 @@ impl<'a> From<Token<'a>> for Pattern<'a> {
 #[derive(Debug)]
 pub enum ParseError {
     InvalidToken {
-        span: SSpan,
+        span: Span,
         expected: String,
         got: String,
     },
-    InvalidEscape(SSpan, char),
-    NoSuchIntrinsic(SSpan, Rc<str>),
+    InvalidEscape(Span, char),
+    NoSuchIntrinsic(Span, Rc<str>),
 }
 
 impl ParseError {
-    pub fn span(&self) -> SSpan {
+    pub fn span(&self) -> Span {
         match self {
             Self::InvalidToken { span, .. } => span.clone(),
             Self::InvalidEscape(span, ..) => span.clone(),

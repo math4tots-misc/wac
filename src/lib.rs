@@ -1,39 +1,31 @@
-mod debug;
+mod ast;
+mod cgen;
 mod er;
-mod imp;
+mod imports;
 mod ir;
 mod lexer;
-mod llir;
 mod parsef;
 mod parser;
-mod rn;
-mod sink;
+mod runners;
+mod scope;
+mod solver;
+mod span;
 mod start;
-mod tmap;
 mod tr;
-mod wfs;
 
 extern crate wasmer_runtime as wr;
 
-pub use debug::*;
+pub use ast::*;
+pub use cgen::*;
 pub use er::*;
-pub use imp::*;
+pub use imports::*;
 pub use ir::*;
 pub use lexer::*;
-pub use llir::*;
 pub use parsef::*;
 pub use parser::*;
-pub use rn::*;
-pub use sink::*;
+pub use runners::*;
+pub use scope::*;
+pub use solver::*;
+pub use span::*;
 pub use start::*;
 pub use tr::*;
-
-use tmap::*;
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}

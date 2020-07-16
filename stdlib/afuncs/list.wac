@@ -1,7 +1,0 @@
-fn list.Size[notrace](self) i32 {
-    __listlen(self)
-}
-
-fn list.Get(self, i i32) i32 {
-    __list_getitem(self, i)
-}

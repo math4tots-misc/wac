@@ -1,5 +1,5 @@
-extern crate wac;
+extern crate wac2;
 
 fn main() {
-    wac::main();
+    wac2::main();
 }

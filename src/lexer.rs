@@ -43,13 +43,13 @@ pub enum Token<'a> {
     EOF,
 }
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Span {
+pub struct LSpan {
     pub main: usize,
     pub start: usize,
     pub end: usize,
     pub lineno: usize,
 }
-impl Span {
+impl LSpan {
     pub fn new(main: usize, start: usize, end: usize, lineno: usize) -> Self {
         Self {
             main,
@@ -80,14 +80,14 @@ pub enum LexError {
     Unrecognized {
         /// the location in the string where we encountered the
         /// unrecognized token
-        span: Span,
+        span: LSpan,
 
         /// the start of the unrecognized token
         text: String,
     },
     BadRawStringQuote {
         /// the location where we expected to see the quote char
-        span: Span,
+        span: LSpan,
 
         /// the actual character that was seen instead of ' or "
         actual: char,
@@ -99,10 +99,10 @@ pub enum LexError {
     UnterminatedStringLiteral {
         /// index into the string marking the start of the
         /// unterminated strin gliteral
-        span: Span,
+        span: LSpan,
     },
     MismatchedGroupingSymbols {
-        span: Span,
+        span: LSpan,
         open: char,
         close: char,
     },
@@ -112,7 +112,7 @@ pub enum LexError {
 }
 
 impl LexError {
-    pub fn span(&self) -> Span {
+    pub fn span(&self) -> LSpan {
         match self {
             LexError::Unrecognized {
                 /// the index into the string where we encountered the
@@ -148,8 +148,8 @@ impl LexError {
     }
 }
 
-fn dummy_span() -> Span {
-    Span {
+fn dummy_span() -> LSpan {
+    LSpan {
         main: 0,
         start: 0,
         end: 0,
@@ -157,7 +157,7 @@ fn dummy_span() -> Span {
     }
 }
 
-pub fn lex(s: &str) -> Result<Vec<(Token, Span)>, LexError> {
+pub fn lex(s: &str) -> Result<Vec<(Token, LSpan)>, LexError> {
     let mut ret = Vec::new();
     let mut chars = Chars::new(s);
     let mut state = State::Normal;
@@ -508,8 +508,8 @@ impl<'a> Chars<'a> {
             self.lineno -= 1;
         }
     }
-    fn span(&self, main: usize, end: usize) -> Span {
-        Span {
+    fn span(&self, main: usize, end: usize) -> LSpan {
+        LSpan {
             main,
             start: main,
             end,

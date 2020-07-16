@@ -1,23 +1,23 @@
 use crate::run;
-use crate::run_tests;
 use crate::translate;
+use crate::Source;
 use std::path::Path;
 use std::rc::Rc;
 
 pub fn main() {
     let mut mode = Mode::Run;
-    let mut sources = Vec::<(Rc<str>, Rc<str>)>::new();
-    let mut test_prefix = String::new();
+    let mut sources = Vec::<Rc<Source>>::new();
+    // let mut test_prefix = String::new();
     for arg in std::env::args().skip(1) {
         let arg: &str = &arg;
         match arg {
             "-c" => {
                 mode = Mode::CompileOnly;
             }
-            _ if arg.starts_with("-t") => {
-                mode = Mode::Test;
-                test_prefix = arg["-t".len()..].to_owned();
-            }
+            // _ if arg.starts_with("-t") => {
+            //     mode = Mode::Test;
+            //     test_prefix = arg["-t".len()..].to_owned();
+            // }
             _ => {
                 add_sources(&mut sources, arg).unwrap();
             }
@@ -26,23 +26,21 @@ pub fn main() {
 
     match mode {
         Mode::Run => match run(sources) {
-            Ok(exitcode) => {
-                std::process::exit(exitcode);
-            }
+            Ok(stats) => eprintln!("{}", stats.format()),
             Err(error) => {
                 eprintln!("{}", error.format());
                 std::process::exit(1);
             }
         },
-        Mode::Test => match run_tests(sources, &test_prefix) {
-            Ok(()) => {}
-            Err(error) => {
-                eprintln!("{}", error.format());
-                std::process::exit(1);
-            }
-        },
+        // Mode::Test => match run_tests(sources, &test_prefix) {
+        //     Ok(()) => {}
+        //     Err(error) => {
+        //         eprintln!("{}", error.format());
+        //         std::process::exit(1);
+        //     }
+        // },
         Mode::CompileOnly => match translate(sources) {
-            Ok(string) => println!("{}", string),
+            Ok(string) => print!("{}", string),
             Err(error) => {
                 eprintln!("{}", error.format());
                 std::process::exit(1);
@@ -53,11 +51,11 @@ pub fn main() {
 
 enum Mode {
     Run,
-    Test,
+    // Test,
     CompileOnly,
 }
 
-fn add_sources(out: &mut Vec<(Rc<str>, Rc<str>)>, path_str: &str) -> Result<(), std::io::Error> {
+fn add_sources(out: &mut Vec<Rc<Source>>, path_str: &str) -> Result<(), std::io::Error> {
     let path = Path::new(path_str);
     if path.is_dir() {
         add_sources_rec(out, "", path)?;
@@ -65,13 +63,16 @@ fn add_sources(out: &mut Vec<(Rc<str>, Rc<str>)>, path_str: &str) -> Result<(), 
         // at the top level, if a user specifies a file, even if it has the wrong file
         // extension, accept it as a source
         let data = std::fs::read_to_string(path).unwrap();
-        out.push((path_str.into(), data.into()));
+        out.push(Rc::new(Source {
+            name: path_str.into(),
+            data: data.into(),
+        }));
     }
     Ok(())
 }
 
 fn add_sources_rec(
-    out: &mut Vec<(Rc<str>, Rc<str>)>,
+    out: &mut Vec<Rc<Source>>,
     base: &str,
     path: &Path,
 ) -> Result<(), std::io::Error> {
@@ -96,7 +97,10 @@ fn add_sources_rec(
     } else if path.is_file() {
         if file_name.ends_with(".wac") {
             let data = std::fs::read_to_string(path).unwrap();
-            out.push((base.into(), data.into()));
+            out.push(Rc::new(Source {
+                name: base.into(),
+                data: data.into(),
+            }));
         }
     }
     Ok(())

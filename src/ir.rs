@@ -1,620 +1,177 @@
-use crate::get_name_for_enum_type_with_offset;
-use crate::get_name_for_record_type_with_offset;
-use crate::get_user_defined_type_from_name;
-use crate::list_all_enum_types;
-use crate::list_all_record_types;
-use crate::llir::*;
-use crate::SSpan;
-use std::cell::Cell;
+use crate::Span;
+use std::cell::RefCell;
+use std::cmp;
 use std::fmt;
 use std::rc::Rc;
 
-pub struct File {
-    pub imports: Vec<Import>,
-    pub constants: Vec<Constant>,
-    pub functions: Vec<Function>,
-    pub traits: Vec<Trait>,
-    pub impls: Vec<Impl>,
-    pub enums: Vec<Enum>,
-    pub records: Vec<Record>,
-    pub globalvars: Vec<GlobalVariable>,
-}
-
-pub struct FunctionImport {
-    pub span: SSpan,
-    pub module_name: Rc<str>,
-    pub function_name: Rc<str>,
-    pub alias: Rc<str>,
-    pub type_: FunctionType,
-}
-
-pub struct Constant {
-    pub span: SSpan,
-    pub name: Rc<str>,
-    pub value: ConstValue,
+pub struct Program {
+    pub span: Span,
+    pub externs: Vec<Rc<Extern>>,
+    pub records: Vec<Rc<Record>>,
+    pub funcs: Vec<Rc<Func>>,
 }
 
 #[derive(Debug, Clone)]
-pub enum ConstValue {
-    I32(i32),
-    Type(Type),
-    Enum(Type, i32),
+pub enum ReturnState {
+    NeverReturns,
+    MaybeReturns,
+    AlwaysReturns,
+    Unreachable,
 }
 
-impl ConstValue {
-    pub fn type_(&self) -> Type {
-        match self {
-            ConstValue::I32(_) => Type::I32,
-            ConstValue::Type(_) => Type::Type,
-            ConstValue::Enum(type_, _) => *type_,
+impl ReturnState {
+    pub fn and_then(&self, other: &Self) -> Self {
+        match (self, other) {
+            (ReturnState::Unreachable, _)
+            | (_, ReturnState::Unreachable)
+            | (ReturnState::AlwaysReturns, _) => ReturnState::Unreachable,
+            (ReturnState::NeverReturns, _) => other.clone(),
+            (_, ReturnState::AlwaysReturns) => ReturnState::AlwaysReturns,
+            (ReturnState::MaybeReturns, ReturnState::NeverReturns)
+            | (ReturnState::MaybeReturns, ReturnState::MaybeReturns) => ReturnState::MaybeReturns,
         }
     }
 }
 
-pub enum Visibility {
-    Private,
-    Public,
+#[derive(Clone)]
+pub enum Item {
+    Record(Rc<Record>),
+    Func(Rc<Func>),
+    Extern(Rc<Extern>),
+    Local(Rc<Local>),
 }
 
-pub struct Enum {
-    pub span: SSpan,
-    pub name: Rc<str>,
-    pub members: Vec<Rc<str>>,
+impl Item {
+    pub fn span(&self) -> &Span {
+        match self {
+            Self::Record(r) => &r.span,
+            Self::Func(r) => &r.span,
+            Self::Extern(r) => &r.span,
+            Self::Local(r) => &r.span,
+        }
+    }
+}
+
+pub enum Callable {
+    Func(Rc<Func>),
+    Extern(Rc<Extern>),
+}
+
+impl Callable {
+    pub fn span(&self) -> &Span {
+        match self {
+            Self::Func(r) => &r.span,
+            Self::Extern(r) => &r.span,
+        }
+    }
+    pub fn name(&self) -> &Rc<str> {
+        match self {
+            Self::Func(r) => &r.name,
+            Self::Extern(r) => &r.name,
+        }
+    }
+    pub fn type_(&self) -> &FuncType {
+        match self {
+            Self::Func(r) => &r.type_,
+            Self::Extern(r) => &r.type_,
+        }
+    }
 }
 
 pub struct Record {
-    pub span: SSpan,
+    pub span: Span,
     pub name: Rc<str>,
-    pub fields: Vec<(Rc<str>, Type)>,
+    pub fields: RefCell<Vec<(Rc<str>, Type)>>,
 }
 
-pub struct Trait {
-    pub span: SSpan,
-    pub name: Rc<str>,
-    pub type_: FunctionType,
-}
-
-pub struct Impl {
-    pub span: SSpan,
-    pub receiver_type: Type,
-    pub trait_name: Rc<str>,
-    pub type_: FunctionType,
-    pub body: Expr,
-}
-
-pub struct Function {
-    pub span: SSpan,
-    pub visibility: Visibility,
-    pub name: Rc<str>,
-    pub type_: FunctionType,
-    pub body: Expr,
-}
-
-pub struct GlobalVariable {
-    pub span: SSpan,
-    pub visibility: Visibility,
-    pub name: Rc<str>,
-    pub type_: Option<Type>,
-    pub init: Expr,
-}
-
-// NOTE: the Cell<Option<ReturnType>> is not necessarily the actual
-// return type of the given expression -- it's just the cached result
-// of the guess_type function
-pub enum Expr {
-    Bool(SSpan, Cell<Option<ReturnType>>, bool),
-    Int(SSpan, Cell<Option<ReturnType>>, i64),
-    Float(SSpan, Cell<Option<ReturnType>>, f64),
-    String(SSpan, Cell<Option<ReturnType>>, Rc<str>),
-    List(SSpan, Cell<Option<ReturnType>>, Vec<Expr>),
-    GetVar(SSpan, Cell<Option<ReturnType>>, Rc<str>),
-    SetVar(SSpan, Cell<Option<ReturnType>>, Rc<str>, Box<Expr>),
-    DeclVar(
-        SSpan,
-        Cell<Option<ReturnType>>,
-        Rc<str>,
-        Option<Type>,
-        Box<Expr>,
-    ),
-    Block(SSpan, Cell<Option<ReturnType>>, Vec<Expr>),
-    FunctionCall(SSpan, Cell<Option<ReturnType>>, Rc<str>, Vec<Expr>),
-    AssociatedFunctionCall(
-        SSpan,
-        Cell<Option<ReturnType>>,
-        Box<Expr>,
-        Rc<str>,
-        Vec<Expr>,
-    ),
-    If(
-        SSpan,
-        Cell<Option<ReturnType>>,
-        Vec<(Expr, Expr)>,
-        Box<Expr>,
-    ),
-    While(SSpan, Cell<Option<ReturnType>>, Box<Expr>, Box<Expr>),
-    For(
-        SSpan,
-        Cell<Option<ReturnType>>,
-        Rc<str>,
-        Box<Expr>,
-        Box<Expr>,
-        Box<Expr>,
-    ),
-
-    GetAttr(SSpan, Cell<Option<ReturnType>>, Box<Expr>, Rc<str>),
-    GetItem(SSpan, Cell<Option<ReturnType>>, Box<Expr>, Box<Expr>),
-    SetItem(
-        SSpan,
-        Cell<Option<ReturnType>>,
-        Box<Expr>,
-        Box<Expr>,
-        Box<Expr>,
-    ),
-
-    Switch(
-        SSpan,
-        Cell<Option<ReturnType>>,
-        Box<Expr>,
-        Vec<(Vec<ConstValue>, Expr)>,
-        Option<Box<Expr>>,
-    ),
-
-    Return(SSpan, Cell<Option<ReturnType>>, Option<Box<Expr>>),
-
-    // Create a new record value
-    New(SSpan, Cell<Option<ReturnType>>, Type, Vec<Expr>),
-
-    // builtin operators
-    Binop(SSpan, Cell<Option<ReturnType>>, Binop, Box<Expr>, Box<Expr>),
-    Unop(SSpan, Cell<Option<ReturnType>>, Unop, Box<Expr>),
-    AscribeType(SSpan, Cell<Option<ReturnType>>, Box<Expr>, Type),
-
-    // intrinsics
-    CString(SSpan, Cell<Option<ReturnType>>, Rc<str>),
-    Char(SSpan, Cell<Option<ReturnType>>, char),
-    Asm(
-        SSpan,
-        Cell<Option<ReturnType>>,
-        Vec<Expr>,
-        ReturnType,
-        Rc<str>,
-    ),
-    Raw(SSpan, Cell<Option<ReturnType>>, Rc<str>),
-
-    // memory reading intrinsics
-    // reads/writes the number of bytes as specified in their names
-    Read1(SSpan, Cell<Option<ReturnType>>, Box<Expr>, u32),
-    Read2(SSpan, Cell<Option<ReturnType>>, Box<Expr>, u32),
-    Read4(SSpan, Cell<Option<ReturnType>>, Box<Expr>, u32),
-    Read8(SSpan, Cell<Option<ReturnType>>, Box<Expr>, u32),
-    Write1(SSpan, Cell<Option<ReturnType>>, Box<Expr>, Box<Expr>, u32),
-    Write2(SSpan, Cell<Option<ReturnType>>, Box<Expr>, Box<Expr>, u32),
-    Write4(SSpan, Cell<Option<ReturnType>>, Box<Expr>, Box<Expr>, u32),
-    Write8(SSpan, Cell<Option<ReturnType>>, Box<Expr>, Box<Expr>, u32),
-}
-
-impl Expr {
-    pub fn span(&self) -> &SSpan {
-        match self {
-            Expr::Bool(span, ..) => span,
-            Expr::Int(span, ..) => span,
-            Expr::Float(span, ..) => span,
-            Expr::String(span, ..) => span,
-            Expr::List(span, ..) => span,
-            Expr::GetVar(span, ..) => span,
-            Expr::SetVar(span, ..) => span,
-            Expr::DeclVar(span, ..) => span,
-            Expr::Block(span, ..) => span,
-            Expr::FunctionCall(span, ..) => span,
-            Expr::AssociatedFunctionCall(span, ..) => span,
-            Expr::If(span, ..) => span,
-            Expr::While(span, ..) => span,
-            Expr::For(span, ..) => span,
-            Expr::GetAttr(span, ..) => span,
-            Expr::GetItem(span, ..) => span,
-            Expr::SetItem(span, ..) => span,
-            Expr::Switch(span, ..) => span,
-            Expr::Return(span, ..) => span,
-            Expr::New(span, ..) => span,
-            Expr::Binop(span, ..) => span,
-            Expr::Unop(span, ..) => span,
-            Expr::AscribeType(span, ..) => span,
-            Expr::CString(span, ..) => span,
-            Expr::Char(span, ..) => span,
-            Expr::Asm(span, ..) => span,
-            Expr::Raw(span, ..) => span,
-            Expr::Read1(span, ..) => span,
-            Expr::Read2(span, ..) => span,
-            Expr::Read4(span, ..) => span,
-            Expr::Read8(span, ..) => span,
-            Expr::Write1(span, ..) => span,
-            Expr::Write2(span, ..) => span,
-            Expr::Write4(span, ..) => span,
-            Expr::Write8(span, ..) => span,
-        }
-    }
-
-    pub fn type_cell(&self) -> &Cell<Option<ReturnType>> {
-        match self {
-            Expr::Bool(_, cell, ..) => cell,
-            Expr::Int(_, cell, ..) => cell,
-            Expr::Float(_, cell, ..) => cell,
-            Expr::String(_, cell, ..) => cell,
-            Expr::List(_, cell, ..) => cell,
-            Expr::GetVar(_, cell, ..) => cell,
-            Expr::SetVar(_, cell, ..) => cell,
-            Expr::DeclVar(_, cell, ..) => cell,
-            Expr::Block(_, cell, ..) => cell,
-            Expr::FunctionCall(_, cell, ..) => cell,
-            Expr::AssociatedFunctionCall(_, cell, ..) => cell,
-            Expr::If(_, cell, ..) => cell,
-            Expr::While(_, cell, ..) => cell,
-            Expr::For(_, cell, ..) => cell,
-            Expr::GetAttr(_, cell, ..) => cell,
-            Expr::GetItem(_, cell, ..) => cell,
-            Expr::SetItem(_, cell, ..) => cell,
-            Expr::Switch(_, cell, ..) => cell,
-            Expr::Return(_, cell, ..) => cell,
-            Expr::New(_, cell, ..) => cell,
-            Expr::Binop(_, cell, ..) => cell,
-            Expr::Unop(_, cell, ..) => cell,
-            Expr::AscribeType(_, cell, ..) => cell,
-            Expr::CString(_, cell, ..) => cell,
-            Expr::Char(_, cell, ..) => cell,
-            Expr::Asm(_, cell, ..) => cell,
-            Expr::Raw(_, cell, ..) => cell,
-            Expr::Read1(_, cell, ..) => cell,
-            Expr::Read2(_, cell, ..) => cell,
-            Expr::Read4(_, cell, ..) => cell,
-            Expr::Read8(_, cell, ..) => cell,
-            Expr::Write1(_, cell, ..) => cell,
-            Expr::Write2(_, cell, ..) => cell,
-            Expr::Write4(_, cell, ..) => cell,
-            Expr::Write8(_, cell, ..) => cell,
-        }
+impl fmt::Debug for Record {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Record({})", self.name)
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Binop {
-    Add,
-    Subtract,
-    Multiply,
-    Divide,
-    TruncDivide,
-    Remainder,
-
-    BitwiseAnd,
-    BitwiseOr,
-    BitwiseXor,
-    ShiftLeft,
-    ShiftRight,
-
-    Is,
-    IsNot,
-    Equal,
-    NotEqual,
-    Less,
-    LessOrEqual,
-    Greater,
-    GreaterOrEqual,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Unop {
-    Plus,
-    Minus,
-    Not,
-}
-
-pub enum Import {
-    Function(FunctionImport),
-}
-
-impl Import {
-    pub fn span(&self) -> &SSpan {
-        match self {
-            Import::Function(i) => &i.span,
-        }
+impl cmp::PartialEq for Record {
+    fn eq(&self, other: &Self) -> bool {
+        self.name.eq(&other.name)
     }
 }
 
-pub const TAG_I32: i32 = 1;
-pub const TAG_I64: i32 = 2;
-pub const TAG_F32: i32 = 3;
-pub const TAG_F64: i32 = 4;
-pub const TAG_BOOL: i32 = 5;
-pub const TAG_TYPE: i32 = 6;
-pub const TAG_BYTES: i32 = 7;
-pub const TAG_STRING: i32 = 8;
-pub const TAG_LIST: i32 = 9;
-pub const TAG_ID: i32 = 10;
-
-#[repr(i32)]
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub enum BuiltinType {
-    I32 = TAG_I32,
-    I64 = TAG_I64,
-    F32 = TAG_F32,
-    F64 = TAG_F64,
-    Bool = TAG_BOOL,
-
-    /// a primitive i32 type that uniquely identifies
-    /// a type (in practice, the type tag)
-    Type = TAG_TYPE,
-
-    Bytes = TAG_BYTES,
-
-    /// Reference counted str type
-    /// i32 that points to:
-    ///   [refcnt i32][size i32][utf8...]
-    String = TAG_STRING,
-
-    /// Reference counted list type
-    /// i32 that points to:
-    ///   [refcnt i32][size i32][capacity i32][ptr i32]
-    List = TAG_LIST,
-
-    /// i64 value that can represent all types except
-    /// other i64 types
-    ///
-    /// This always needs to be last one among the BuiltinTypes
-    /// (i.e. TAG_ID has to be the largest among the builtin
-    /// TAG_* values), because UserDefined types assume this
-    /// to determine its tags
-    Id = TAG_ID,
-}
-
-#[repr(i32)]
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Type {
-    // builtin types
+    Bool,
     I32,
     I64,
     F32,
     F64,
-    Bool,
-    Type,
-    Bytes,
-    String,
-    List,
-    Id,
-    Enum(u16),
-    Record(u16),
+    Record(Rc<Record>),
 }
 
 impl Type {
-    pub fn is_64bit(&self) -> bool {
+    pub fn wasm(&self) -> &str {
         match self {
-            Type::I64 | Type::F64 | Type::Id => true,
-            _ => false,
-        }
-    }
-    pub fn from_name(name: &str) -> Option<Type> {
-        match name {
-            "i32" => Some(Type::I32),
-            "i64" => Some(Type::I64),
-            "f32" => Some(Type::F32),
-            "f64" => Some(Type::F64),
-            "bool" => Some(Type::Bool),
-            "type" => Some(Type::Type),
-            "bytes" => Some(Type::Bytes),
-            "str" => Some(Type::String),
-            "list" => Some(Type::List),
-            "id" => Some(Type::Id),
-            _ => get_user_defined_type_from_name(name),
-        }
-    }
-    pub fn tag(self) -> i32 {
-        match self {
-            Type::I32 => TAG_I32,
-            Type::I64 => TAG_I64,
-            Type::F32 => TAG_F32,
-            Type::F64 => TAG_F64,
-            Type::Bool => TAG_BOOL,
-            Type::Type => TAG_TYPE,
-            Type::Bytes => TAG_BYTES,
-            Type::String => TAG_STRING,
-            Type::List => TAG_LIST,
-            Type::Id => TAG_ID,
-            // enums always have an odd tag
-            Type::Enum(offset) => {
-                if (TAG_ID + 1) % 2 == 1 {
-                    (TAG_ID + 1) + 2 * (offset as i32)
-                } else {
-                    (TAG_ID + 2) + 2 * (offset as i32)
-                }
-            }
-            // records always have an even tag
-            Type::Record(offset) => {
-                if (TAG_ID + 1) % 2 == 0 {
-                    (TAG_ID + 1) + 2 * (offset as i32)
-                } else {
-                    (TAG_ID + 2) + 2 * (offset as i32)
-                }
-            }
-        }
-    }
-    pub fn is_enum(self) -> bool {
-        if let Type::Enum(_) = self {
-            true
-        } else {
-            false
-        }
-    }
-    pub fn is_record(self) -> bool {
-        if let Type::Record(_) = self {
-            true
-        } else {
-            false
-        }
-    }
-    pub fn list_builtins() -> Vec<Type> {
-        vec![
-            Type::I32,
-            Type::I64,
-            Type::F32,
-            Type::F64,
-            Type::Bool,
-            Type::Type,
-            Type::Bytes,
-            Type::String,
-            Type::List,
-            Type::Id,
-        ]
-    }
-    /// list all known types
-    pub fn list() -> Vec<Type> {
-        let mut ret = Self::list_builtins();
-        ret.extend(list_all_enum_types());
-        ret.extend(list_all_record_types());
-        ret
-    }
-    pub fn name(&self) -> Rc<str> {
-        match self {
-            Type::I32 => "i32".into(),
-            Type::I64 => "i64".into(),
-            Type::F32 => "f32".into(),
-            Type::F64 => "f64".into(),
-            Type::Bool => "bool".into(),
-            Type::Type => "type".into(),
-            Type::Bytes => "bytes".into(),
-            Type::String => "str".into(),
-            Type::List => "list".into(),
-            Type::Id => "id".into(),
-            Type::Enum(offset) => get_name_for_enum_type_with_offset(*offset),
-            Type::Record(offset) => get_name_for_record_type_with_offset(*offset),
-        }
-    }
-    pub fn builtin_primitive(self) -> bool {
-        match self {
-            Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Bool | Type::Type => true,
-            Type::Bytes
-            | Type::String
-            | Type::List
-            | Type::Id
-            | Type::Enum(_)
-            | Type::Record(_) => false,
-        }
-    }
-    pub fn primitive(self) -> bool {
-        match self {
-            Type::I32
-            | Type::I64
-            | Type::F32
-            | Type::F64
-            | Type::Bool
-            | Type::Type
-            | Type::Enum(_) => true,
-            Type::Bytes | Type::String | Type::List | Type::Id | Type::Record(_) => false,
-        }
-    }
-    pub fn wasm(self) -> WasmType {
-        match self {
-            Type::I32 => WasmType::I32,
-            Type::I64 => WasmType::I64,
-            Type::F32 => WasmType::F32,
-            Type::F64 => WasmType::F64,
-            Type::Bool => WasmType::I32,
-            Type::Type => WasmType::I32,
-            Type::Bytes => WasmType::I32,
-            Type::String => WasmType::I32,
-            Type::List => WasmType::I32,
-            Type::Id => WasmType::I64,
-            Type::Enum(_) => WasmType::I32,
-            Type::Record(_) => WasmType::I32,
-        }
-    }
-}
-
-impl From<BuiltinType> for Type {
-    fn from(t: BuiltinType) -> Self {
-        match t {
-            BuiltinType::I32 => Self::I32,
-            BuiltinType::I64 => Self::I64,
-            BuiltinType::F32 => Self::F32,
-            BuiltinType::F64 => Self::F64,
-            BuiltinType::Bool => Self::Bool,
-            BuiltinType::Type => Self::Type,
-            BuiltinType::Bytes => Self::Bytes,
-            BuiltinType::String => Self::String,
-            BuiltinType::List => Self::List,
-            BuiltinType::Id => Self::Id,
+            Self::Bool => "i32",
+            Self::I32 => "i32",
+            Self::I64 => "i64",
+            Self::F32 => "f32",
+            Self::F64 => "f64",
+            Self::Record(_) => "i32",
         }
     }
 }
 
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.name())
+        match self {
+            Self::Bool => write!(f, "bool"),
+            Self::I32 => write!(f, "i32"),
+            Self::I64 => write!(f, "i64"),
+            Self::F32 => write!(f, "f32"),
+            Self::F64 => write!(f, "f64"),
+            Self::Record(rec) => write!(f, "{}", rec.name),
+        }
     }
 }
 
-impl fmt::Debug for Type {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.name())
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ReturnType {
-    // This branch is the most 'typical' case
-    // where the function or expression returns a
-    // real normal value
-    Value(Type),
-
-    // "Universal receiver" type
-    //
-    // Any expression may be used when a void type is
-    // expected.
-    // However, void value cannot be used in place of any other type
-    //
-    // void means that the function returns no value when
-    // it returns
-    // like 'void' in C
+    Type(Type),
     Void,
-
-    // "Universal donor" type
-    //
-    // An expression of type noreturn may be used
-    // no matter what type is required.
-    // However, when a NoReturn is expected, no other type may be
-    // accepted
-    //
-    // NoReturn means that the function never actually
-    // returns
-    // like '!' in Rust
     NoReturn,
 }
 
 impl fmt::Display for ReturnType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ReturnType::Value(t) => t.fmt(f),
-            ReturnType::Void => write!(f, "void"),
-            ReturnType::NoReturn => write!(f, "noreturn"),
+            Self::Type(t) => write!(f, "{}", t),
+            Self::Void => write!(f, "void"),
+            Self::NoReturn => write!(f, "noreturn"),
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct FunctionType {
-    pub parameters: Vec<(Rc<str>, Type)>,
-    pub return_type: ReturnType,
-
-    /// Indicates whether filename, lineno should be stored in the stacktrace
-    /// whenever this function is called.
-    /// If the function is known to never panic or inspect the stack trace,
-    /// it may be better for performance to set this to false.
-    /// By default, this is true.
-    pub trace: bool,
+impl ReturnType {
+    pub fn value(&self) -> Option<&Type> {
+        match self {
+            Self::Type(t) => Some(t),
+            _ => None,
+        }
+    }
 }
 
-impl fmt::Display for FunctionType {
+impl From<Type> for ReturnType {
+    fn from(t: Type) -> Self {
+        Self::Type(t)
+    }
+}
+
+#[derive(PartialEq)]
+pub struct FuncType {
+    pub parameters: Vec<(Rc<str>, Type)>,
+    pub return_type: ReturnType,
+}
+
+impl fmt::Display for FuncType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if !self.trace {
-            write!(f, "[notrace]")?;
-        }
         write!(f, "(")?;
         for (i, (name, typ)) in self.parameters.iter().enumerate() {
             if i > 0 {
@@ -622,13 +179,74 @@ impl fmt::Display for FunctionType {
             }
             write!(f, "{} {}", name, typ)?;
         }
-        write!(f, ") {}", self.return_type)?;
-        Ok(())
+        write!(f, "){}", self.return_type)
     }
 }
 
-impl From<Type> for ReturnType {
-    fn from(t: Type) -> Self {
-        Self::Value(t)
-    }
+pub struct Extern {
+    pub span: Span,
+    pub path: (Rc<str>, Rc<str>),
+    pub name: Rc<str>,
+    pub type_: FuncType,
+}
+
+pub struct Func {
+    pub span: Span,
+    pub name: Rc<str>,
+    pub type_: FuncType,
+    pub parameters: RefCell<Vec<Rc<Local>>>,
+    pub locals: RefCell<Vec<Rc<Local>>>,
+    pub body: RefCell<Option<Stmt>>,
+}
+
+pub struct Local {
+    pub span: Span,
+    pub name: Rc<str>,
+    pub id: usize,
+    pub type_: Type,
+}
+
+pub struct Stmt {
+    pub span: Span,
+    pub return_state: ReturnState,
+    pub data: StmtData,
+}
+
+pub enum StmtData {
+    Block(Vec<Stmt>),
+    Return(Expr),
+    Expr(Expr),
+}
+
+pub struct Expr {
+    pub span: Span,
+    pub type_: ReturnType,
+    pub data: ExprData,
+}
+
+pub enum ExprData {
+    Void,
+    Bool(bool),
+    I32(i32),
+    I64(i64),
+    F32(f32),
+    F64(f64),
+    GetLocal(Rc<Local>),
+    SetLocal(Rc<Local>, Box<Expr>),
+    CallFunc(Rc<Func>, Vec<Expr>),
+    CallExtern(Rc<Extern>, Vec<Expr>),
+
+    Asm(Vec<Expr>, Type, Rc<str>),
+
+    Read1(Box<Expr>),
+    Read2(Box<Expr>),
+    Read4(Box<Expr>),
+    Read8(Box<Expr>),
+
+    Write1(Box<Expr>, Box<Expr>),
+    Write2(Box<Expr>, Box<Expr>),
+    Write4(Box<Expr>, Box<Expr>),
+    Write8(Box<Expr>, Box<Expr>),
+
+    DropPrimitive(Box<Expr>),
 }
