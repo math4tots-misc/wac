@@ -1,5 +1,6 @@
 use crate::run;
 use crate::translate;
+use crate::translate_to_wasm;
 use crate::RunConfig;
 use crate::Source;
 use std::path::Path;
@@ -15,6 +16,9 @@ pub fn main() {
         match arg {
             "-c" => {
                 mode = Mode::CompileOnly;
+            }
+            "-w" => {
+                mode = Mode::Wasm;
             }
             _ if arg.starts_with("-O") => {
                 let text = &arg["-O".len()..];
@@ -51,6 +55,17 @@ pub fn main() {
         //         std::process::exit(1);
         //     }
         // },
+        Mode::Wasm => match translate_to_wasm(sources, run_config) {
+            Ok((code, stats)) => {
+                use std::io::Write;
+                std::io::stdout().write(&code).unwrap();
+                eprintln!("{}", stats.format());
+            }
+            Err(error) => {
+                eprintln!("{}", error.format());
+                std::process::exit(1);
+            }
+        }
         Mode::CompileOnly => match translate(sources) {
             Ok(string) => print!("{}", string),
             Err(error) => {
@@ -63,6 +78,7 @@ pub fn main() {
 
 enum Mode {
     Run,
+    Wasm,
     // Test,
     CompileOnly,
 }

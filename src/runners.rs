@@ -103,3 +103,41 @@ impl RunStats {
         out
     }
 }
+
+pub fn translate_to_wasm(sources: Vec<Rc<Source>>, config: RunConfig) -> Result<(Vec<u8>, RunStats), Error> {
+    let start = Instant::now();
+    let wat_code = translate(sources)?;
+    let translate_sec = start.elapsed().as_secs_f64();
+    let wat_code_size = wat_code.len();
+
+    let start = Instant::now();
+    let wasm_code = wabt::wat2wasm(&wat_code)?;
+    let wat2wasm_sec = start.elapsed().as_secs_f64();
+    let wasm_code_size = wasm_code.len();
+
+    let start = Instant::now();
+    let optimized_code = if let Some(optlevel) = config.optimize {
+        let mut config = binaryen::CodegenConfig::default();
+        config.optimization_level = optlevel;
+        let mut binaryen_module = binaryen::Module::read(&wasm_code).unwrap();
+        binaryen_module.optimize(&config);
+        binaryen_module.write()
+    } else {
+        wasm_code
+    };
+    let optimized_code_size = optimized_code.len();
+    let optimize_sec = start.elapsed().as_secs_f64();
+
+    let stats = RunStats {
+        translate_sec,
+        wat2wasm_sec,
+        instantiate_sec: 0.0,
+        optimize_sec,
+        exec_sec: 0.0,
+        wat_code_size,
+        wasm_code_size,
+        optimized_code_size,
+    };
+
+    Ok((optimized_code, stats))
+}
