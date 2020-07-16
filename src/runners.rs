@@ -58,9 +58,7 @@ pub struct RunConfig {
 
 impl Default for RunConfig {
     fn default() -> Self {
-        Self {
-            optimize: None,
-        }
+        Self { optimize: None }
     }
 }
 

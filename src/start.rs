@@ -1,7 +1,7 @@
 use crate::run;
 use crate::translate;
-use crate::Source;
 use crate::RunConfig;
+use crate::Source;
 use std::path::Path;
 use std::rc::Rc;
 
@@ -23,9 +23,7 @@ pub fn main() {
                     Ok(0) => run_config.optimize = None,
                     Ok(1) => run_config.optimize = Some(1),
                     Ok(2) => run_config.optimize = Some(2),
-                    _ => {
-                        panic!("Invalid opt level {:?} (must be 0, 1, or 2)", optlevel)
-                    }
+                    _ => panic!("Invalid opt level {:?} (must be 0, 1, or 2)", optlevel),
                 }
             }
             // _ if arg.starts_with("-t") => {

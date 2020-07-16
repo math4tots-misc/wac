@@ -109,7 +109,12 @@ fn trrtype(type_: &ReturnType) -> String {
 fn gen_func(out: &mut String, func: &Func) -> Result<(), Error> {
     out.push_str(&format!("(func $f/{}", func.name));
     for param in func.parameters.borrow().iter() {
-        out.push_str(&format!(" (param $l/{}/{})", param.id, param.name));
+        out.push_str(&format!(
+            " (param $l/{}/{} {})",
+            param.id,
+            param.name,
+            trtype(&param.type_)
+        ));
     }
     out.push_str(&trrtype(&func.type_.return_type));
     out.push_str("\n");

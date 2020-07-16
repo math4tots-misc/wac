@@ -13,8 +13,8 @@ mod span;
 mod start;
 mod tr;
 
-extern crate wasmer_runtime as wr;
 extern crate binaryen;
+extern crate wasmer_runtime as wr;
 
 pub use ast::*;
 pub use cgen::*;
