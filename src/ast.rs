@@ -117,6 +117,13 @@ pub enum Binop {
     Divide,
     TruncDivide,
     Remainder,
+
+    Is,
+    IsNot,
+    LessThan,
+    LessThanOrEqual,
+    GreaterThan,
+    GreaterThanOrEqual,
 }
 
 impl Binop {
@@ -128,6 +135,11 @@ impl Binop {
             Token::Slash => Self::Divide,
             Token::Slash2 => Self::TruncDivide,
             Token::Percent => Self::Remainder,
+
+            Token::Lt => Self::LessThan,
+            Token::Le => Self::LessThanOrEqual,
+            Token::Gt => Self::GreaterThan,
+            Token::Ge => Self::GreaterThanOrEqual,
             _ => return None,
         })
     }

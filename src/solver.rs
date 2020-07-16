@@ -420,13 +420,36 @@ fn solve_expr(
             }
         }
         RawExprData::Binop(op, arg1, arg2) => match op {
-            Binop::Add | Binop::Subtract => {
+            Binop::LessThan | Binop::LessThanOrEqual | Binop::GreaterThan | Binop::GreaterThanOrEqual => {
+                let arg1 = solve_value_expr(lscope, arg1, None)?;
+                let return_type = &arg1.type_.clone();
+                let type_ = return_type.value().unwrap();
+                let arg2 = solve_typed_expr(lscope, arg2, return_type)?;
+                match type_ {
+                    Type::I32 | Type::I64 => Ok(Expr {
+                        span: node.span.clone(),
+                        type_: Type::Bool.into(),
+                        data: ExprData::Op(
+                            TypedWasmOp {
+                                op: UntypedWasmOp::from_binop_for_int(*op).unwrap(),
+                                type_: type_.wasm(),
+                            },
+                            vec![arg1, arg2],
+                        )
+                    }),
+                    _ => Err(Error {
+                        span: vec![node.span.clone()],
+                        message: format!("{:?} not supported for {}", op, type_),
+                    }),
+                }
+            }
+            Binop::Add | Binop::Subtract | Binop::Multiply | Binop::Remainder => {
                 let arg1 = solve_value_expr(lscope, arg1, hint.and_then(|t| t.value()))?;
                 let return_type = &arg1.type_.clone();
                 let type_ = return_type.value().unwrap();
                 let arg2 = solve_typed_expr(lscope, arg2, return_type)?;
                 match type_ {
-                    Type::I32 => Ok(Expr {
+                    Type::I32 | Type::I64 => Ok(Expr {
                         span: node.span.clone(),
                         type_: return_type.clone(),
                         data: ExprData::Op(

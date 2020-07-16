@@ -477,6 +477,7 @@ fn parse_atom(parser: &mut Parser) -> Result<RawExpr, ParseError> {
 fn parse_infix(parser: &mut Parser, mut lhs: RawExpr, prec: u32) -> Result<RawExpr, ParseError> {
     let start = parser.span();
     loop {
+        let span = parser.span();
         match parser.peek() {
             Token::LParen => {
                 if prec > PREC_POSTFIX {
@@ -509,6 +510,34 @@ fn parse_infix(parser: &mut Parser, mut lhs: RawExpr, prec: u32) -> Result<RawEx
                         })
                     }
                 }
+            }
+            Token::Lt | Token::Le | Token::Gt | Token::Ge | Token::Name("is") => {
+                if prec > PREC_CMP {
+                    break;
+                }
+                let op = if parser.consume(Token::Name("is")) {
+                    if parser.consume(Token::Name("not")) {
+                        Binop::IsNot
+                    } else {
+                        Binop::Is
+                    }
+                } else {
+                    let token = parser.gettok();
+                    match Binop::from_token(token) {
+                        Some(op) => op,
+                        None => panic!("Impossible op token: {:?}", token),
+                    }
+                };
+                let rhs = parse_expr(parser, PREC_CMP + 1)?;
+                let span = span.join(&start).upto(&parser.span());
+                lhs = RawExpr {
+                    span,
+                    data: RawExprData::Binop(
+                        op,
+                        lhs.into(),
+                        rhs.into(),
+                    ),
+                };
             }
             Token::Eq => {
                 if prec > PREC_ASSIGN {

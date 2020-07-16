@@ -14,6 +14,7 @@ fn Main() {
 }
 
 fn Foo() i32 {
+    5 < 10
     return 5
 }
 

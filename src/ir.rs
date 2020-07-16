@@ -359,11 +359,18 @@ pub enum UntypedWasmOp {
 impl UntypedWasmOp {
     pub fn from_binop_for_int(op: Binop) -> Option<Self> {
         Some(match op {
+            // returns operand type
             Binop::Add => Self::add,
             Binop::Subtract => Self::sub,
             Binop::Multiply => Self::mul,
             Binop::Remainder => Self::rem_s,
             Binop::TruncDivide => Self::div_s,
+
+            // returns bool
+            Binop::LessThan => Self::lt_s,
+            Binop::LessThanOrEqual => Self::le_s,
+            Binop::GreaterThan => Self::gt_s,
+            Binop::GreaterThanOrEqual => Self::ge_s,
             _ => return None,
         })
     }
