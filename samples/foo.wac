@@ -1,0 +1,16 @@
+extern "wac" "stdout_write" __stdout_write(len i32, ptr i32) i32
+
+fn Main() {
+    $write1(0, $char('H'))
+    $write1(1, $char('e'))
+    $write1(2, $char('l'))
+    $write1(3, $char('l'))
+    $write1(4, $char('o'))
+    $write1(5, $char('\n'))
+    __stdout_write(6, 0)
+    Foo()
+}
+
+fn Foo() i32 {
+    return 5
+}
