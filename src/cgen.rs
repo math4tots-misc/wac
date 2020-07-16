@@ -178,49 +178,27 @@ fn gen_expr(out: &mut String, expr: &Expr) -> Result<(), Error> {
         ExprData::I64(x) => out.push_str(&format!("i64.const {}\n", x)),
         ExprData::F32(x) => out.push_str(&format!("f32.const {}\n", x)),
         ExprData::F64(x) => out.push_str(&format!("f64.const {}\n", x)),
-        ExprData::GetLocal(x) => match x.type_ {
+        ExprData::GetVar(x) => match x.type_() {
             Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 => {
-                out.push_str(&format!("local.get $l/{}/{}\n", x.id, x.name));
+                out.push_str(&format!("{}.get {}\n", x.wasm_kind(), x.wasm_name()));
             }
-            Type::Record(_) => panic!("TODO: gen_expr record GetLocal (retain)"),
+            Type::Record(_) => panic!("TODO: gen_expr record GetVar (retain)"),
         },
-        ExprData::SetLocal(x, expr) => match x.type_ {
+        ExprData::SetVar(x, expr) => match x.type_() {
             Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 => {
                 gen_expr(out, expr)?;
-                out.push_str(&format!("local.set $l/{}/{}\n", x.id, x.name));
+                out.push_str(&format!("{}.set {}\n", x.wasm_kind(), x.wasm_name()));
             }
             Type::Record(_) => panic!("TODO: gen_expr record SetLocal (retain + release)"),
         },
-        ExprData::AugLocal(x, op, expr) => match x.type_ {
+        ExprData::AugVar(x, op, expr) => match x.type_() {
             Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 => {
-                out.push_str(&format!("local.get $l/{}/{}\n", x.id, x.name));
+                out.push_str(&format!("{}.get {}\n", x.wasm_kind(), x.wasm_name()));
                 gen_expr(out, expr)?;
                 out.push_str(&format!("{}\n", op));
-                out.push_str(&format!("local.set $l/{}/{}\n", x.id, x.name));
+                out.push_str(&format!("{}.set {}\n", x.wasm_kind(), x.wasm_name()));
             }
             Type::Record(_) => panic!("TODO: gen_expr record AugLocal (retain + release)"),
-        },
-        ExprData::GetGlobal(x) => match x.type_ {
-            Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 => {
-                out.push_str(&format!("global.get $g/{}\n", x.name));
-            }
-            Type::Record(_) => panic!("TODO: gen_expr record GetGlobal (retain)"),
-        },
-        ExprData::SetGlobal(x, expr) => match x.type_ {
-            Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 => {
-                gen_expr(out, expr)?;
-                out.push_str(&format!("global.set $g/{}\n", x.name));
-            }
-            Type::Record(_) => panic!("TODO: gen_expr record SetGlobal (retain + release)"),
-        },
-        ExprData::AugGlobal(x, op, expr) => match x.type_ {
-            Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 => {
-                out.push_str(&format!("global.get $g/{}\n", x.name));
-                gen_expr(out, expr)?;
-                out.push_str(&format!("{}\n", op));
-                out.push_str(&format!("global.set $g/{}\n", x.name));
-            }
-            Type::Record(_) => panic!("TODO: gen_expr record AugGlobal (retain + release)"),
         },
         ExprData::CallFunc(func, args) => {
             for arg in args {

@@ -46,6 +46,20 @@ pub trait Scope {
             }),
         }
     }
+    fn get_variable(&self, span: &Span, name: &str) -> Result<Variable, Error> {
+        match self.get(name) {
+            Some(Item::Local(var)) => Ok(Variable::Local(var.clone())),
+            Some(Item::Global(var)) => Ok(Variable::Global(var.clone())),
+            Some(item) => Err(Error {
+                span: vec![span.clone(), item.span().clone()],
+                message: format!("{} is not a variable", name),
+            }),
+            None => Err(Error {
+                span: vec![span.clone()],
+                message: format!("variable {} not found", name),
+            }),
+        }
+    }
     fn resolve_return_type(&self, texpr: &TypeExpr) -> Result<ReturnType, Error> {
         self.get_return_type(&texpr.span, &texpr.name)
     }

@@ -60,6 +60,35 @@ impl Item {
     }
 }
 
+#[derive(Clone)]
+pub enum Variable {
+    Local(Rc<Local>),
+    Global(Rc<Global>),
+}
+
+impl Variable {
+    pub fn type_(&self) -> &Type {
+        match self {
+            Self::Local(var) => &var.type_,
+            Self::Global(var) => &var.type_,
+        }
+    }
+
+    pub fn wasm_kind(&self) -> &'static str {
+        match self {
+            Self::Local(_) => "local",
+            Self::Global(_) => "global",
+        }
+    }
+
+    pub fn wasm_name(&self) -> String {
+        match self {
+            Self::Local(var) => format!("$l/{}/{}", var.id, var.name),
+            Self::Global(var) => format!("$g/{}", var.name),
+        }
+    }
+}
+
 pub enum Callable {
     Func(Rc<Func>),
     Extern(Rc<Extern>),
@@ -246,12 +275,9 @@ pub enum ExprData {
     I64(i64),
     F32(f32),
     F64(f64),
-    GetLocal(Rc<Local>),
-    SetLocal(Rc<Local>, Box<Expr>),
-    AugLocal(Rc<Local>, TypedWasmOp, Box<Expr>),
-    GetGlobal(Rc<Global>),
-    SetGlobal(Rc<Global>, Box<Expr>),
-    AugGlobal(Rc<Global>, TypedWasmOp, Box<Expr>),
+    GetVar(Variable),
+    SetVar(Variable, Box<Expr>),
+    AugVar(Variable, TypedWasmOp, Box<Expr>),
     CallFunc(Rc<Func>, Vec<Expr>),
     CallExtern(Rc<Extern>, Vec<Expr>),
 

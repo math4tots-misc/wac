@@ -199,7 +199,7 @@ fn solve_stmt(lscope: &mut LocalScope, node: &RawStmt) -> Result<Stmt, Error> {
                 data: StmtData::Expr(Expr {
                     span: node.span.clone(),
                     type_: ReturnType::Void,
-                    data: ExprData::SetLocal(local, setexpr.into()),
+                    data: ExprData::SetVar(Variable::Local(local), setexpr.into()),
                 }),
             })
         }
@@ -334,62 +334,36 @@ fn solve_expr(
                 data: ExprData::F64(*x as f64),
             }),
         },
-        RawExprData::GetVar(name) => match lscope.get(name) {
-            Some(Item::Local(local)) => Ok(Expr {
+        RawExprData::GetVar(name) => {
+            let var = lscope.get_variable(&node.span, name)?;
+            Ok(Expr {
                 span: node.span.clone(),
-                type_: local.type_.clone().into(),
-                data: ExprData::GetLocal(local.clone()),
-            }),
-            Some(Item::Global(global)) => Ok(Expr {
+                type_: var.type_().clone().into(),
+                data: ExprData::GetVar(var),
+            })
+        }
+        RawExprData::SetVar(name, enode) => {
+            let var = lscope.get_variable(&node.span, name)?;
+            Ok(Expr {
                 span: node.span.clone(),
-                type_: global.type_.clone().into(),
-                data: ExprData::GetGlobal(global.clone()),
-            }),
-            Some(item) => Err(Error {
-                span: vec![node.span.clone(), item.span().clone()],
-                message: format!("{} is not a variable (getvar)", name),
-            }),
-            _ => Err(Error {
-                span: vec![node.span.clone()],
-                message: format!("{} not found (getvar)", name),
-            }),
-        },
-        RawExprData::SetVar(name, enode) => match lscope.get(name).cloned() {
-            Some(Item::Local(local)) => Ok(Expr {
-                span: node.span.clone(),
-                type_: local.type_.clone().into(),
-                data: ExprData::SetLocal(
-                    local.clone(),
-                    solve_typed_expr(lscope, enode, &local.type_.clone().into())?.into(),
+                type_: var.type_().clone().into(),
+                data: ExprData::SetVar(
+                    var.clone(),
+                    solve_typed_expr(lscope, enode, &var.type_().clone().into())?.into(),
                 ),
-            }),
-            Some(Item::Global(global)) => Ok(Expr {
-                span: node.span.clone(),
-                type_: global.type_.clone().into(),
-                data: ExprData::SetGlobal(
-                    global.clone(),
-                    solve_typed_expr(lscope, enode, &global.type_.clone().into())?.into(),
-                ),
-            }),
-            Some(item) => Err(Error {
-                span: vec![node.span.clone(), item.span().clone()],
-                message: format!("{} is not a variable (setvar)", name),
-            }),
-            _ => Err(Error {
-                span: vec![node.span.clone()],
-                message: format!("{} not found (setvar)", name),
-            }),
-        },
-        RawExprData::AugVar(name, op, arg) => match lscope.get(name).cloned() {
-            Some(Item::Local(local)) => match op {
+            })
+        }
+        RawExprData::AugVar(name, op, arg) => {
+            let var = lscope.get_variable(&node.span, name)?;
+            match op {
                 Binop::Add | Binop::Subtract => {
-                    let type_ = local.type_.clone();
+                    let type_ = var.type_().clone();
                     match type_ {
                         Type::I32 => Ok(Expr {
                             span: node.span.clone(),
                             type_: ReturnType::Void,
-                            data: ExprData::AugLocal(
-                                local.clone(),
+                            data: ExprData::AugVar(
+                                var,
                                 TypedWasmOp {
                                     op: UntypedWasmOp::from_binop_for_int(*op).unwrap(),
                                     type_: type_.wasm(),
@@ -404,39 +378,7 @@ fn solve_expr(
                     }
                 }
                 _ => panic!("Augassign {:?} not yet supported", op),
-            },
-            Some(Item::Global(global)) => match op {
-                Binop::Add | Binop::Subtract => {
-                    let type_ = global.type_.clone();
-                    match type_ {
-                        Type::I32 => Ok(Expr {
-                            span: node.span.clone(),
-                            type_: ReturnType::Void,
-                            data: ExprData::AugGlobal(
-                                global.clone(),
-                                TypedWasmOp {
-                                    op: UntypedWasmOp::from_binop_for_int(*op).unwrap(),
-                                    type_: type_.wasm(),
-                                },
-                                solve_typed_expr(lscope, arg, &type_.into())?.into(),
-                            ),
-                        }),
-                        _ => Err(Error {
-                            span: vec![node.span.clone()],
-                            message: format!("Aug{:?} not supported for {}", op, type_),
-                        }),
-                    }
-                }
-                _ => panic!("Augassign {:?} not yet supported", op),
-            },
-            Some(item) => Err(Error {
-                span: vec![node.span.clone(), item.span().clone()],
-                message: format!("{} is not a variable (augvar)", name),
-            }),
-            _ => Err(Error {
-                span: vec![node.span.clone()],
-                message: format!("{} not found (augvar)", name),
-            }),
+            }
         },
         RawExprData::CallFunc(fname, raw_args) => {
             let func = lscope.get_callable(&node.span, fname)?;
