@@ -354,6 +354,8 @@ pub enum UntypedWasmOp {
     ge,
     ge_s,
     ge_u,
+    convert_i32_s,
+    convert_i64_s,
 }
 
 impl UntypedWasmOp {
@@ -371,6 +373,23 @@ impl UntypedWasmOp {
             Binop::LessThanOrEqual => Self::le_s,
             Binop::GreaterThan => Self::gt_s,
             Binop::GreaterThanOrEqual => Self::ge_s,
+            _ => return None,
+        })
+    }
+
+    pub fn from_binop_for_float(op: Binop) -> Option<Self> {
+        Some(match op {
+            // returns operand type
+            Binop::Add => Self::add,
+            Binop::Subtract => Self::sub,
+            Binop::Multiply => Self::mul,
+            Binop::Divide => Self::div,
+
+            // returns bool
+            Binop::LessThan => Self::lt,
+            Binop::LessThanOrEqual => Self::le,
+            Binop::GreaterThan => Self::gt,
+            Binop::GreaterThanOrEqual => Self::ge,
             _ => return None,
         })
     }

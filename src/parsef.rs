@@ -532,11 +532,7 @@ fn parse_infix(parser: &mut Parser, mut lhs: RawExpr, prec: u32) -> Result<RawEx
                 let span = span.join(&start).upto(&parser.span());
                 lhs = RawExpr {
                     span,
-                    data: RawExprData::Binop(
-                        op,
-                        lhs.into(),
-                        rhs.into(),
-                    ),
+                    data: RawExprData::Binop(op, lhs.into(), rhs.into()),
                 };
             }
             Token::Eq => {
@@ -571,6 +567,19 @@ fn parse_infix(parser: &mut Parser, mut lhs: RawExpr, prec: u32) -> Result<RawEx
                 let span = parser.span();
                 let op = Binop::from_token(parser.gettok()).expect("impossible binop");
                 let rhs = parse_expr(parser, PREC_SUM + 1)?;
+                let span = span.upto(&parser.span());
+                lhs = RawExpr {
+                    span,
+                    data: RawExprData::Binop(op, lhs.into(), rhs.into()),
+                };
+            }
+            Token::Star | Token::Slash | Token::Slash2 | Token::Percent => {
+                if prec > PREC_PRODUCT {
+                    break;
+                }
+                let span = parser.span();
+                let op = Binop::from_token(parser.gettok()).expect("impossible binop");
+                let rhs = parse_expr(parser, PREC_PRODUCT + 1)?;
                 let span = span.upto(&parser.span());
                 lhs = RawExpr {
                     span,

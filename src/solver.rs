@@ -273,6 +273,38 @@ fn auto_cast(
             type_: ReturnType::Void,
             data: ExprData::DropPrimitive(expr.into()),
         }),
+        (ReturnType::Type(Type::I32), ReturnType::Type(Type::F32)) => Ok(Expr {
+            span: expr.span.clone(),
+            type_: Type::F32.into(),
+            data: ExprData::Op(TypedWasmOp {
+                type_: Type::F32.wasm(),
+                op: UntypedWasmOp::convert_i32_s,
+            }, vec![expr]),
+        }),
+        (ReturnType::Type(Type::I64), ReturnType::Type(Type::F32)) => Ok(Expr {
+            span: expr.span.clone(),
+            type_: Type::F32.into(),
+            data: ExprData::Op(TypedWasmOp {
+                type_: Type::F32.wasm(),
+                op: UntypedWasmOp::convert_i64_s,
+            }, vec![expr]),
+        }),
+        (ReturnType::Type(Type::I64), ReturnType::Type(Type::F64)) => Ok(Expr {
+            span: expr.span.clone(),
+            type_: Type::F64.into(),
+            data: ExprData::Op(TypedWasmOp {
+                type_: Type::F64.wasm(),
+                op: UntypedWasmOp::convert_i64_s,
+            }, vec![expr]),
+        }),
+        (ReturnType::Type(Type::I32), ReturnType::Type(Type::F64)) => Ok(Expr {
+            span: expr.span.clone(),
+            type_: Type::F64.into(),
+            data: ExprData::Op(TypedWasmOp {
+                type_: Type::F64.wasm(),
+                op: UntypedWasmOp::convert_i32_s,
+            }, vec![expr]),
+        }),
         _ => Err(Error {
             span: vec![expr.span.clone()],
             message: format!("Expected {} but got {}", expected_type, expr.type_),
@@ -379,7 +411,7 @@ fn solve_expr(
                 }
                 _ => panic!("Augassign {:?} not yet supported", op),
             }
-        },
+        }
         RawExprData::CallFunc(fname, raw_args) => {
             let func = lscope.get_callable(&node.span, fname)?;
             if func.type_().parameters.len() != raw_args.len() {
@@ -420,11 +452,20 @@ fn solve_expr(
             }
         }
         RawExprData::Binop(op, arg1, arg2) => match op {
-            Binop::LessThan | Binop::LessThanOrEqual | Binop::GreaterThan | Binop::GreaterThanOrEqual => {
+            Binop::LessThan
+            | Binop::LessThanOrEqual
+            | Binop::GreaterThan
+            | Binop::GreaterThanOrEqual => {
                 let arg1 = solve_value_expr(lscope, arg1, None)?;
-                let return_type = &arg1.type_.clone();
-                let type_ = return_type.value().unwrap();
-                let arg2 = solve_typed_expr(lscope, arg2, return_type)?;
+                let arg2 = solve_value_expr(lscope, arg2, None)?;
+                let type_ = match (arg1.type_.value().unwrap(), arg2.type_.value().unwrap()) {
+                    (Type::F64, _) | (_, Type::F64) => Type::F64,
+                    (Type::F32, _) | (_, Type::F32) => Type::F32,
+                    (Type::I64, _) | (_, Type::I64) => Type::I64,
+                    _ => Type::I32,
+                };
+                let arg1 = auto_cast(lscope, arg1, &type_.clone().into())?;
+                let arg2 = auto_cast(lscope, arg2, &type_.clone().into())?;
                 match type_ {
                     Type::I32 | Type::I64 => Ok(Expr {
                         span: node.span.clone(),
@@ -435,26 +476,14 @@ fn solve_expr(
                                 type_: type_.wasm(),
                             },
                             vec![arg1, arg2],
-                        )
+                        ),
                     }),
-                    _ => Err(Error {
-                        span: vec![node.span.clone()],
-                        message: format!("{:?} not supported for {}", op, type_),
-                    }),
-                }
-            }
-            Binop::Add | Binop::Subtract | Binop::Multiply | Binop::Remainder => {
-                let arg1 = solve_value_expr(lscope, arg1, hint.and_then(|t| t.value()))?;
-                let return_type = &arg1.type_.clone();
-                let type_ = return_type.value().unwrap();
-                let arg2 = solve_typed_expr(lscope, arg2, return_type)?;
-                match type_ {
-                    Type::I32 | Type::I64 => Ok(Expr {
+                    Type::F32 | Type::F64 => Ok(Expr {
                         span: node.span.clone(),
-                        type_: return_type.clone(),
+                        type_: Type::Bool.into(),
                         data: ExprData::Op(
                             TypedWasmOp {
-                                op: UntypedWasmOp::from_binop_for_int(*op).unwrap(),
+                                op: UntypedWasmOp::from_binop_for_float(*op).unwrap(),
                                 type_: type_.wasm(),
                             },
                             vec![arg1, arg2],
@@ -464,6 +493,130 @@ fn solve_expr(
                         span: vec![node.span.clone()],
                         message: format!("{:?} not supported for {}", op, type_),
                     }),
+                }
+            }
+            Binop::Add | Binop::Subtract | Binop::Multiply | Binop::Remainder => {
+                let arg1 = solve_value_expr(lscope, arg1, None)?;
+                let arg2 = solve_value_expr(lscope, arg2, None)?;
+                let type_ = match (arg1.type_.value().unwrap(), arg2.type_.value().unwrap()) {
+                    (Type::F64, _) | (_, Type::F64) => Type::F64,
+                    (Type::F32, _) | (_, Type::F32) => Type::F32,
+                    (Type::I64, _) | (_, Type::I64) => Type::I64,
+                    _ => Type::I32,
+                };
+                let arg1 = auto_cast(lscope, arg1, &type_.clone().into())?;
+                let arg2 = auto_cast(lscope, arg2, &type_.clone().into())?;
+                match type_ {
+                    Type::I32 | Type::I64 => Ok(Expr {
+                        span: node.span.clone(),
+                        type_: type_.clone().into(),
+                        data: ExprData::Op(
+                            TypedWasmOp {
+                                op: UntypedWasmOp::from_binop_for_int(*op).unwrap(),
+                                type_: type_.wasm(),
+                            },
+                            vec![arg1, arg2],
+                        ),
+                    }),
+                    Type::F32 | Type::F64 => Ok(Expr {
+                        span: node.span.clone(),
+                        type_: type_.clone().into(),
+                        data: ExprData::Op(
+                            TypedWasmOp {
+                                op: UntypedWasmOp::from_binop_for_float(*op).unwrap(),
+                                type_: type_.wasm(),
+                            },
+                            vec![arg1, arg2],
+                        ),
+                    }),
+                    _ => Err(Error {
+                        span: vec![node.span.clone()],
+                        message: format!("{:?} not supported for {}", op, type_),
+                    }),
+                }
+            }
+            Binop::Divide => {
+                let arg1 = solve_value_expr(lscope, arg1, None)?;
+                let type_ = match &arg1.type_ {
+                    ReturnType::Type(Type::I32) => Type::F32,
+                    ReturnType::Type(Type::I64) => Type::F64,
+                    _ => arg1.type_.value().unwrap().clone(),
+                };
+                let arg1 = auto_cast(lscope, arg1, &type_.clone().into())?;
+                let arg2 = solve_typed_expr(lscope, arg2, &type_.clone().into())?;
+                match type_ {
+                    Type::F32 | Type::F64 => Ok(Expr {
+                        span: node.span.clone(),
+                        type_: type_.clone().into(),
+                        data: ExprData::Op(
+                            TypedWasmOp {
+                                op: UntypedWasmOp::from_binop_for_float(*op).unwrap(),
+                                type_: type_.wasm(),
+                            },
+                            vec![arg1, arg2],
+                        ),
+                    }),
+                    _ => Err(Error {
+                        span: vec![node.span.clone()],
+                        message: format!("{:?} not supported for {}", op, type_),
+                    }),
+                }
+            }
+            Binop::TruncDivide => {
+                let arg1 = solve_value_expr(lscope, arg1, None)?;
+                let arg2 = solve_value_expr(lscope, arg2, None)?;
+                let intermediate_type =
+                    match (arg1.type_.value().unwrap(), arg2.type_.value().unwrap()) {
+                        (Type::F64, _) | (_, Type::F64) => Type::F64,
+                        (Type::F32, _) | (_, Type::F32) => Type::F32,
+                        (Type::I64, _) | (_, Type::I64) => Type::I64,
+                        _ => Type::I32,
+                    };
+                let arg1 = auto_cast(lscope, arg1, &intermediate_type.clone().into())?;
+                let arg2 = auto_cast(lscope, arg2, &intermediate_type.clone().into())?;
+                match intermediate_type {
+                    Type::F32 => auto_cast(
+                        lscope,
+                        Expr {
+                            span: node.span.clone(),
+                            type_: intermediate_type.clone().into(),
+                            data: ExprData::Op(
+                                TypedWasmOp {
+                                    op: UntypedWasmOp::div,
+                                    type_: intermediate_type.wasm(),
+                                },
+                                vec![arg1, arg2],
+                            ),
+                        },
+                        &Type::I32.into(),
+                    ),
+                    Type::F64 => auto_cast(
+                        lscope,
+                        Expr {
+                            span: node.span.clone(),
+                            type_: intermediate_type.clone().into(),
+                            data: ExprData::Op(
+                                TypedWasmOp {
+                                    op: UntypedWasmOp::div,
+                                    type_: intermediate_type.wasm(),
+                                },
+                                vec![arg1, arg2],
+                            ),
+                        },
+                        &Type::I64.into(),
+                    ),
+                    Type::I32 | Type::I64 => Ok(Expr {
+                        span: node.span.clone(),
+                        type_: intermediate_type.clone().into(),
+                        data: ExprData::Op(
+                            TypedWasmOp {
+                                op: UntypedWasmOp::div_u,
+                                type_: intermediate_type.wasm(),
+                            },
+                            vec![arg1, arg2],
+                        ),
+                    }),
+                    it => panic!("Impossible truncdiv intermediate type: {}", it),
                 }
             }
             _ => panic!("Operator {:?} not yet supported", op),
