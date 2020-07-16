@@ -8,9 +8,13 @@ fn Main() {
     $write1(4, $char('o'))
     $write1(5, $char('\n'))
     __stdout_write(6, 0)
+    $write1(4, gl)
+    __stdout_write(6, 0)
     Foo()
 }
 
 fn Foo() i32 {
     return 5
 }
+
+var gl = $char('x')

@@ -53,6 +53,7 @@ fn parse_file(parser: &mut Parser) -> Result<File, ParseError> {
     let span = parser.span();
     let mut externs = Vec::new();
     let mut funcs = Vec::new();
+    let mut globals = Vec::new();
     let mut records = Vec::new();
     consume_delim(parser);
     while !parser.at(Token::EOF) {
@@ -60,6 +61,7 @@ fn parse_file(parser: &mut Parser) -> Result<File, ParseError> {
             Token::Name("extern") => externs.push(parse_extern(parser)?),
             Token::Name("fn") => funcs.push(parse_func(parser)?),
             Token::Name("record") => records.push(parse_record(parser)?),
+            Token::Name("var") => globals.push(parse_global(parser)?),
             _ => {
                 return Err(ParseError::InvalidToken {
                     span: parser.span(),
@@ -68,13 +70,14 @@ fn parse_file(parser: &mut Parser) -> Result<File, ParseError> {
                 })
             }
         }
-        consume_delim(parser);
+        expect_delim(parser)?;
     }
     let span = span.upto(&parser.span());
     Ok(File {
         span,
         externs,
         funcs,
+        globals,
         records,
     })
 }
@@ -105,6 +108,26 @@ fn at_delim(parser: &mut Parser) -> bool {
         || parser.at(Token::EOF)
         || parser.at(Token::Semicolon)
         || parser.at(Token::Newline)
+}
+
+fn parse_global(parser: &mut Parser) -> Result<RawGlobal, ParseError> {
+    let span = parser.span();
+    parser.expect(Token::Name("var"))?;
+    let name = parser.expect_name()?;
+    let type_ = if parser.at(Token::Eq) {
+        None
+    } else {
+        Some(parse_type(parser)?)
+    };
+    parser.expect(Token::Eq)?;
+    let init = parse_expr(parser, 0)?;
+    let span = span.upto(&parser.span());
+    Ok(RawGlobal {
+        span,
+        name,
+        type_,
+        init,
+    })
 }
 
 fn parse_extern(parser: &mut Parser) -> Result<RawExtern, ParseError> {

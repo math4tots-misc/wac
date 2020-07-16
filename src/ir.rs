@@ -8,7 +8,12 @@ pub struct Program {
     pub span: Span,
     pub externs: Vec<Rc<Extern>>,
     pub records: Vec<Rc<Record>>,
+    pub globals: Vec<Rc<Global>>,
     pub funcs: Vec<Rc<Func>>,
+
+    /// the local variables needed in the initialization of
+    /// global variables
+    pub gvar_init_locals: Vec<Rc<Local>>,
 }
 
 #[derive(Debug, Clone)]
@@ -39,6 +44,7 @@ pub enum Item {
     Func(Rc<Func>),
     Extern(Rc<Extern>),
     Local(Rc<Local>),
+    Global(Rc<Global>),
 }
 
 impl Item {
@@ -48,6 +54,7 @@ impl Item {
             Self::Func(r) => &r.span,
             Self::Extern(r) => &r.span,
             Self::Local(r) => &r.span,
+            Self::Global(r) => &r.span,
         }
     }
 }
@@ -190,6 +197,13 @@ pub struct Extern {
     pub type_: FuncType,
 }
 
+pub struct Global {
+    pub span: Span,
+    pub name: Rc<str>,
+    pub type_: Type,
+    pub init: Expr,
+}
+
 pub struct Func {
     pub span: Span,
     pub name: Rc<str>,
@@ -233,6 +247,8 @@ pub enum ExprData {
     F64(f64),
     GetLocal(Rc<Local>),
     SetLocal(Rc<Local>, Box<Expr>),
+    GetGlobal(Rc<Global>),
+    SetGlobal(Rc<Global>, Box<Expr>),
     CallFunc(Rc<Func>, Vec<Expr>),
     CallExtern(Rc<Extern>, Vec<Expr>),
 

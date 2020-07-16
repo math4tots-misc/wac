@@ -13,6 +13,7 @@ pub fn solve(files: &Vec<File>) -> Result<Program, Error> {
     let mut records = Vec::new();
     let mut externs = Vec::new();
     let mut funcs = Vec::new();
+    let mut globals = Vec::new();
 
     // initialize type names in gscope
     for file in files {
@@ -67,6 +68,28 @@ pub fn solve(files: &Vec<File>) -> Result<Program, Error> {
         }
     }
 
+    // resolve global variables
+    let mut gvar_init_lscope = LocalScope::new(&mut gscope, None);
+    for file in files {
+        for node in &file.globals {
+            let span = node.span.clone();
+            let name = node.name.clone();
+            let (type_, expr) = if let Some(type_) = &node.type_ {
+                let type_ = gvar_init_lscope.gscope().resolve_type(type_)?;
+                let expr =
+                    solve_typed_expr(&mut gvar_init_lscope, &node.init, &type_.clone().into())?;
+                (type_, expr)
+            } else {
+                let expr = solve_value_expr(&mut gvar_init_lscope, &node.init, None)?;
+                let type_ = expr.type_.value().cloned().unwrap();
+                (type_, expr)
+            };
+            let global = gvar_init_lscope.gscope().declvar(span, name, type_, expr)?;
+            globals.push(global);
+        }
+    }
+    let gvar_init_locals = gvar_init_lscope.locals().clone();
+
     // resolve functions
     let mut main_found = false;
     for (func, node) in &funcs_with_ast {
@@ -96,15 +119,17 @@ pub fn solve(files: &Vec<File>) -> Result<Program, Error> {
     Ok(Program {
         span: files[0].span.clone(),
         externs,
+        globals,
         funcs,
         records,
+        gvar_init_locals,
     })
 }
 
 fn solve_func(gscope: &mut GlobalScope, func: &Rc<Func>, node: &RawFunc) -> Result<(), Error> {
     let mut lscope = LocalScope::new(gscope, Some(func));
     for (param_name, param_type) in &func.type_.parameters {
-        let local = lscope.decl_local(func.span.clone(), param_name.clone(), param_type.clone())?;
+        let local = lscope.declvar(func.span.clone(), param_name.clone(), param_type.clone())?;
         func.parameters.borrow_mut().push(local);
     }
     let body = solve_stmt(&mut lscope, &node.body)?;
@@ -130,6 +155,7 @@ fn solve_func(gscope: &mut GlobalScope, func: &Rc<Func>, node: &RawFunc) -> Resu
             }
         }
     }
+    *func.locals.borrow_mut() = lscope.locals().clone();
     *func.body.borrow_mut() = Some(body);
     Ok(())
 }
@@ -162,7 +188,7 @@ fn solve_stmt(lscope: &mut LocalScope, node: &RawStmt) -> Result<Stmt, Error> {
             } else {
                 solve_value_expr(lscope, setexpr, None)?
             };
-            let local = lscope.decl_local(
+            let local = lscope.declvar(
                 node.span.clone(),
                 name.clone(),
                 setexpr.type_.value().cloned().unwrap(),
@@ -314,6 +340,11 @@ fn solve_expr(
                 type_: local.type_.clone().into(),
                 data: ExprData::GetLocal(local.clone()),
             }),
+            Some(Item::Global(global)) => Ok(Expr {
+                span: node.span.clone(),
+                type_: global.type_.clone().into(),
+                data: ExprData::GetGlobal(global.clone()),
+            }),
             Some(item) => Err(Error {
                 span: vec![node.span.clone(), item.span().clone()],
                 message: format!("{} is not a variable (getvar)", name),
@@ -330,6 +361,14 @@ fn solve_expr(
                 data: ExprData::SetLocal(
                     local.clone(),
                     solve_typed_expr(lscope, enode, &local.type_.clone().into())?.into(),
+                ),
+            }),
+            Some(Item::Global(global)) => Ok(Expr {
+                span: node.span.clone(),
+                type_: global.type_.clone().into(),
+                data: ExprData::SetGlobal(
+                    global.clone(),
+                    solve_typed_expr(lscope, enode, &global.type_.clone().into())?.into(),
                 ),
             }),
             Some(item) => Err(Error {

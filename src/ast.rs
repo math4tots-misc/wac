@@ -5,6 +5,7 @@ pub struct File {
     pub span: Span,
     pub externs: Vec<RawExtern>,
     pub records: Vec<RawRecord>,
+    pub globals: Vec<RawGlobal>,
     pub funcs: Vec<RawFunc>,
 }
 
@@ -19,6 +20,13 @@ pub struct RawRecord {
     pub span: Span,
     pub name: Rc<str>,
     pub fields: Vec<(Rc<str>, TypeExpr)>,
+}
+
+pub struct RawGlobal {
+    pub span: Span,
+    pub name: Rc<str>,
+    pub type_: Option<TypeExpr>,
+    pub init: RawExpr,
 }
 
 pub struct RawFunc {

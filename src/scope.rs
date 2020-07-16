@@ -81,6 +81,22 @@ impl GlobalScope {
             map: HashMap::new(),
         }
     }
+    pub fn declvar(
+        &mut self,
+        span: Span,
+        name: Rc<str>,
+        type_: Type,
+        init: Expr,
+    ) -> Result<Rc<Global>, Error> {
+        let global = Rc::new(Global {
+            span,
+            name: name.clone(),
+            type_,
+            init,
+        });
+        self.decl(name, Item::Global(global.clone()))?;
+        Ok(global)
+    }
 }
 
 impl Scope for GlobalScope {
@@ -124,12 +140,11 @@ impl<'a> LocalScope<'a> {
         self.stack.pop().unwrap();
     }
 
-    pub fn decl_local(
-        &mut self,
-        span: Span,
-        name: Rc<str>,
-        type_: Type,
-    ) -> Result<Rc<Local>, Error> {
+    pub fn gscope(&mut self) -> &mut GlobalScope {
+        self.g
+    }
+
+    pub fn declvar(&mut self, span: Span, name: Rc<str>, type_: Type) -> Result<Rc<Local>, Error> {
         let id = self.locals.len();
         let local = Rc::new(Local {
             span,
@@ -143,6 +158,10 @@ impl<'a> LocalScope<'a> {
 
     pub fn return_type(&self) -> Option<&ReturnType> {
         self.func.map(|f| &f.type_.return_type)
+    }
+
+    pub fn locals(&self) -> &Vec<Rc<Local>> {
+        &self.locals
     }
 }
 

@@ -18,14 +18,59 @@ fn gen(program: Program) -> Result<String, Error> {
 
     out.push_str("(memory $memory 1)\n");
 
+    for gvar in &program.globals {
+        gen_global(&mut out, gvar)?;
+    }
+
     for func in &program.funcs {
         gen_func(&mut out, func)?;
     }
 
+    gen_start(&mut out, &program)?;
+
+    out.push_str("(start $start)\n");
     out.push_str(r#"(export "Main" (func $f/Main))"#);
     out.push_str("\n");
 
     Ok(out)
+}
+
+fn gen_global(out: &mut String, gvar: &Global) -> Result<(), Error> {
+    // declare global variables
+    // they are not actually initialized until 'gen_start'
+    out.push_str(&format!(
+        "(global $g/{} (mut {}) {})\n",
+        gvar.name,
+        trtype(&gvar.type_),
+        trzeroval(&gvar.type_)
+    ));
+    Ok(())
+}
+
+/// given a type gives the 'zero value expression' for the associated type
+/// this is primarily for initializing variables
+fn trzeroval(typ: &Type) -> &str {
+    match typ {
+        Type::F32 => "(f32.const 0)",
+        Type::F64 => "(f64.const 0)",
+        Type::I64 => "(i64.const 0)",
+        Type::I32 | Type::Bool | Type::Record(_) => "(i32.const 0)",
+    }
+}
+
+fn gen_start(out: &mut String, program: &Program) -> Result<(), Error> {
+    // Initialize global variables
+    out.push_str("(func $start\n");
+    for local in &program.gvar_init_locals {
+        out.push_str(&format!("(local $l/{}/{})\n", local.id, local.name));
+    }
+    for gvar in &program.globals {
+        gen_expr(out, &gvar.init)?;
+        out.push_str(&format!("global.set $g/{}\n", gvar.name));
+    }
+    // TOOD: release all local variables from gvar_init_locals here
+    out.push_str(")\n");
+    Ok(())
 }
 
 fn gen_extern(out: &mut String, ext: &Extern) -> Result<(), Error> {
@@ -86,6 +131,7 @@ fn gen_func(out: &mut String, func: &Func) -> Result<(), Error> {
     gen_stmt(out, func.body.borrow().as_ref().unwrap())?;
 
     out.push_str(")\n");
+    // TODO: release all local variables here (including parameters)
     out.push_str(")\n");
     Ok(())
 }
@@ -119,16 +165,29 @@ fn gen_expr(out: &mut String, expr: &Expr) -> Result<(), Error> {
         ExprData::F64(x) => out.push_str(&format!("f64.const {}\n", x)),
         ExprData::GetLocal(x) => match x.type_ {
             Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 => {
-                out.push_str(&format!("{}.load $l/{}/{}", x.type_.wasm(), x.id, x.name));
+                out.push_str(&format!("local.get $l/{}/{}\n", x.id, x.name));
             }
             Type::Record(_) => panic!("TODO: gen_expr record GetLocal (retain)"),
         },
         ExprData::SetLocal(x, expr) => match x.type_ {
             Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 => {
                 gen_expr(out, expr)?;
-                out.push_str(&format!("{}.store $l/{}/{}", x.type_.wasm(), x.id, x.name));
+                out.push_str(&format!("local.set $l/{}/{}\n", x.id, x.name));
             }
             Type::Record(_) => panic!("TODO: gen_expr record SetLocal (retain + release)"),
+        },
+        ExprData::GetGlobal(x) => match x.type_ {
+            Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 => {
+                out.push_str(&format!("global.get $g/{}\n", x.name));
+            }
+            Type::Record(_) => panic!("TODO: gen_expr record GetGlobal (retain)"),
+        },
+        ExprData::SetGlobal(x, expr) => match x.type_ {
+            Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 => {
+                gen_expr(out, expr)?;
+                out.push_str(&format!("global.set $g/{}\n", x.name));
+            }
+            Type::Record(_) => panic!("TODO: gen_expr record SetGlobal (retain + release)"),
         },
         ExprData::CallFunc(func, args) => {
             for arg in args {
