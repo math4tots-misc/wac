@@ -73,7 +73,7 @@ impl Memory {
             data.extend(&(1u32).to_le_bytes()); // refcnt
             data.extend(&((HEADER_SIZE + data.len()) as u32).to_le_bytes()); // capacity
             data.extend(&(0u32).to_le_bytes()); // ptrcnt
-            data.extend(&(0u32).to_le_bytes()); // reserved
+            data.extend(&(data.len() as u32).to_le_bytes()); // strlen
 
             // actual string data
             data.extend(string.as_bytes());
@@ -389,6 +389,8 @@ pub enum ExprData {
     Op(TypedWasmOp, Vec<Expr>),
 
     Asm(Vec<Expr>, Type, Rc<str>),
+
+    Raw(Variable),
 
     Read1(Box<Expr>, u32),
     Read2(Box<Expr>, u32),

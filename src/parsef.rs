@@ -299,6 +299,18 @@ fn parse_atom(parser: &mut Parser) -> Result<RawExpr, ParseError> {
                         data: RawExprData::Asm(args, type_, code),
                     })
                 }
+                Token::Name("raw") => {
+                    parser.gettok();
+                    parser.expect(Token::LParen)?;
+                    let name = parser.expect_name()?;
+                    parser.consume(Token::Comma);
+                    parser.expect(Token::RParen)?;
+                    let span = span.upto(&parser.span());
+                    Ok(RawExpr {
+                        span,
+                        data: RawExprData::Raw(name),
+                    })
+                }
                 Token::Name("char") => {
                     parser.gettok();
                     parser.expect(Token::LParen)?;
@@ -325,7 +337,7 @@ fn parse_atom(parser: &mut Parser) -> Result<RawExpr, ParseError> {
                     let addr = parse_expr(parser, 0)?;
                     let offset = if parser.consume(Token::Comma) {
                         parser.expect(Token::Name("offset"))?;
-                        parser.expect(Token::Eq)?;
+                        parser.expect(Token::Colon)?;
                         parser.expect_u32()?
                     } else {
                         0
@@ -342,7 +354,7 @@ fn parse_atom(parser: &mut Parser) -> Result<RawExpr, ParseError> {
                     let addr = parse_expr(parser, 0)?;
                     let offset = if parser.consume(Token::Comma) {
                         parser.expect(Token::Name("offset"))?;
-                        parser.expect(Token::Eq)?;
+                        parser.expect(Token::Colon)?;
                         parser.expect_u32()?
                     } else {
                         0
@@ -359,7 +371,7 @@ fn parse_atom(parser: &mut Parser) -> Result<RawExpr, ParseError> {
                     let addr = parse_expr(parser, 0)?;
                     let offset = if parser.consume(Token::Comma) {
                         parser.expect(Token::Name("offset"))?;
-                        parser.expect(Token::Eq)?;
+                        parser.expect(Token::Colon)?;
                         parser.expect_u32()?
                     } else {
                         0
@@ -376,7 +388,7 @@ fn parse_atom(parser: &mut Parser) -> Result<RawExpr, ParseError> {
                     let addr = parse_expr(parser, 0)?;
                     let offset = if parser.consume(Token::Comma) {
                         parser.expect(Token::Name("offset"))?;
-                        parser.expect(Token::Eq)?;
+                        parser.expect(Token::Colon)?;
                         parser.expect_u32()?
                     } else {
                         0
@@ -395,7 +407,7 @@ fn parse_atom(parser: &mut Parser) -> Result<RawExpr, ParseError> {
                     let data = parse_expr(parser, 0)?;
                     let offset = if parser.consume(Token::Comma) {
                         parser.expect(Token::Name("offset"))?;
-                        parser.expect(Token::Eq)?;
+                        parser.expect(Token::Colon)?;
                         parser.expect_u32()?
                     } else {
                         0
@@ -414,7 +426,7 @@ fn parse_atom(parser: &mut Parser) -> Result<RawExpr, ParseError> {
                     let data = parse_expr(parser, 0)?;
                     let offset = if parser.consume(Token::Comma) {
                         parser.expect(Token::Name("offset"))?;
-                        parser.expect(Token::Eq)?;
+                        parser.expect(Token::Colon)?;
                         parser.expect_u32()?
                     } else {
                         0
@@ -433,7 +445,7 @@ fn parse_atom(parser: &mut Parser) -> Result<RawExpr, ParseError> {
                     let data = parse_expr(parser, 0)?;
                     let offset = if parser.consume(Token::Comma) {
                         parser.expect(Token::Name("offset"))?;
-                        parser.expect(Token::Eq)?;
+                        parser.expect(Token::Colon)?;
                         parser.expect_u32()?
                     } else {
                         0
@@ -452,7 +464,7 @@ fn parse_atom(parser: &mut Parser) -> Result<RawExpr, ParseError> {
                     let data = parse_expr(parser, 0)?;
                     let offset = if parser.consume(Token::Comma) {
                         parser.expect(Token::Name("offset"))?;
-                        parser.expect(Token::Eq)?;
+                        parser.expect(Token::Colon)?;
                         parser.expect_u32()?
                     } else {
                         0

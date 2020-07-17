@@ -81,6 +81,7 @@ pub enum RawExprData {
 
     Asm(Vec<RawExpr>, TypeExpr, Rc<str>),
 
+    Raw(Rc<str>),
     Char(char),
 
     Read1(Box<RawExpr>, u32),

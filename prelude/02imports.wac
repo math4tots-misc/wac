@@ -1,4 +1,11 @@
 extern "wac" "stdout_write" __stdout_write(len i32, ptr i32) i32
 
 fn print(s str) {
+    var ptr = $raw(s)
+    __stdout_write($read4(ptr, offset: 12), ptr + 16)
+}
+
+fn println(s str) {
+    print(s)
+    print('\n')
 }

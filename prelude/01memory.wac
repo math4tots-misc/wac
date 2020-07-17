@@ -5,6 +5,9 @@
 # ptrcnt contains the number of pointers that this structure holds, all
 # of which must come at the beginning of the 'data' section
 #
+# while 'reserved' may generally not be used, it is sometimes used for
+# type specific data, e.g. strlen for strings (i.e. capacity - header_size)
+#
 
 fn __retain(ptr i32) {
     # if ptr is not 0 {

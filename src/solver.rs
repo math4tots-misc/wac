@@ -658,6 +658,17 @@ fn solve_expr(
                 data: ExprData::Asm(args, type_, code.clone()),
             })
         }
+        RawExprData::Raw(name) => {
+            let var = lscope.get_variable(&node.span, name)?;
+            Ok(Expr {
+                span: node.span.clone(),
+                type_: match var.type_() {
+                    Type::I64 | Type::F64 | Type::Id => Type::I64.into(),
+                    _ => Type::I32.into(),
+                },
+                data: ExprData::Raw(var),
+            })
+        }
         RawExprData::Char(ch) => Ok(Expr {
             span: node.span.clone(),
             type_: Type::I32.into(),

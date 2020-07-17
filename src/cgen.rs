@@ -194,44 +194,44 @@ fn gen_stmt(out: &mut String, stmt: &Stmt) -> Result<(), Error> {
 fn gen_expr(out: &mut String, expr: &Expr) -> Result<(), Error> {
     match &expr.data {
         ExprData::Void => {}
-        ExprData::Bool(b) => out.push_str(&format!("i32.const {}\n", if *b { 1 } else { 0 })),
-        ExprData::I32(x) => out.push_str(&format!("i32.const {}\n", x)),
-        ExprData::I64(x) => out.push_str(&format!("i64.const {}\n", x)),
-        ExprData::F32(x) => out.push_str(&format!("f32.const {}\n", x)),
-        ExprData::F64(x) => out.push_str(&format!("f64.const {}\n", x)),
+        ExprData::Bool(b) => writeln!(out, "i32.const {}", if *b { 1 } else { 0 })?,
+        ExprData::I32(x) => writeln!(out, "i32.const {}", x)?,
+        ExprData::I64(x) => writeln!(out, "i64.const {}", x)?,
+        ExprData::F32(x) => writeln!(out, "f32.const {}", x)?,
+        ExprData::F64(x) => writeln!(out, "f64.const {}", x)?,
         ExprData::Str(ptr) => {
-            out.push_str(&format!("i32.const {}\n", ptr.get()));
-            out.push_str(&format!("call $f/__retain\n"));
-            out.push_str(&format!("i32.const {}\n", ptr.get()));
+            writeln!(out, "i32.const {}", ptr.get())?;
+            writeln!(out, "call $f/__retain")?;
+            writeln!(out, "i32.const {}", ptr.get())?;
         }
         ExprData::GetVar(x) => match x.type_() {
             Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 => {
-                out.push_str(&format!("{}.get {}\n", x.wasm_kind(), x.wasm_name()));
+                writeln!(out, "{}.get {}", x.wasm_kind(), x.wasm_name())?;
             }
             Type::Str | Type::Record(_) => {
-                out.push_str(&format!("{}.get {}\n", x.wasm_kind(), x.wasm_name()));
-                out.push_str("call $f/__retain");
-                out.push_str(&format!("{}.get {}\n", x.wasm_kind(), x.wasm_name()));
+                writeln!(out, "{}.get {}", x.wasm_kind(), x.wasm_name())?;
+                writeln!(out, "call $f/__retain")?;
+                writeln!(out, "{}.get {}", x.wasm_kind(), x.wasm_name())?;
             }
             Type::Id => panic!("TODO: gen_expr id GetVar (retain)"),
         },
         ExprData::SetVar(x, expr) => match x.type_() {
             Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 => {
                 gen_expr(out, expr)?;
-                out.push_str(&format!("{}.set {}\n", x.wasm_kind(), x.wasm_name()));
+                writeln!(out, "{}.set {}", x.wasm_kind(), x.wasm_name())?;
             }
             Type::Str | Type::Record(_) => {
                 // save the old value on the stack (for release later)
-                out.push_str(&format!("{}.get {}\n", x.wasm_kind(), x.wasm_name()));
+                writeln!(out, "{}.get {}", x.wasm_kind(), x.wasm_name())?;
 
                 gen_expr(out, expr)?;
-                out.push_str(&format!("{}.tee {}\n", x.wasm_kind(), x.wasm_name()));
+                writeln!(out, "{}.tee {}", x.wasm_kind(), x.wasm_name())?;
 
                 // retain the new value
-                out.push_str(&format!("call $f/__retain\n"));
+                writeln!(out, "call $f/__retain")?;
 
                 // release the old value
-                out.push_str(&format!("call $f/__release\n"));
+                writeln!(out, "call $f/__release")?;
             }
             Type::Id => panic!("TODO: gen_expr id SetVar (retain + release)"),
         },
@@ -263,94 +263,93 @@ fn gen_expr(out: &mut String, expr: &Expr) -> Result<(), Error> {
             for arg in args {
                 gen_expr(out, arg)?;
             }
-            out.push_str(&format!("{}\n", op));
+            writeln!(out, "{}", op)?;
         }
         ExprData::DropPrimitive(x) => {
             gen_expr(out, x)?;
-            out.push_str("drop\n");
+            writeln!(out, "drop")?;
         }
         ExprData::Asm(args, _, code) => {
             for arg in args {
                 gen_expr(out, arg)?;
             }
-            out.push_str(code);
-            out.push('\n');
+            writeln!(out, "{}", code)?;
+        }
+        ExprData::Raw(var) => {
+            writeln!(out, "{}.get {}", var.wasm_kind(), var.wasm_name())?;
+            match var.type_() {
+                Type::F32 => writeln!(out, "i32.reinterpret_f32")?,
+                Type::F64 => writeln!(out, "i64.reinterpret_f64")?,
+                _ => {}
+            }
         }
         ExprData::Read1(addr, offset) => {
             gen_expr(out, addr)?;
-            let offset = if *offset != 0 {
-                format!(" offset={}", offset)
-            } else {
-                "".to_owned()
-            };
-            out.push_str(&format!("i32.load8_u{}\n", offset));
+            write!(out, "i32.load_u")?;
+            if *offset != 0 {
+                write!(out, " offset={}", offset)?;
+            }
+            writeln!(out, "")?;
         }
         ExprData::Read2(addr, offset) => {
             gen_expr(out, addr)?;
-            let offset = if *offset != 0 {
-                format!(" offset={}", offset)
-            } else {
-                "".to_owned()
-            };
-            out.push_str(&format!("i32.load16_u{}\n", offset));
+            write!(out, "i32.load16_u")?;
+            if *offset != 0 {
+                write!(out, " offset={}", offset)?;
+            }
+            writeln!(out, "")?;
         }
         ExprData::Read4(addr, offset) => {
             gen_expr(out, addr)?;
-            let offset = if *offset != 0 {
-                format!(" offset={}", offset)
-            } else {
-                "".to_owned()
-            };
-            out.push_str(&format!("i32.load{}\n", offset));
+            write!(out, "i32.load")?;
+            if *offset != 0 {
+                write!(out, " offset={}", offset)?;
+            }
+            writeln!(out, "")?;
         }
         ExprData::Read8(addr, offset) => {
             gen_expr(out, addr)?;
-            let offset = if *offset != 0 {
-                format!(" offset={}", offset)
-            } else {
-                "".to_owned()
-            };
-            out.push_str(&format!("i64.load{}\n", offset));
+            write!(out, "i64.load")?;
+            if *offset != 0 {
+                write!(out, " offset={}", offset)?;
+            }
+            writeln!(out, "")?;
         }
         ExprData::Write1(addr, data, offset) => {
             gen_expr(out, addr)?;
             gen_expr(out, data)?;
-            let offset = if *offset != 0 {
-                format!(" offset={}", offset)
-            } else {
-                "".to_owned()
-            };
-            out.push_str(&format!("i32.store8{}\n", offset));
+            write!(out, "i32.store8")?;
+            if *offset != 0 {
+                write!(out, " offset={}", offset)?;
+            }
+            writeln!(out, "")?;
         }
         ExprData::Write2(addr, data, offset) => {
             gen_expr(out, addr)?;
             gen_expr(out, data)?;
-            let offset = if *offset != 0 {
-                format!(" offset={}", offset)
-            } else {
-                "".to_owned()
-            };
-            out.push_str(&format!("i32.store16{}\n", offset));
+            write!(out, "i32.store16")?;
+            if *offset != 0 {
+                write!(out, " offset={}", offset)?;
+            }
+            writeln!(out, "")?;
         }
         ExprData::Write4(addr, data, offset) => {
             gen_expr(out, addr)?;
             gen_expr(out, data)?;
-            let offset = if *offset != 0 {
-                format!(" offset={}", offset)
-            } else {
-                "".to_owned()
-            };
-            out.push_str(&format!("i32.store{}\n", offset));
+            write!(out, "i32.store")?;
+            if *offset != 0 {
+                write!(out, " offset={}", offset)?;
+            }
+            writeln!(out, "")?;
         }
         ExprData::Write8(addr, data, offset) => {
             gen_expr(out, addr)?;
             gen_expr(out, data)?;
-            let offset = if *offset != 0 {
-                format!(" offset={}", offset)
-            } else {
-                "".to_owned()
-            };
-            out.push_str(&format!("i64.store{}\n", offset));
+            write!(out, "i64.store")?;
+            if *offset != 0 {
+                write!(out, " offset={}", offset)?;
+            }
+            writeln!(out, "")?;
         }
     }
     Ok(())

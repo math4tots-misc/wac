@@ -10,6 +10,8 @@ fn Main() {
     $write1(4, gl)
     __stdout_write(6, 0)
     Foo()
+    print("Hello again\n")
+    print("Hello again\n")
 }
 
 fn Foo() i32 {
