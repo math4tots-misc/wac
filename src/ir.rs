@@ -124,6 +124,7 @@ pub enum Item {
     Extern(Rc<Extern>),
     Local(Rc<Local>),
     Global(Rc<Global>),
+    Constant(Rc<Constant>),
 }
 
 impl Item {
@@ -134,6 +135,7 @@ impl Item {
             Self::Extern(r) => &r.span,
             Self::Local(r) => &r.span,
             Self::Global(r) => &r.span,
+            Self::Constant(r) => &r.span,
         }
     }
 }
@@ -165,6 +167,12 @@ impl Variable {
             Self::Global(var) => format!("$g/{}", var.name),
         }
     }
+}
+
+#[derive(Clone)]
+pub enum VariableOrConstant {
+    Variable(Variable),
+    Constant(Rc<Constant>),
 }
 
 pub enum Callable {
@@ -345,6 +353,25 @@ pub struct Func {
     pub parameters: RefCell<Vec<Rc<Local>>>,
     pub locals: RefCell<Vec<Rc<Local>>>,
     pub body: RefCell<Option<Stmt>>,
+}
+
+pub struct Constant {
+    pub span: Span,
+    pub name: Rc<str>,
+    pub value: ConstVal,
+}
+
+#[derive(Debug, Clone)]
+pub enum ConstVal {
+    I32(i32),
+}
+
+impl ConstVal {
+    pub fn type_(&self) -> Type {
+        match self {
+            Self::I32(_) => Type::I32,
+        }
+    }
 }
 
 pub struct Local {

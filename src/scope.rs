@@ -9,6 +9,15 @@ use std::rc::Rc;
 pub trait Scope {
     fn decl(&mut self, name: Rc<str>, item: Item) -> Result<(), Error>;
     fn get(&self, name: &str) -> Option<&Item>;
+    fn declconst(&mut self, span: Span, name: Rc<str>, value: ConstVal) -> Result<(), Error> {
+        let decl = Rc::new(Constant {
+            span,
+            name: name.clone(),
+            value,
+        });
+        self.decl(name, Item::Constant(decl))?;
+        Ok(())
+    }
     fn get_return_type(&self, span: &Span, name: &str) -> Result<ReturnType, Error> {
         match self.get(name) {
             Some(item) => match item {
@@ -46,6 +55,42 @@ pub trait Scope {
             None => Err(Error {
                 span: vec![span.clone()],
                 message: format!("function {} not found", name),
+            }),
+        }
+    }
+    fn get_constant(&self, span: &Span, name: &str) -> Result<&Rc<Constant>, Error> {
+        match self.get(name) {
+            Some(Item::Constant(constant)) => Ok(constant),
+            Some(item) => Err(Error {
+                span: vec![span.clone(), item.span().clone()],
+                message: format!("{} is not a constant", name),
+            }),
+            None => Err(Error {
+                span: vec![span.clone()],
+                message: format!("constant {} not found", name),
+            }),
+        }
+    }
+    fn get_variable_or_constant(
+        &self,
+        span: &Span,
+        name: &str,
+    ) -> Result<VariableOrConstant, Error> {
+        match self.get(name) {
+            Some(Item::Local(var)) => {
+                Ok(VariableOrConstant::Variable(Variable::Local(var.clone())))
+            }
+            Some(Item::Global(var)) => {
+                Ok(VariableOrConstant::Variable(Variable::Global(var.clone())))
+            }
+            Some(Item::Constant(constant)) => Ok(VariableOrConstant::Constant(constant.clone())),
+            Some(item) => Err(Error {
+                span: vec![span.clone(), item.span().clone()],
+                message: format!("{} is not a variable or constant", name),
+            }),
+            None => Err(Error {
+                span: vec![span.clone()],
+                message: format!("variable or constant {} not found", name),
             }),
         }
     }

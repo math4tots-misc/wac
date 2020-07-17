@@ -1,4 +1,7 @@
 
+const FOO = 123
+const BAR = FOO + 2
+
 fn Main() {
     $write1(0, $char('H'))
     $write1(1, $char('e'))

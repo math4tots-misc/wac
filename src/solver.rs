@@ -30,6 +30,19 @@ pub fn solve(files: &Vec<File>) -> Result<Program, Error> {
         }
     }
 
+    // initialize global constants
+    for file in files {
+        for node in &file.constants {
+            let hint = if let Some(type_) = &node.type_ {
+                Some(gscope.resolve_type(type_)?)
+            } else {
+                None
+            };
+            let value = solve_constexpr(&mut gscope, &node.expr, hint)?;
+            gscope.declconst(node.span.clone(), node.name.clone(), value)?;
+        }
+    }
+
     // initialize the fields for records
     for (rec, node) in &records_with_ast {
         let mut fields = Vec::new();
@@ -160,6 +173,57 @@ fn solve_func(gscope: &mut GlobalScope, func: &Rc<Func>, node: &RawFunc) -> Resu
     *func.locals.borrow_mut() = lscope.locals().clone();
     *func.body.borrow_mut() = Some(body);
     Ok(())
+}
+
+fn solve_constexpr(
+    gscope: &mut GlobalScope,
+    node: &RawExpr,
+    hint: Option<Type>,
+) -> Result<ConstVal, Error> {
+    match &node.data {
+        RawExprData::Int(x) => Ok(ConstVal::I32(*x as i32)),
+        RawExprData::GetVar(name) => Ok(gscope.get_constant(&node.span, name)?.value.clone()),
+        RawExprData::Binop(op, lhs, rhs) => match op {
+            Binop::Add
+            | Binop::Subtract
+            | Binop::Multiply
+            | Binop::Remainder
+            | Binop::TruncDivide => {
+                let lhs = solve_constexpr(gscope, lhs, hint.clone())?;
+                let rhs = solve_constexpr(gscope, rhs, hint)?;
+                match (op, &lhs, &rhs) {
+                    (Binop::Add, ConstVal::I32(a), ConstVal::I32(b)) => Ok(ConstVal::I32(a + b)),
+                    (Binop::Subtract, ConstVal::I32(a), ConstVal::I32(b)) => {
+                        Ok(ConstVal::I32(a - b))
+                    }
+                    (Binop::Multiply, ConstVal::I32(a), ConstVal::I32(b)) => {
+                        Ok(ConstVal::I32(a + b))
+                    }
+                    (Binop::Remainder, ConstVal::I32(a), ConstVal::I32(b)) => {
+                        Ok(ConstVal::I32(a % b))
+                    }
+                    (Binop::TruncDivide, ConstVal::I32(a), ConstVal::I32(b)) => {
+                        Ok(ConstVal::I32(a / b))
+                    }
+                    _ => Err(Error {
+                        span: vec![node.span.clone()],
+                        message: format!(
+                            "Unsupported constexpr binop {:?}, {:?}, {:?}",
+                            op, lhs, rhs,
+                        ),
+                    }),
+                }
+            }
+            _ => Err(Error {
+                span: vec![node.span.clone()],
+                message: format!("Unsupported constexpr binop {:?}", op),
+            }),
+        },
+        _ => Err(Error {
+            span: vec![node.span.clone()],
+            message: format!("Expected constexpr"),
+        }),
+    }
 }
 
 fn solve_stmt(lscope: &mut LocalScope, node: &RawStmt) -> Result<Stmt, Error> {
@@ -391,14 +455,20 @@ fn solve_expr(
                 }),
             })
         }
-        RawExprData::GetVar(name) => {
-            let var = lscope.get_variable(&node.span, name)?;
-            Ok(Expr {
+        RawExprData::GetVar(name) => match lscope.get_variable_or_constant(&node.span, name)? {
+            VariableOrConstant::Variable(var) => Ok(Expr {
                 span: node.span.clone(),
                 type_: var.type_().clone().into(),
                 data: ExprData::GetVar(var),
-            })
-        }
+            }),
+            VariableOrConstant::Constant(cnst) => Ok(Expr {
+                span: node.span.clone(),
+                type_: cnst.value.type_().clone().into(),
+                data: match &cnst.value {
+                    ConstVal::I32(value) => ExprData::I32(*value),
+                },
+            }),
+        },
         RawExprData::SetVar(name, enode) => {
             let var = lscope.get_variable(&node.span, name)?;
             Ok(Expr {

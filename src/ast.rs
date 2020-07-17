@@ -4,10 +4,18 @@ use std::rc::Rc;
 
 pub struct File {
     pub span: Span,
+    pub constants: Vec<RawConstant>,
     pub externs: Vec<RawExtern>,
     pub records: Vec<RawRecord>,
     pub globals: Vec<RawGlobal>,
     pub funcs: Vec<RawFunc>,
+}
+
+pub struct RawConstant {
+    pub span: Span,
+    pub name: Rc<str>,
+    pub type_: Option<TypeExpr>,
+    pub expr: RawExpr,
 }
 
 pub struct RawExtern {
