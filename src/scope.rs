@@ -4,6 +4,7 @@ use crate::Error;
 use crate::Span;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::cell::RefCell;
 
 pub trait Scope {
     fn decl(&mut self, name: Rc<str>, item: Item) -> Result<(), Error>;
@@ -87,12 +88,14 @@ pub trait Scope {
 
 pub struct GlobalScope {
     map: HashMap<Rc<str>, Item>,
+    memory: Rc<RefCell<Memory>>,
 }
 
 impl GlobalScope {
     pub fn new() -> Self {
         Self {
             map: HashMap::new(),
+            memory: Rc::new(RefCell::new(Memory::new())),
         }
     }
     pub fn declvar(
@@ -110,6 +113,9 @@ impl GlobalScope {
         });
         self.decl(name, Item::Global(global.clone()))?;
         Ok(global)
+    }
+    pub fn memory(&self) -> &Rc<RefCell<Memory>> {
+        &self.memory
     }
 }
 
@@ -145,6 +151,9 @@ impl<'a> LocalScope<'a> {
             stack: vec![HashMap::new()],
             locals: vec![],
         }
+    }
+    pub fn memory(&self) -> &Rc<RefCell<Memory>> {
+        &self.g.memory
     }
     pub fn push(&mut self) {
         self.stack.push(HashMap::new());

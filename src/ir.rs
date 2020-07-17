@@ -1,9 +1,14 @@
 use crate::Binop;
 use crate::Span;
+use std::collections::HashMap;
 use std::cell::RefCell;
 use std::cmp;
 use std::fmt;
 use std::rc::Rc;
+
+/// Size of the header (in bytes) for all reference counted values
+/// [i32 refcnt][i32 capacity (bytes)][i32 ptrcnt][i32 type?][data..]
+pub const HEADER_SIZE: usize = 16;
 
 pub struct Program {
     pub span: Span,
@@ -15,6 +20,57 @@ pub struct Program {
     /// the local variables needed in the initialization of
     /// global variables
     pub gvar_init_locals: Vec<Rc<Local>>,
+
+    pub memory: Rc<RefCell<Memory>>,
+}
+
+/// information about the state of memory when the program starts
+pub struct Memory {
+    /// number of bytes of memory at the start that is left unused
+    /// (e.g. for nullptr, and overhead for malloc/free)
+    pub reserved: usize,
+
+    /// map strings to their addr offset from the start
+    /// of the static string region
+    pub strings_map: HashMap<Rc<str>, usize>,
+    pub strings: Vec<Rc<str>>,
+    pub next_strings_offset: usize,
+}
+
+impl Memory {
+    pub fn new() -> Self {
+        Self {
+            // 16 bytes to be left empty
+            // 4 * 16 bytes for use in malloc's freelists
+            reserved: 16 + 4 * 16,
+            strings_map: HashMap::new(),
+            strings: Vec::new(),
+            next_strings_offset: 0,
+        }
+    }
+    pub fn getstr(&self, s: &str) -> Option<usize> {
+        self.strings_map.get(s).map(|i| i + self.reserved)
+    }
+    pub fn intern(&mut self, s: &Rc<str>) {
+        if !self.strings_map.contains_key(s) {
+            let len = HEADER_SIZE + s.len();
+            self.strings.push(s.clone());
+            self.strings_map.insert(s.clone(), self.next_strings_offset);
+            self.next_strings_offset += len;
+        }
+    }
+}
+
+/// pointer to an interned str in static memory
+pub struct StrPtr {
+    pub memory: Rc<RefCell<Memory>>,
+    pub string: Rc<str>,
+}
+
+impl StrPtr {
+    pub fn get(&self) -> usize {
+        self.memory.borrow().getstr(&self.string).unwrap()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -133,6 +189,18 @@ impl cmp::PartialEq for Record {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum RetainType {
+    // not managed
+    Primitive,
+
+    /// i32 pointer value
+    Typed,
+
+    /// i64 value, containing tag and possibly pointer
+    Id,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
     Bool,
@@ -140,7 +208,9 @@ pub enum Type {
     I64,
     F32,
     F64,
+    Str,
     Record(Rc<Record>),
+    Id,
 }
 
 impl Type {
@@ -151,7 +221,17 @@ impl Type {
             Self::I64 => WasmType::i64,
             Self::F32 => WasmType::f32,
             Self::F64 => WasmType::f64,
+            Self::Str => WasmType::i32,
             Self::Record(_) => WasmType::i32,
+            Self::Id => WasmType::i64,
+        }
+    }
+
+    pub fn retain_type(&self) -> RetainType {
+        match self {
+            Self::Bool | Self::I32 | Self::I64 | Self::F32 | Self::F64 => RetainType::Primitive,
+            Self::Str | Self::Record(_) => RetainType::Typed,
+            Self::Id => RetainType::Id,
         }
     }
 }
@@ -164,7 +244,9 @@ impl fmt::Display for Type {
             Self::I64 => write!(f, "i64"),
             Self::F32 => write!(f, "f32"),
             Self::F64 => write!(f, "f64"),
+            Self::Str => write!(f, "str"),
             Self::Record(rec) => write!(f, "{}", rec.name),
+            Self::Id => write!(f, "id"),
         }
     }
 }
@@ -275,6 +357,7 @@ pub enum ExprData {
     I64(i64),
     F32(f32),
     F64(f64),
+    Str(StrPtr),
     GetVar(Variable),
     SetVar(Variable, Box<Expr>),
     AugVar(Variable, TypedWasmOp, Box<Expr>),

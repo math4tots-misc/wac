@@ -70,6 +70,7 @@ pub enum RawExprData {
     Bool(bool),
     Int(i64),
     Float(f64),
+    Str(Rc<str>),
     GetVar(Rc<str>),
     SetVar(Rc<str>, Box<RawExpr>),
     AugVar(Rc<str>, Binop, Box<RawExpr>),

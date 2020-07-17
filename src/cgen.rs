@@ -54,7 +54,8 @@ fn trzeroval(typ: &Type) -> &str {
         Type::F32 => "(f32.const 0)",
         Type::F64 => "(f64.const 0)",
         Type::I64 => "(i64.const 0)",
-        Type::I32 | Type::Bool | Type::Record(_) => "(i32.const 0)",
+        Type::I32 | Type::Bool | Type::Str | Type::Record(_) => "(i32.const 0)",
+        Type::Id => "(i64.const 0)",
     }
 }
 
@@ -99,7 +100,9 @@ fn trtype(type_: &Type) -> &'static str {
         Type::I64 => "i64",
         Type::F32 => "f32",
         Type::F64 => "f64",
+        Type::Str => "i32",
         Type::Record(_) => "i32",
+        Type::Id => "i64",
     }
 }
 
@@ -146,7 +149,10 @@ fn gen_func(out: &mut String, func: &Func) -> Result<(), Error> {
     gen_stmt(out, func.body.borrow().as_ref().unwrap())?;
 
     out.push_str(")\n");
-    // TODO: release all local variables here (including parameters)
+    // release all local variables here (including parameters)
+    for local in func.locals.borrow().iter() {
+        release_var(out, &Variable::Local(local.clone()));
+    }
     out.push_str(")\n");
     Ok(())
 }
@@ -178,18 +184,41 @@ fn gen_expr(out: &mut String, expr: &Expr) -> Result<(), Error> {
         ExprData::I64(x) => out.push_str(&format!("i64.const {}\n", x)),
         ExprData::F32(x) => out.push_str(&format!("f32.const {}\n", x)),
         ExprData::F64(x) => out.push_str(&format!("f64.const {}\n", x)),
+        ExprData::Str(ptr) => {
+            out.push_str(&format!("i32.const {}\n", ptr.get()));
+            out.push_str(&format!("call $f/__retain\n"));
+            out.push_str(&format!("i32.const {}\n", ptr.get()));
+        }
         ExprData::GetVar(x) => match x.type_() {
             Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 => {
                 out.push_str(&format!("{}.get {}\n", x.wasm_kind(), x.wasm_name()));
             }
-            Type::Record(_) => panic!("TODO: gen_expr record GetVar (retain)"),
+            Type::Str | Type::Record(_) => {
+                out.push_str(&format!("{}.get {}\n", x.wasm_kind(), x.wasm_name()));
+                out.push_str("call $f/__retain");
+                out.push_str(&format!("{}.get {}\n", x.wasm_kind(), x.wasm_name()));
+            }
+            Type::Id => panic!("TODO: gen_expr id GetVar (retain)"),
         },
         ExprData::SetVar(x, expr) => match x.type_() {
             Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 => {
                 gen_expr(out, expr)?;
                 out.push_str(&format!("{}.set {}\n", x.wasm_kind(), x.wasm_name()));
             }
-            Type::Record(_) => panic!("TODO: gen_expr record SetLocal (retain + release)"),
+            Type::Str | Type::Record(_) => {
+                // save the old value on the stack (for release later)
+                out.push_str(&format!("{}.get {}\n", x.wasm_kind(), x.wasm_name()));
+
+                gen_expr(out, expr)?;
+                out.push_str(&format!("{}.tee {}\n", x.wasm_kind(), x.wasm_name()));
+
+                // retain the new value
+                out.push_str(&format!("call $f/__retain\n"));
+
+                // release the old value
+                out.push_str(&format!("call $f/__release\n"));
+            }
+            Type::Id => panic!("TODO: gen_expr id SetVar (retain + release)"),
         },
         ExprData::AugVar(x, op, expr) => match x.type_() {
             Type::Bool | Type::I32 | Type::I64 | Type::F32 | Type::F64 => {
@@ -198,7 +227,8 @@ fn gen_expr(out: &mut String, expr: &Expr) -> Result<(), Error> {
                 out.push_str(&format!("{}\n", op));
                 out.push_str(&format!("{}.set {}\n", x.wasm_kind(), x.wasm_name()));
             }
-            Type::Record(_) => panic!("TODO: gen_expr record AugLocal (retain + release)"),
+            Type::Str | Type::Record(_) => panic!("TODO: gen_expr record AugLocal (retain + release)"),
+            Type::Id => panic!("TODO: gen_expr id AugVar (retain + release)"),
         },
         ExprData::CallFunc(func, args) => {
             for arg in args {
@@ -307,4 +337,16 @@ fn gen_expr(out: &mut String, expr: &Expr) -> Result<(), Error> {
         }
     }
     Ok(())
+}
+
+fn release_var(out: &mut String, var: &Variable) {
+    let type_ = var.type_();
+    match type_.retain_type() {
+        RetainType::Primitive => {}
+        RetainType::Typed => {
+            out.push_str(&format!("{}.get {}\n", var.wasm_kind(), var.wasm_name()));
+            out.push_str(&format!("call $f/__release\n"));
+        }
+        RetainType::Id => panic!("TODO: release_var id"),
+    }
 }

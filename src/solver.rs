@@ -14,6 +14,7 @@ pub fn solve(files: &Vec<File>) -> Result<Program, Error> {
     let mut externs = Vec::new();
     let mut funcs = Vec::new();
     let mut globals = Vec::new();
+    let memory = gscope.memory().clone();
 
     // initialize type names in gscope
     for file in files {
@@ -123,6 +124,7 @@ pub fn solve(files: &Vec<File>) -> Result<Program, Error> {
         funcs,
         records,
         gvar_init_locals,
+        memory,
     })
 }
 
@@ -366,6 +368,17 @@ fn solve_expr(
                 data: ExprData::F64(*x as f64),
             }),
         },
+        RawExprData::Str(string) => {
+            lscope.memory().borrow_mut().intern(string);
+            Ok(Expr {
+                span: node.span.clone(),
+                type_: Type::Str.into(),
+                data: ExprData::Str(StrPtr {
+                    memory: lscope.memory().clone(),
+                    string: string.clone(),
+                })
+            })
+        }
         RawExprData::GetVar(name) => {
             let var = lscope.get_variable(&node.span, name)?;
             Ok(Expr {
