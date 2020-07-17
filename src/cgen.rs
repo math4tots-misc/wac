@@ -1,4 +1,5 @@
 use crate::ir::*;
+use crate::ByteCount;
 use crate::Error;
 use std::cell::RefCell;
 use std::fmt::Write;
@@ -283,69 +284,28 @@ fn gen_expr(out: &mut String, expr: &Expr) -> Result<(), Error> {
                 _ => {}
             }
         }
-        ExprData::Read1(addr, offset) => {
+        ExprData::Read(byte_count, addr, offset) => {
             gen_expr(out, addr)?;
-            write!(out, "i32.load_u")?;
+            match byte_count {
+                ByteCount::N1 => write!(out, "i32.load_u")?,
+                ByteCount::N2 => write!(out, "i32.load16_u")?,
+                ByteCount::N4 => write!(out, "i32.load")?,
+                ByteCount::N8 => write!(out, "i64.load")?,
+            }
             if *offset != 0 {
                 write!(out, " offset={}", offset)?;
             }
             writeln!(out, "")?;
         }
-        ExprData::Read2(addr, offset) => {
-            gen_expr(out, addr)?;
-            write!(out, "i32.load16_u")?;
-            if *offset != 0 {
-                write!(out, " offset={}", offset)?;
-            }
-            writeln!(out, "")?;
-        }
-        ExprData::Read4(addr, offset) => {
-            gen_expr(out, addr)?;
-            write!(out, "i32.load")?;
-            if *offset != 0 {
-                write!(out, " offset={}", offset)?;
-            }
-            writeln!(out, "")?;
-        }
-        ExprData::Read8(addr, offset) => {
-            gen_expr(out, addr)?;
-            write!(out, "i64.load")?;
-            if *offset != 0 {
-                write!(out, " offset={}", offset)?;
-            }
-            writeln!(out, "")?;
-        }
-        ExprData::Write1(addr, data, offset) => {
+        ExprData::Write(byte_count, addr, data, offset) => {
             gen_expr(out, addr)?;
             gen_expr(out, data)?;
-            write!(out, "i32.store8")?;
-            if *offset != 0 {
-                write!(out, " offset={}", offset)?;
+            match byte_count {
+                ByteCount::N1 => write!(out, "i32.store8")?,
+                ByteCount::N2 => write!(out, "i32.store16")?,
+                ByteCount::N4 => write!(out, "i32.store")?,
+                ByteCount::N8 => write!(out, "i64.store")?,
             }
-            writeln!(out, "")?;
-        }
-        ExprData::Write2(addr, data, offset) => {
-            gen_expr(out, addr)?;
-            gen_expr(out, data)?;
-            write!(out, "i32.store16")?;
-            if *offset != 0 {
-                write!(out, " offset={}", offset)?;
-            }
-            writeln!(out, "")?;
-        }
-        ExprData::Write4(addr, data, offset) => {
-            gen_expr(out, addr)?;
-            gen_expr(out, data)?;
-            write!(out, "i32.store")?;
-            if *offset != 0 {
-                write!(out, " offset={}", offset)?;
-            }
-            writeln!(out, "")?;
-        }
-        ExprData::Write8(addr, data, offset) => {
-            gen_expr(out, addr)?;
-            gen_expr(out, data)?;
-            write!(out, "i64.store")?;
             if *offset != 0 {
                 write!(out, " offset={}", offset)?;
             }

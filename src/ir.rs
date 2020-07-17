@@ -1,4 +1,5 @@
 use crate::Binop;
+use crate::ByteCount;
 use crate::Span;
 use std::cell::RefCell;
 use std::cmp;
@@ -419,15 +420,8 @@ pub enum ExprData {
 
     Raw(Variable),
 
-    Read1(Box<Expr>, u32),
-    Read2(Box<Expr>, u32),
-    Read4(Box<Expr>, u32),
-    Read8(Box<Expr>, u32),
-
-    Write1(Box<Expr>, Box<Expr>, u32),
-    Write2(Box<Expr>, Box<Expr>, u32),
-    Write4(Box<Expr>, Box<Expr>, u32),
-    Write8(Box<Expr>, Box<Expr>, u32),
+    Read(ByteCount, Box<Expr>, u32),
+    Write(ByteCount, Box<Expr>, Box<Expr>, u32),
 
     DropPrimitive(Box<Expr>),
 }

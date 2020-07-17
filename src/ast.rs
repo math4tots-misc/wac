@@ -92,15 +92,16 @@ pub enum RawExprData {
     Raw(Rc<str>),
     Char(char),
 
-    Read1(Box<RawExpr>, u32),
-    Read2(Box<RawExpr>, u32),
-    Read4(Box<RawExpr>, u32),
-    Read8(Box<RawExpr>, u32),
+    Read(ByteCount, Box<RawExpr>, u32),
+    Write(ByteCount, Box<RawExpr>, Box<RawExpr>, u32),
+}
 
-    Write1(Box<RawExpr>, Box<RawExpr>, u32),
-    Write2(Box<RawExpr>, Box<RawExpr>, u32),
-    Write4(Box<RawExpr>, Box<RawExpr>, u32),
-    Write8(Box<RawExpr>, Box<RawExpr>, u32),
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ByteCount {
+    N1,
+    N2,
+    N4,
+    N8,
 }
 
 #[derive(Debug)]

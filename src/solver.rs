@@ -744,72 +744,35 @@ fn solve_expr(
             type_: Type::I32.into(),
             data: ExprData::I32(*ch as i32),
         }),
-        RawExprData::Read1(addr, offset) => {
+        RawExprData::Read(byte_count, addr, offset) => {
             let addr = solve_typed_expr(lscope, addr, &Type::I32.into())?;
             Ok(Expr {
                 span: node.span.clone(),
-                type_: Type::I32.into(),
-                data: ExprData::Read1(addr.into(), *offset),
+                type_: (if let ByteCount::N8 = byte_count {
+                    Type::I64
+                } else {
+                    Type::I32
+                })
+                .into(),
+                data: ExprData::Read(*byte_count, addr.into(), *offset),
             })
         }
-        RawExprData::Read2(addr, offset) => {
+        RawExprData::Write(byte_count, addr, data, offset) => {
             let addr = solve_typed_expr(lscope, addr, &Type::I32.into())?;
-            Ok(Expr {
-                span: node.span.clone(),
-                type_: Type::I32.into(),
-                data: ExprData::Read2(addr.into(), *offset),
-            })
-        }
-        RawExprData::Read4(addr, offset) => {
-            let addr = solve_typed_expr(lscope, addr, &Type::I32.into())?;
-            Ok(Expr {
-                span: node.span.clone(),
-                type_: Type::I32.into(),
-                data: ExprData::Read4(addr.into(), *offset),
-            })
-        }
-        RawExprData::Read8(addr, offset) => {
-            let addr = solve_typed_expr(lscope, addr, &Type::I32.into())?;
-            Ok(Expr {
-                span: node.span.clone(),
-                type_: Type::I64.into(),
-                data: ExprData::Read4(addr.into(), *offset),
-            })
-        }
-        RawExprData::Write1(addr, data, offset) => {
-            let addr = solve_typed_expr(lscope, addr, &Type::I32.into())?;
-            let data = solve_typed_expr(lscope, data, &Type::I32.into())?;
+            let data = solve_typed_expr(
+                lscope,
+                data,
+                &(if let ByteCount::N8 = byte_count {
+                    Type::I64
+                } else {
+                    Type::I32
+                })
+                .into(),
+            )?;
             Ok(Expr {
                 span: node.span.clone(),
                 type_: ReturnType::Void,
-                data: ExprData::Write1(addr.into(), data.into(), *offset),
-            })
-        }
-        RawExprData::Write2(addr, data, offset) => {
-            let addr = solve_typed_expr(lscope, addr, &Type::I32.into())?;
-            let data = solve_typed_expr(lscope, data, &Type::I32.into())?;
-            Ok(Expr {
-                span: node.span.clone(),
-                type_: ReturnType::Void,
-                data: ExprData::Write2(addr.into(), data.into(), *offset),
-            })
-        }
-        RawExprData::Write4(addr, data, offset) => {
-            let addr = solve_typed_expr(lscope, addr, &Type::I32.into())?;
-            let data = solve_typed_expr(lscope, data, &Type::I32.into())?;
-            Ok(Expr {
-                span: node.span.clone(),
-                type_: ReturnType::Void,
-                data: ExprData::Write4(addr.into(), data.into(), *offset),
-            })
-        }
-        RawExprData::Write8(addr, data, offset) => {
-            let addr = solve_typed_expr(lscope, addr, &Type::I32.into())?;
-            let data = solve_typed_expr(lscope, data, &Type::I64.into())?;
-            Ok(Expr {
-                span: node.span.clone(),
-                type_: ReturnType::Void,
-                data: ExprData::Write8(addr.into(), data.into(), *offset),
+                data: ExprData::Write(*byte_count, addr.into(), data.into(), *offset),
             })
         }
     }
