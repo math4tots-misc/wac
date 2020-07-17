@@ -10,8 +10,9 @@
 #
 
 fn __retain(ptr i32) {
-    # if ptr is not 0 {
-    $write4(ptr, $read4(ptr) + 1)
+    if ptr is not 0 {
+        $write4(ptr, $read4(ptr) + 1)
+    }
 }
 
 fn __release(ptr i32) {
