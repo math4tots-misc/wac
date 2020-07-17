@@ -167,7 +167,7 @@ fn gen_func(out: &mut String, func: &Func) -> Result<(), Error> {
     out.push_str(")\n");
     // release all local variables here (including parameters)
     for local in func.locals.borrow().iter() {
-        release_var(out, &Variable::Local(local.clone()));
+        release_var(out, &Variable::Local(local.clone()))?;
     }
     out.push_str(")\n");
     Ok(())
@@ -252,17 +252,24 @@ fn gen_expr(out: &mut String, expr: &Expr) -> Result<(), Error> {
             for arg in args {
                 gen_expr(out, arg)?;
             }
-            out.push_str(&format!("call $f/{}\n", func.name));
+            writeln!(out, "call $f/{}", func.name)?;
         }
         ExprData::CallExtern(ext, args) => {
             for arg in args {
                 gen_expr(out, arg)?;
             }
-            out.push_str(&format!("call $f/{}\n", ext.name));
+            writeln!(out, "call $f/{}", ext.name)?;
         }
         ExprData::Op(op, args) => {
             for arg in args {
                 gen_expr(out, arg)?;
+
+                // these are primitive wasm operations,
+                // so if any of the arguments here are non-primitive,
+                // we should take care to drop them
+                // this should mostly never happen, except for the
+                // Is/IsNot operands
+                release_tos(out, arg.type_.value().unwrap(), DropPolicy::Keep)?;
             }
             writeln!(out, "{}", op)?;
         }
@@ -315,14 +322,44 @@ fn gen_expr(out: &mut String, expr: &Expr) -> Result<(), Error> {
     Ok(())
 }
 
-fn release_var(out: &mut String, var: &Variable) {
+fn release_var(out: &mut String, var: &Variable) -> Result<(), Error> {
     let type_ = var.type_();
     match type_.retain_type() {
         RetainType::Primitive => {}
         RetainType::Typed => {
-            out.push_str(&format!("{}.get {}\n", var.wasm_kind(), var.wasm_name()));
-            out.push_str(&format!("call $f/__release\n"));
+            writeln!(out, "{}.get {}", var.wasm_kind(), var.wasm_name())?;
+            writeln!(out, "call $f/__release")?;
         }
         RetainType::Id => panic!("TODO: release_var id"),
     }
+    Ok(())
+}
+
+enum DropPolicy {
+    Keep,
+    #[allow(dead_code)]
+    Drop,
+}
+
+fn release_tos(out: &mut String, type_: &Type, drop_policy: DropPolicy) -> Result<(), Error> {
+    match type_.retain_type() {
+        RetainType::Primitive => match drop_policy {
+            DropPolicy::Keep => {}
+            DropPolicy::Drop => {
+                writeln!(out, "drop")?;
+            }
+        },
+        RetainType::Typed => {
+            match drop_policy {
+                DropPolicy::Keep => {
+                    writeln!(out, "local.tee $helper/i32")?;
+                    writeln!(out, "local.get $helper/i32")?;
+                }
+                DropPolicy::Drop => {}
+            }
+            writeln!(out, "call $f/__release")?;
+        }
+        RetainType::Id => panic!("TODO: release_tos id"),
+    }
+    Ok(())
 }

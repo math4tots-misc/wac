@@ -561,6 +561,25 @@ fn solve_expr(
             }
         }
         RawExprData::Binop(op, arg1, arg2) => match op {
+            Binop::Is | Binop::IsNot => {
+                let arg1 = solve_value_expr(lscope, arg1, None)?;
+                let arg2 = solve_value_expr(lscope, arg2, Some(arg1.type_.value().unwrap()))?;
+                Ok(Expr {
+                    span: node.span.clone(),
+                    type_: Type::Bool.into(),
+                    data: ExprData::Op(
+                        TypedWasmOp {
+                            op: match op {
+                                Binop::Is => UntypedWasmOp::eq,
+                                Binop::IsNot => UntypedWasmOp::ne,
+                                _ => panic!("impossible binop is/isnot"),
+                            },
+                            type_: arg1.type_.value().unwrap().wasm(),
+                        },
+                        vec![arg1, arg2],
+                    ),
+                })
+            }
             Binop::LessThan
             | Binop::LessThanOrEqual
             | Binop::GreaterThan

@@ -129,6 +129,9 @@ pub enum Binop {
     TruncDivide,
     Remainder,
 
+    Equal,
+    NotEqual,
+
     Is,
     IsNot,
     LessThan,
