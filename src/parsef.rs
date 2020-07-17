@@ -370,14 +370,17 @@ fn parse_atom(parser: &mut Parser) -> Result<RawExpr, ParseError> {
                     let offset = if parser.consume(Token::Comma) {
                         parser.expect(Token::Name("offset"))?;
                         parser.expect(Token::Colon)?;
-                        parser.expect_u32()?
+                        parse_expr(parser, 0)?
                     } else {
-                        0
+                        RawExpr {
+                            span: span.clone(),
+                            data: RawExprData::Int(0),
+                        }
                     };
                     parser.expect(Token::RParen)?;
                     Ok(RawExpr {
                         span,
-                        data: RawExprData::Read(byte_count, addr.into(), offset),
+                        data: RawExprData::Read(byte_count, addr.into(), offset.into()),
                     })
                 }
                 Token::Name("write1")
@@ -398,14 +401,22 @@ fn parse_atom(parser: &mut Parser) -> Result<RawExpr, ParseError> {
                     let offset = if parser.consume(Token::Comma) {
                         parser.expect(Token::Name("offset"))?;
                         parser.expect(Token::Colon)?;
-                        parser.expect_u32()?
+                        parse_expr(parser, 0)?
                     } else {
-                        0
+                        RawExpr {
+                            span: span.clone(),
+                            data: RawExprData::Int(0),
+                        }
                     };
                     parser.expect(Token::RParen)?;
                     Ok(RawExpr {
                         span,
-                        data: RawExprData::Write(byte_count, addr.into(), data.into(), offset),
+                        data: RawExprData::Write(
+                            byte_count,
+                            addr.into(),
+                            data.into(),
+                            offset.into(),
+                        ),
                     })
                 }
                 _ => {

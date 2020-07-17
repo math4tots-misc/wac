@@ -92,8 +92,8 @@ pub enum RawExprData {
     Raw(Rc<str>),
     Char(char),
 
-    Read(ByteCount, Box<RawExpr>, u32),
-    Write(ByteCount, Box<RawExpr>, Box<RawExpr>, u32),
+    Read(ByteCount, Box<RawExpr>, Box<RawExpr>),
+    Write(ByteCount, Box<RawExpr>, Box<RawExpr>, Box<RawExpr>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

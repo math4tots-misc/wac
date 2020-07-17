@@ -226,6 +226,20 @@ fn solve_constexpr(
     }
 }
 
+fn solve_constexpr_u32(
+    gscope: &mut GlobalScope,
+    node: &RawExpr,
+    hint: Option<Type>,
+) -> Result<u32, Error> {
+    match solve_constexpr(gscope, node, hint)? {
+        ConstVal::I32(x) if x >= 0 => Ok(x as u32),
+        _ => Err(Error {
+            span: vec![node.span.clone()],
+            message: format!("Expected u32 constexpr"),
+        }),
+    }
+}
+
 fn solve_stmt(lscope: &mut LocalScope, node: &RawStmt) -> Result<Stmt, Error> {
     match &node.data {
         RawStmtData::Block(nodes) => {
@@ -746,6 +760,7 @@ fn solve_expr(
         }),
         RawExprData::Read(byte_count, addr, offset) => {
             let addr = solve_typed_expr(lscope, addr, &Type::I32.into())?;
+            let offset = solve_constexpr_u32(lscope.gscope(), offset, Some(Type::I32))?;
             Ok(Expr {
                 span: node.span.clone(),
                 type_: (if let ByteCount::N8 = byte_count {
@@ -754,7 +769,7 @@ fn solve_expr(
                     Type::I32
                 })
                 .into(),
-                data: ExprData::Read(*byte_count, addr.into(), *offset),
+                data: ExprData::Read(*byte_count, addr.into(), offset),
             })
         }
         RawExprData::Write(byte_count, addr, data, offset) => {
@@ -769,10 +784,11 @@ fn solve_expr(
                 })
                 .into(),
             )?;
+            let offset = solve_constexpr_u32(lscope.gscope(), offset, Some(Type::I32))?;
             Ok(Expr {
                 span: node.span.clone(),
                 type_: ReturnType::Void,
-                data: ExprData::Write(*byte_count, addr.into(), data.into(), *offset),
+                data: ExprData::Write(*byte_count, addr.into(), data.into(), offset),
             })
         }
     }
