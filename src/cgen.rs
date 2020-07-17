@@ -1,9 +1,7 @@
 use crate::ir::*;
 use crate::ByteCount;
 use crate::Error;
-use std::cell::RefCell;
 use std::fmt::Write;
-use std::rc::Rc;
 
 impl Program {
     /// Translate the given program into webassembly
@@ -20,10 +18,19 @@ fn gen(program: Program) -> Result<String, Error> {
         gen_extern(&mut out, ext)?;
     }
 
-    out.push_str("(memory $memory 1)\n");
+    let static_mem_end = program.memory.borrow().get_mem_end();
+    let start_page_cnt = std::cmp::max(1, (static_mem_end + PAGE_SIZE - 1) / PAGE_SIZE);
 
-    gen_data(&mut out, &program.memory)?;
+    writeln!(out, "(memory $memory {})", start_page_cnt)?;
 
+    // record where the current heap limit is
+    gen_data(&mut out, HEAP_LIMIT_PTR, &static_mem_end.to_le_bytes())?;
+
+    // write out the rest of the data
+    let (start_pos, data) = program.memory.borrow().gen();
+    gen_data(&mut out, start_pos, &data)?;
+
+    writeln!(out, "(global $rt/static_mem_end i32 (i32.const {}))", static_mem_end)?;
     for gvar in &program.globals {
         gen_global(&mut out, gvar)?;
     }
@@ -40,8 +47,7 @@ fn gen(program: Program) -> Result<String, Error> {
     Ok(out)
 }
 
-fn gen_data(out: &mut String, memory: &Rc<RefCell<Memory>>) -> Result<(), Error> {
-    let (start_pos, data) = memory.borrow().gen();
+fn gen_data(out: &mut String, start_pos: usize, data: &[u8]) -> Result<(), Error> {
     write!(out, "(data (i32.const {}) \"", start_pos)?;
     for byte in data {
         write!(out, "\\{:02x}", byte)?;

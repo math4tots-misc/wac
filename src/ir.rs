@@ -25,7 +25,20 @@ pub struct Program {
     pub memory: Rc<RefCell<Memory>>,
 }
 
+pub const PAGE_SIZE: usize = 65536;
+pub const HEAP_LIMIT_PTR: usize = 16;
+pub const FREELIST_START: usize = 32;
+pub const FREELIST_END: usize = FREELIST_START + 4 * 32;
+
 /// information about the state of memory when the program starts
+///
+/// Initially, memory will be laid out as such:
+///
+///     [16-bytes unused][16-bytes ptr to heap limit][(4 * 32)-bytes freelist ptrs]
+///                       ^
+///                       heap limit ptr
+///                       only first 4 bytes are used
+///
 pub struct Memory {
     /// number of bytes of memory at the start that is left unused
     /// (e.g. for nullptr, and overhead for malloc/free)
@@ -41,9 +54,7 @@ pub struct Memory {
 impl Memory {
     pub fn new() -> Self {
         Self {
-            // 16 bytes to be left empty
-            // 4 * 16 bytes for use in malloc's freelists
-            reserved: 16 + 4 * 16,
+            reserved: FREELIST_END,
             strings_map: HashMap::new(),
             strings: Vec::new(),
             next_strings_offset: 0,
@@ -81,6 +92,15 @@ impl Memory {
         }
 
         (self.reserved, data)
+    }
+
+    /// get ptr to the end of statically initialized memory
+    pub fn get_mem_end(&self) -> usize {
+        let mut ret = self.reserved;
+        for string in &self.strings {
+            ret += HEADER_SIZE + string.len();
+        }
+        ret
     }
 }
 
