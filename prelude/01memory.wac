@@ -1,6 +1,6 @@
 # Reference counted objects have the following structure:
 #
-#   [i32 refcnt][i32 capacity(bytes)][i32 ptrcnt][i32 type?][data...]
+#   [i32 refcnt][i32 capacity(bytes)][i32 ptrcnt][i32 reserved][data...]
 #
 # ptrcnt contains the number of pointers that this structure holds, all
 # of which must come at the beginning of the 'data' section

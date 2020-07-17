@@ -278,34 +278,46 @@ fn auto_cast(
         (ReturnType::Type(Type::I32), ReturnType::Type(Type::F32)) => Ok(Expr {
             span: expr.span.clone(),
             type_: Type::F32.into(),
-            data: ExprData::Op(TypedWasmOp {
-                type_: Type::F32.wasm(),
-                op: UntypedWasmOp::convert_i32_s,
-            }, vec![expr]),
+            data: ExprData::Op(
+                TypedWasmOp {
+                    type_: Type::F32.wasm(),
+                    op: UntypedWasmOp::convert_i32_s,
+                },
+                vec![expr],
+            ),
         }),
         (ReturnType::Type(Type::I64), ReturnType::Type(Type::F32)) => Ok(Expr {
             span: expr.span.clone(),
             type_: Type::F32.into(),
-            data: ExprData::Op(TypedWasmOp {
-                type_: Type::F32.wasm(),
-                op: UntypedWasmOp::convert_i64_s,
-            }, vec![expr]),
+            data: ExprData::Op(
+                TypedWasmOp {
+                    type_: Type::F32.wasm(),
+                    op: UntypedWasmOp::convert_i64_s,
+                },
+                vec![expr],
+            ),
         }),
         (ReturnType::Type(Type::I64), ReturnType::Type(Type::F64)) => Ok(Expr {
             span: expr.span.clone(),
             type_: Type::F64.into(),
-            data: ExprData::Op(TypedWasmOp {
-                type_: Type::F64.wasm(),
-                op: UntypedWasmOp::convert_i64_s,
-            }, vec![expr]),
+            data: ExprData::Op(
+                TypedWasmOp {
+                    type_: Type::F64.wasm(),
+                    op: UntypedWasmOp::convert_i64_s,
+                },
+                vec![expr],
+            ),
         }),
         (ReturnType::Type(Type::I32), ReturnType::Type(Type::F64)) => Ok(Expr {
             span: expr.span.clone(),
             type_: Type::F64.into(),
-            data: ExprData::Op(TypedWasmOp {
-                type_: Type::F64.wasm(),
-                op: UntypedWasmOp::convert_i32_s,
-            }, vec![expr]),
+            data: ExprData::Op(
+                TypedWasmOp {
+                    type_: Type::F64.wasm(),
+                    op: UntypedWasmOp::convert_i32_s,
+                },
+                vec![expr],
+            ),
         }),
         _ => Err(Error {
             span: vec![expr.span.clone()],
@@ -376,7 +388,7 @@ fn solve_expr(
                 data: ExprData::Str(StrPtr {
                     memory: lscope.memory().clone(),
                     string: string.clone(),
-                })
+                }),
             })
         }
         RawExprData::GetVar(name) => {

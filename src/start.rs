@@ -65,7 +65,7 @@ pub fn main() {
                 eprintln!("{}", error.format());
                 std::process::exit(1);
             }
-        }
+        },
         Mode::CompileOnly => match translate(sources) {
             Ok(string) => print!("{}", string),
             Err(error) => {

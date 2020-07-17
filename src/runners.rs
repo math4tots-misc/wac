@@ -104,7 +104,10 @@ impl RunStats {
     }
 }
 
-pub fn translate_to_wasm(sources: Vec<Rc<Source>>, config: RunConfig) -> Result<(Vec<u8>, RunStats), Error> {
+pub fn translate_to_wasm(
+    sources: Vec<Rc<Source>>,
+    config: RunConfig,
+) -> Result<(Vec<u8>, RunStats), Error> {
     let start = Instant::now();
     let wat_code = translate(sources)?;
     let translate_sec = start.elapsed().as_secs_f64();

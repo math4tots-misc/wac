@@ -1,0 +1,4 @@
+extern "wac" "stdout_write" __stdout_write(len i32, ptr i32) i32
+
+fn print(s str) {
+}

@@ -1,5 +1,8 @@
 use crate::ir::*;
 use crate::Error;
+use std::cell::RefCell;
+use std::fmt::Write;
+use std::rc::Rc;
 
 impl Program {
     /// Translate the given program into webassembly
@@ -18,6 +21,8 @@ fn gen(program: Program) -> Result<String, Error> {
 
     out.push_str("(memory $memory 1)\n");
 
+    gen_data(&mut out, &program.memory)?;
+
     for gvar in &program.globals {
         gen_global(&mut out, gvar)?;
     }
@@ -28,22 +33,32 @@ fn gen(program: Program) -> Result<String, Error> {
 
     gen_start(&mut out, &program)?;
 
-    out.push_str("(start $start)\n");
-    out.push_str(r#"(export "Main" (func $f/Main))"#);
-    out.push_str("\n");
+    writeln!(out, "(start $start)")?;
+    writeln!(out, r#"(export "Main" (func $f/Main))"#)?;
 
     Ok(out)
+}
+
+fn gen_data(out: &mut String, memory: &Rc<RefCell<Memory>>) -> Result<(), Error> {
+    let (start_pos, data) = memory.borrow().gen();
+    write!(out, "(data (i32.const {}) \"", start_pos)?;
+    for byte in data {
+        write!(out, "\\{:02x}", byte)?;
+    }
+    writeln!(out, "\")")?;
+    Ok(())
 }
 
 fn gen_global(out: &mut String, gvar: &Global) -> Result<(), Error> {
     // declare global variables
     // they are not actually initialized until 'gen_start'
-    out.push_str(&format!(
-        "(global $g/{} (mut {}) {})\n",
+    writeln!(
+        out,
+        "(global $g/{} (mut {}) {})",
         gvar.name,
         trtype(&gvar.type_),
         trzeroval(&gvar.type_)
-    ));
+    )?;
     Ok(())
 }
 
@@ -227,7 +242,9 @@ fn gen_expr(out: &mut String, expr: &Expr) -> Result<(), Error> {
                 out.push_str(&format!("{}\n", op));
                 out.push_str(&format!("{}.set {}\n", x.wasm_kind(), x.wasm_name()));
             }
-            Type::Str | Type::Record(_) => panic!("TODO: gen_expr record AugLocal (retain + release)"),
+            Type::Str | Type::Record(_) => {
+                panic!("TODO: gen_expr record AugLocal (retain + release)")
+            }
             Type::Id => panic!("TODO: gen_expr id AugVar (retain + release)"),
         },
         ExprData::CallFunc(func, args) => {

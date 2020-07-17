@@ -2,9 +2,9 @@ use crate::ast::*;
 use crate::ir::*;
 use crate::Error;
 use crate::Span;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::cell::RefCell;
 
 pub trait Scope {
     fn decl(&mut self, name: Rc<str>, item: Item) -> Result<(), Error>;
@@ -24,6 +24,8 @@ pub trait Scope {
                 "i64" => Ok(ReturnType::Type(Type::I64)),
                 "f32" => Ok(ReturnType::Type(Type::F32)),
                 "f64" => Ok(ReturnType::Type(Type::F64)),
+                "str" => Ok(ReturnType::Type(Type::Str)),
+                "id" => Ok(ReturnType::Type(Type::Id)),
                 "void" => Ok(ReturnType::Void),
                 "noreturn" => Ok(ReturnType::NoReturn),
                 _ => Err(Error {

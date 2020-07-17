@@ -1,8 +1,8 @@
 use crate::Binop;
 use crate::Span;
-use std::collections::HashMap;
 use std::cell::RefCell;
 use std::cmp;
+use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
 
@@ -48,6 +48,9 @@ impl Memory {
             next_strings_offset: 0,
         }
     }
+
+    /// returns the location of the given string
+    /// in the static string data
     pub fn getstr(&self, s: &str) -> Option<usize> {
         self.strings_map.get(s).map(|i| i + self.reserved)
     }
@@ -58,6 +61,25 @@ impl Memory {
             self.strings_map.insert(s.clone(), self.next_strings_offset);
             self.next_strings_offset += len;
         }
+    }
+
+    /// returns (offset, data)
+    /// initial memory data
+    pub fn gen(&self) -> (usize, Vec<u8>) {
+        let mut data = Vec::new();
+
+        for string in &self.strings {
+            // header data (16-bytes)
+            data.extend(&(1u32).to_le_bytes()); // refcnt
+            data.extend(&((HEADER_SIZE + data.len()) as u32).to_le_bytes()); // capacity
+            data.extend(&(0u32).to_le_bytes()); // ptrcnt
+            data.extend(&(0u32).to_le_bytes()); // reserved
+
+            // actual string data
+            data.extend(string.as_bytes());
+        }
+
+        (self.reserved, data)
     }
 }
 

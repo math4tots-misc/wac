@@ -16,6 +16,15 @@ impl Error {
     }
 }
 
+impl From<std::fmt::Error> for Error {
+    fn from(e: std::fmt::Error) -> Self {
+        Self {
+            span: vec![],
+            message: format!("{:?}", e),
+        }
+    }
+}
+
 impl From<wabt::Error> for Error {
     fn from(e: wabt::Error) -> Self {
         Self {

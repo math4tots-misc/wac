@@ -253,6 +253,13 @@ fn parse_atom(parser: &mut Parser) -> Result<RawExpr, ParseError> {
                 data: RawExprData::Float(x),
             })
         }
+        Token::RawString(_) | Token::NormalString(_) => {
+            let string = parser.expect_string()?;
+            Ok(RawExpr {
+                span,
+                data: RawExprData::Str(string),
+            })
+        }
         Token::Name(_) => {
             let name = parser.expect_name()?;
             Ok(RawExpr {
