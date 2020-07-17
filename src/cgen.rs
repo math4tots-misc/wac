@@ -30,7 +30,11 @@ fn gen(program: Program) -> Result<String, Error> {
     let (start_pos, data) = program.memory.borrow().gen();
     gen_data(&mut out, start_pos, &data)?;
 
-    writeln!(out, "(global $rt/static_mem_end i32 (i32.const {}))", static_mem_end)?;
+    writeln!(
+        out,
+        "(global $rt/static_mem_end i32 (i32.const {}))",
+        static_mem_end
+    )?;
     for gvar in &program.globals {
         gen_global(&mut out, gvar)?;
     }
@@ -184,6 +188,18 @@ fn gen_stmt(out: &mut String, stmt: &Stmt) -> Result<(), Error> {
         StmtData::Block(stmts) => {
             for stmt in stmts {
                 gen_stmt(out, stmt)?;
+            }
+        }
+        StmtData::If(pairs, other) => {
+            for (cond, body) in pairs {
+                gen_expr(out, cond)?;
+                writeln!(out, "if")?;
+                gen_stmt(out, body)?;
+                writeln!(out, "else")?;
+            }
+            gen_stmt(out, other)?;
+            for _ in pairs {
+                writeln!(out, "end")?;
             }
         }
         StmtData::Return(expr) => {

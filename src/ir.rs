@@ -136,6 +136,20 @@ impl ReturnState {
             | (ReturnState::MaybeReturns, ReturnState::MaybeReturns) => ReturnState::MaybeReturns,
         }
     }
+    pub fn or_else(&self, other: &Self) -> Self {
+        match (self, other) {
+            (ReturnState::Unreachable, _) | (_, ReturnState::Unreachable) => {
+                ReturnState::Unreachable
+            }
+            (ReturnState::AlwaysReturns, ReturnState::AlwaysReturns) => ReturnState::AlwaysReturns,
+            (ReturnState::NeverReturns, ReturnState::NeverReturns) => ReturnState::NeverReturns,
+            (ReturnState::AlwaysReturns, _)
+            | (_, ReturnState::AlwaysReturns)
+            | (ReturnState::MaybeReturns, ReturnState::MaybeReturns)
+            | (ReturnState::NeverReturns, ReturnState::MaybeReturns)
+            | (ReturnState::MaybeReturns, ReturnState::NeverReturns) => ReturnState::MaybeReturns,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -410,6 +424,7 @@ pub struct Stmt {
 
 pub enum StmtData {
     Block(Vec<Stmt>),
+    If(Vec<(Expr, Stmt)>, Box<Stmt>),
     Return(Expr),
     Expr(Expr),
 }

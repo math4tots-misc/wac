@@ -16,7 +16,8 @@ fn __retain(ptr i32) {
 
 fn __release(ptr i32) {
     var refcnt = $read4(ptr) - 1
-    ptr is not 0
+    if ptr is not 0 {
+    }
     # if ptr is not 0 {
     # if refcnt <= 0 {
     #     var ptrcnt = $read4(ptr, offset: 8)

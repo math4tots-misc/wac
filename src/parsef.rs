@@ -233,6 +233,25 @@ fn parse_stmt(parser: &mut Parser) -> Result<RawStmt, ParseError> {
             };
             RawStmtData::Return(expr)
         }
+        Token::Name("if") => {
+            parser.gettok();
+            let mut pairs = Vec::new();
+            let mut other = None;
+            loop {
+                let cond = parse_expr(parser, 0)?;
+                let body = parse_block(parser)?;
+                pairs.push((cond, body));
+                if parser.consume(Token::Name("else")) {
+                    if !parser.consume(Token::Name("if")) {
+                        other = Some(parse_block(parser)?.into());
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+            RawStmtData::If(pairs, other)
+        }
         Token::Name("var") => {
             parser.gettok();
             let name = parser.expect_name()?;

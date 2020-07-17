@@ -63,6 +63,7 @@ pub struct RawStmt {
 
 pub enum RawStmtData {
     Block(Vec<RawStmt>),
+    If(Vec<(RawExpr, RawStmt)>, Option<Box<RawStmt>>),
     DeclVar(Rc<str>, Option<TypeExpr>, RawExpr),
     Return(RawExpr),
     Expr(RawExpr),

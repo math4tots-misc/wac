@@ -262,6 +262,32 @@ fn solve_stmt(lscope: &mut LocalScope, node: &RawStmt) -> Result<Stmt, Error> {
                 data: StmtData::Block(stmts),
             })
         }
+        RawStmtData::If(raw_pairs, raw_other) => {
+            let mut pairs = Vec::<(Expr, Stmt)>::new();
+            for (raw_cond, raw_body) in raw_pairs {
+                let cond = solve_typed_expr(lscope, raw_cond, &Type::Bool.into())?;
+                let body = solve_stmt(lscope, raw_body)?;
+                pairs.push((cond, body));
+            }
+            let other = if let Some(raw_other) = raw_other {
+                solve_stmt(lscope, raw_other)?
+            } else {
+                Stmt {
+                    span: node.span.clone(),
+                    return_state: ReturnState::NeverReturns,
+                    data: StmtData::Block(vec![]),
+                }
+            };
+            let mut return_state = other.return_state.clone();
+            for (_, body) in &pairs {
+                return_state = body.return_state.clone().or_else(&return_state);
+            }
+            Ok(Stmt {
+                span: node.span.clone(),
+                return_state,
+                data: StmtData::If(pairs, other.into()),
+            })
+        }
         RawStmtData::DeclVar(name, texpr, setexpr) => {
             let setexpr = if let Some(texpr) = texpr {
                 solve_typed_expr(lscope, setexpr, &lscope.resolve_type(texpr)?.into())?
